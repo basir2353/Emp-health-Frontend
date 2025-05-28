@@ -25,24 +25,39 @@ import ProfileCardschedule from "./ProfileCardschedule";
 
 const { Text } = Typography;
 
+interface Appointment {
+  day: string;
+  date: string;
+  time: string;
+  type: string;
+  doctorName: string;
+  patient: string;
+  status: string;
+}
+
 const ScheduleAppointments: React.FC = () => {
   const navigate = useNavigate();
-  const [showDropdown, setShowDropdown] = useState(false);
-  const [isEditable, setIsEditable] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [appointments, setAppointments] = useState<any[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeDropdown, setActiveDropdown] = useState<number | null>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
     const fetchAppointments = async () => {
       setLoading(true);
       try {
-        const response = await axios.get("https://e-health-backend-production.up.railway.app/api/appointments");
-        // ✅ FIX: Ensure appointments is always an array
-        setAppointments(response?.data?.appointments || []);
+        const response = await axios.get(
+          "https://e-health-backend-production.up.railway.app/api/appointments"
+        );
+        const fetchedAppointments = response?.data?.appointments;
+        if (Array.isArray(fetchedAppointments)) {
+          setAppointments(fetchedAppointments);
+        } else {
+          setAppointments([]);
+        }
       } catch (err: any) {
-        setError(err.message || "Failed to fetch appointments");
+        setError(err?.message || "Failed to fetch appointments");
       } finally {
         setLoading(false);
       }
@@ -51,49 +66,45 @@ const ScheduleAppointments: React.FC = () => {
     fetchAppointments();
   }, []);
 
-  const toggleDropdown = () => {
-    setShowDropdown(!showDropdown);
-  };
-
-  const handleEdit = () => {
-    const toggle = !isSidebarOpen;
-    setIsSidebarOpen(toggle);
-    setIsEditable(toggle);
-  };
-
-  const handleMenuClick = (e: any) => {
-    switch (e.key) {
+  const handleMenuClick = (key: string, index: number) => {
+    setActiveDropdown(null);
+    switch (key) {
       case "reschedule":
-        // Logic for rescheduling
+        // handle reschedule logic
         break;
       case "edit":
-        handleEdit();
+        setIsSidebarOpen(!isSidebarOpen);
         break;
       case "cancel":
-        // Logic for cancellation
+        // handle cancel logic
         break;
       default:
         break;
     }
-    setShowDropdown(false);
   };
 
-  const menu = (
-    <Menu onClick={handleMenuClick}>
-      <Menu.Item key="reschedule" icon={<SendOutlined />}>
-        Request Reschedule
-      </Menu.Item>
-      <Menu.Item key="edit" icon={<EditOutlined />}>
-        Edit
-      </Menu.Item>
-      <Menu.Item
-        key="cancel"
-        icon={<CloseCircleOutlined />}
-        style={{ color: "#EF4444" }}
-      >
-        Cancel
-      </Menu.Item>
-    </Menu>
+  const renderMenu = (index: number) => (
+    <Menu
+      onClick={({ key }) => handleMenuClick(key, index)}
+      items={[
+        {
+          key: "reschedule",
+          label: "Request Reschedule",
+          icon: <SendOutlined />,
+        },
+        {
+          key: "edit",
+          label: "Edit",
+          icon: <EditOutlined />,
+        },
+        {
+          key: "cancel",
+          label: "Cancel",
+          icon: <CloseCircleOutlined />,
+          danger: true,
+        },
+      ]}
+    />
   );
 
   return (
@@ -114,7 +125,7 @@ const ScheduleAppointments: React.FC = () => {
         </Col>
 
         <Col className="gutter-row right-8 flex max-lg:ml-0" style={{ marginLeft: "auto" }}>
-          <Flex gap="small" wrap="wrap" className="flex">
+          <Flex gap="small" wrap="wrap">
             <Button
               type="default"
               block
@@ -160,10 +171,10 @@ const ScheduleAppointments: React.FC = () => {
                 <div className="flex max-lg:flex-col items-center space-x-12 max-lg:space-x-0 gap-10">
                   <div className="flex max-lg:flex-col space-x-10 max-lg:space-x-0">
                     <div className="flex-col">
-                      <Text className="text-xs">{appointment.day}</Text>
+                      <Text className="text-xs">{appointment.day || "-"}</Text>
                       <br />
                       <Text className="text-2xl text-[#096DD9] font-medium">
-                        {appointment.date}
+                        {appointment.date || "-"}
                       </Text>
                     </div>
                     <div className="h-[60px] top-0 right-0 rounded-full">
@@ -174,47 +185,46 @@ const ScheduleAppointments: React.FC = () => {
                   <div className="flex-col">
                     <div className="flex items-center space-x-2 mb-2">
                       <ClockCircleOutlined />
-                      <Text className="text-base text-[#262626] ">
-                        {appointment.time}
+                      <Text className="text-base text-[#262626]">
+                        {appointment.time || "-"}
                       </Text>
                     </div>
                     <Text className="text-base w-[53px] h-[30px] bg-[#F0F0F0] rounded p-1 gap-2">
-                      {appointment.type}
+                      {appointment.type || "-"}
                     </Text>
                   </div>
 
                   <div className="flex-col">
                     <div className="flex items-center space-x-2 mb-2">
-                      <Text className="text-base text-[#262626] ">Doctor</Text>
+                      <Text className="text-base text-[#262626]">Doctor</Text>
                     </div>
-                    <Text className="text-lg">{appointment.doctorName}</Text>
+                    <Text className="text-lg">{appointment.doctorName || "-"}</Text>
                   </div>
 
                   <div className="flex-col">
                     <div className="flex items-center space-x-2 mb-2">
-                      <Text className="text-base text-[#262626] ">
-                        Patient Name
-                      </Text>
+                      <Text className="text-base text-[#262626]">Patient Name</Text>
                     </div>
-                    <Text className="text-lg">{appointment.patient}</Text>
+                    <Text className="text-lg">{appointment.patient || "-"}</Text>
                   </div>
                 </div>
 
                 <div className="flex items-center space-x-2">
                   <div className="w-[6px] h-[6px] bg-green-500 rounded-full"></div>
                   <Text className="text-base text-[#262626]">
-                    {appointment.status}
+                    {appointment.status || "-"}
                   </Text>
                 </div>
 
-                <div
-                  className="flex shadow-md border border-gray-700 px-1 py-1 rounded-md"
-                  onClick={toggleDropdown}
+                <Dropdown
+                  overlay={renderMenu(index)}
+                  placement="bottomRight"
+                  trigger={["click"]}
                 >
-                  <Dropdown overlay={menu} placement="bottomRight">
+                  <div className="flex shadow-md border border-gray-700 px-1 py-1 rounded-md cursor-pointer">
                     <EllipsisOutlined style={{ fontSize: "24px" }} />
-                  </Dropdown>
-                </div>
+                  </div>
+                </Dropdown>
               </div>
             ))}
           </div>
