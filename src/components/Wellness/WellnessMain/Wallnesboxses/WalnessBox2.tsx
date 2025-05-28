@@ -8,6 +8,7 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 
 const { Meta } = Card;
+const BASE_URL = "https://e-health-backend-production.up.railway.app/api";
 
 function WalnessBox2() {
   const [loading, setLoading] = useState(false);
@@ -21,7 +22,7 @@ function WalnessBox2() {
   const fetchChallenges = () => {
     setLoading(true);
     axios
-      .get("/api/challenges")
+      .get(`${BASE_URL}/challenges`)
       .then((res) => {
         setChallengeData(res.data.challenges || []);
       })
@@ -34,34 +35,34 @@ function WalnessBox2() {
 
   const handleParticipate = async (challengeId: string) => {
     try {
-      // Generate a unique participant ID (you might want to use actual user ID from authentication)
-      const participantId = localStorage.getItem('userId') || `user_${Date.now()}_${Math.random()}`;
-      
-      // Store participant ID for future use
-      if (!localStorage.getItem('userId')) {
-        localStorage.setItem('userId', participantId);
+      const participantId =
+        localStorage.getItem("userId") || `user_${Date.now()}_${Math.random()}`;
+
+      if (!localStorage.getItem("userId")) {
+        localStorage.setItem("userId", participantId);
       }
 
-      const response = await axios.post(`/api/participate/${challengeId}`, {
-        participantId: participantId
+      const response = await axios.post(`${BASE_URL}/participate/${challengeId}`, {
+        participantId,
       });
 
       if (response.status === 200) {
-        message.success('Successfully participated in the challenge!');
-        
-        // Add to participating challenges
-        setParticipatingChallenges(prev => [...prev, challengeId]);
-        
-        // Refresh the challenges to get updated participant count
+        message.success("Successfully participated in the challenge!");
+
+        setParticipatingChallenges((prev) => [...prev, challengeId]);
+
         fetchChallenges();
       }
     } catch (error: any) {
-      if (error.response?.status === 400 && error.response?.data?.message?.includes('already participated')) {
-        message.warning('You have already participated in this challenge');
-        setParticipatingChallenges(prev => [...prev, challengeId]);
+      if (
+        error.response?.status === 400 &&
+        error.response?.data?.message?.includes("already participated")
+      ) {
+        message.warning("You have already participated in this challenge");
+        setParticipatingChallenges((prev) => [...prev, challengeId]);
       } else {
-        message.error('Failed to participate in challenge');
-        console.error('Error participating in challenge:', error);
+        message.error("Failed to participate in challenge");
+        console.error("Error participating in challenge:", error);
       }
     }
   };
@@ -107,19 +108,15 @@ function WalnessBox2() {
                 src={
                   typeof challenge.imageSrc === "string"
                     ? challenge.imageSrc
-                    : (challenge.imageSrc?.src || "")
+                    : challenge.imageSrc?.src || ""
                 }
                 alt="Challenge"
                 className="w-[98px] h-[98px]"
               />
             </div>
             <div className="flex flex-col gap-2 w-[330px] mr-5 justify-between">
-              <h3 className="font-medium text-2xl text-black">
-                {challenge.title}
-              </h3>
-              <p className="font-normal text-base text-gray-600">
-                {challenge.description}
-              </p>
+              <h3 className="font-medium text-2xl text-black">{challenge.title}</h3>
+              <p className="font-normal text-base text-gray-600">{challenge.description}</p>
               <p className="text-sm text-blue-600">
                 {challenge.participantsCount || 0} participants
               </p>
@@ -129,21 +126,22 @@ function WalnessBox2() {
                 type="default"
                 className={`border shadow-md rounded-md px-4 py-1 ${
                   participatingChallenges.includes(challenge.id || challenge._id)
-                    ? 'border-green-500 bg-green-50'
-                    : 'border-gray-300'
+                    ? "border-green-500 bg-green-50"
+                    : "border-gray-300"
                 }`}
                 onClick={() => handleParticipate(challenge.id || challenge._id)}
                 disabled={participatingChallenges.includes(challenge.id || challenge._id)}
               >
-                <span className={`font-medium ${
-                  participatingChallenges.includes(challenge.id || challenge._id)
-                    ? 'text-green-600'
-                    : 'text-black'
-                }`}>
+                <span
+                  className={`font-medium ${
+                    participatingChallenges.includes(challenge.id || challenge._id)
+                      ? "text-green-600"
+                      : "text-black"
+                  }`}
+                >
                   {participatingChallenges.includes(challenge.id || challenge._id)
-                    ? 'Participated'
-                    : 'Participate'
-                  }
+                    ? "Participated"
+                    : "Participate"}
                 </span>
               </Button>
               <div className="flex items-center gap-1">
