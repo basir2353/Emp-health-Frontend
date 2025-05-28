@@ -39,7 +39,8 @@ const ScheduleAppointments: React.FC = () => {
       setLoading(true);
       try {
         const response = await axios.get("/api/appointments");
-        setAppointments(response.data.appointments); // Adjust to match your backend response
+        // ✅ FIX: Ensure appointments is always an array
+        setAppointments(response?.data?.appointments || []);
       } catch (err: any) {
         setError(err.message || "Failed to fetch appointments");
       } finally {
@@ -100,8 +101,8 @@ const ScheduleAppointments: React.FC = () => {
       <Breadcrumb
         items={[
           { title: "Home" },
-          { title: <a href="">Health</a> },
-          { title: <a href="">Scheduled Appointments</a> },
+          { title: <a href="/health">Health</a> },
+          { title: <a href="/health/scheduled-appointments">Scheduled Appointments</a> },
         ]}
       />
 
