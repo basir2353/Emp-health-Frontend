@@ -143,7 +143,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
     dispatch(addAppointment(appointmentData));
     // Post appointment to backend
-    axios.post("/api/appointments", appointmentData)
+    axios.post("https://e-health-backend-production.up.railway.app/api/appointments", appointmentData)
       .then(() => {
       // Optionally handle success
       })

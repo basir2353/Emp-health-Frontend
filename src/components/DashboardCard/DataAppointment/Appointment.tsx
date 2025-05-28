@@ -16,7 +16,7 @@ function Appointment() {
       setLoading(true);
       setError(null);
       try {
-        const res = await axios.get("/api/appointments");
+        const res = await axios.get("https://e-health-backend-production.up.railway.app/api/appointments");
         setAppointments(res.data.appointments || []);
       } catch (err) {
         setError("Failed to fetch appointments");
