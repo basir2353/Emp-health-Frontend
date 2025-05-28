@@ -21,8 +21,8 @@ function SafteyBox() {
         const user = JSON.parse(localStorage.getItem("user") || "{}");
         const isAdminOrDoctor = user?.role === "admin" || user?.role === "doctor";
         const endpoint = isAdminOrDoctor
-          ? "http://localhost:5000/api/reports/all"
-          : "http://localhost:5000/api/reports";
+          ? "https://e-health-backend-production.up.railway.app/api/reports/all"
+          : "https://e-health-backend-production.up.railway.app/api/reports";
         const response = await axios.get(endpoint, {
           headers: {
             "x-auth-token": token || "",

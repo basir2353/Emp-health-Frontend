@@ -25,7 +25,7 @@ const EmployeeDashboard = ({ socket, user, onStartCall }) => {
     setLoading(true);
     setFetchError(null);
     try {
-      const response = await fetch('http://localhost:5000/api/all-doctors', {
+      const response = await fetch('https://e-health-backend-production.up.railway.app/api/all-doctors', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -48,7 +48,7 @@ const EmployeeDashboard = ({ socket, user, onStartCall }) => {
   const fetchAppointments = async () => {
     setAppointmentsLoading(true);
     try {
-      const response = await fetch(`http://localhost:5000/api/appointments?userId=${user.id}`, {
+      const response = await fetch(`https://e-health-backend-production.up.railway.app/api/appointments?userId=${user.id}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }

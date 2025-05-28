@@ -155,8 +155,8 @@ const SafetyBox: React.FC = () => {
       // Determine correct endpoint based on role
       const isAdminOrDoctor = user?.role === "admin" || user?.role === "doctor";
       const endpoint = isAdminOrDoctor
-        ? "http://localhost:5000/api/reports/all"
-        : "http://localhost:5000/api/reports";
+        ? "https://e-health-backend-production.up.railway.app/api/reports/all"
+        : "https://e-health-backend-production.up.railway.app/api/reports";
 
       const response = await axios.get(endpoint, {
         headers: {
@@ -183,7 +183,7 @@ const SafetyBox: React.FC = () => {
       const token = localStorage.getItem("token");
       
       const response = await axios.patch(
-        `http://localhost:5000/api/reports/${reportId}/status`,
+        `https://e-health-backend-production.up.railway.app/api/reports/${reportId}/status`,
         { status: newStatus },
         {
           headers: {
@@ -233,7 +233,7 @@ const SafetyBox: React.FC = () => {
         try {
           const token = localStorage.getItem("token");
           
-          await axios.delete(`http://localhost:5000/api/reports/${reportId}`, {
+          await axios.delete(`https://e-health-backend-production.up.railway.app/api/reports/${reportId}`, {
             headers: {
               "x-auth-token": token || "",
             },

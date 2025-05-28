@@ -5,7 +5,7 @@ import DoctorDashboard from './DoctorDashboard';
 import AdminDashboard from './AdminDashBoard';
 import VideoCall from './VideoCall';
 
-const socket = io('http://localhost:5000', {
+const socket = io('https://e-health-backend-production.up.railway.app/', {
   transports: ['websocket', 'polling'],
   withCredentials: true
 });
