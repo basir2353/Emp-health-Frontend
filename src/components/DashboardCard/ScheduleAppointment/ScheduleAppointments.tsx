@@ -71,7 +71,7 @@ const ScheduleAppointments: React.FC = () => {
   switch (key) {
     case "call":
       // Navigate to call page (replace '/call' with your actual route)
-      navigate("/call");
+      navigate("/inbox/call");
       break;
     case "edit":
       setIsSidebarOpen(!isSidebarOpen);
