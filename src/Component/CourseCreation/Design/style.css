@@ -1,0 +1,23 @@
+html,
+body {
+  color: rgb(75, 75, 75);
+  background: #f5f5f5;
+}
+
+.component-selected {
+  @apply relative;
+}
+
+
+
+.transition-craftjs {
+  transition: 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+[title="Preview file"] {
+  display: none;
+}
+
+html, body, #root, .App, .App > div {
+  height: 100%;
+}

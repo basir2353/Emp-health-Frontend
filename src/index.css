@@ -1,0 +1,61 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
+    "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
+    monospace;
+}
+.ant-modal-content {
+  width: 900px !important;
+}
+.ant-modal-title {
+  font-weight: bold !important;
+  font-size: large !important;
+}
+.ant-popover-inner {
+  background-color: #69c0ff !important;
+}
+.ant-popover-arrow::before {
+  background-color: #69c0ff !important;
+}
+.ant-popover {
+  z-index: 999;
+}
+.ant-popover-arrow {
+  position: absolute !important;
+  right: 25px !important;
+}
+.HealthMenu {
+  width: 300px;
+}
+.HealthMenu > ul > li {
+  height: auto !important;
+}
+
+.SafetyMenu {
+  width: 300px;
+}
+.SafetyMenu > ul > li {
+  height: auto !important;
+}
+
+.WellnessMenu {
+  width: 300px;
+}
+.WellnessMenu > ul > li {
+  height: auto !important;
+}
+
+.ant-menu-item-selected {
+  background-color: transparent !important;
+}

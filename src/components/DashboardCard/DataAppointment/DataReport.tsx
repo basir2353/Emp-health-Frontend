@@ -1,0 +1,238 @@
+import { Button, Card } from "antd";
+import { PlusOutlined } from "@ant-design/icons";
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import { message } from "antd";
+
+const DataReport = () => {
+  type Report = {
+    id: string;
+    type: string;
+    status: string;
+    description: string;
+    createdAt?: string;
+  };
+
+  const [apiReports, setApiReports] = useState<Report[]>([]);
+  const [showForm, setShowForm] = useState(false);
+  const [formData, setFormData] = useState({
+    id: "",
+    type: "Hazard",
+    status: "No Action",
+    description: "",
+  });
+  const [loading, setLoading] = useState(false);
+
+  const generateReportId = () =>
+    "#" + Math.floor(10000 + Math.random() * 90000);
+
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const userRole = user?.role;
+
+  const fetchReports = async () => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem("token");
+      const isAdminOrDoctor =
+        user?.role === "admin" || user?.role === "doctor";
+
+      const endpoint = isAdminOrDoctor
+        ? "http://localhost:5000/api/reports/all"
+        : "http://localhost:5000/api/reports";
+
+      const response = await axios.get(endpoint, {
+        headers: {
+          "x-auth-token": token || "",
+        },
+      });
+ console.log(response,'fetchReports');
+
+      const fetchedReports = isAdminOrDoctor
+        ? response.data.reports
+        : response.data.reports;
+ 
+      setApiReports(fetchedReports || []);
+
+    } catch (error) {
+      console.error("Failed to fetch reports:", error);
+      message.error("Failed to fetch reports");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchReports();
+  }, []);
+
+  const handleInputChange = (e: any) => {
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+  };
+
+  const handleSubmit = (e: any) => {
+    e.preventDefault();
+    const newReport: Report = {
+      ...formData,
+      id: formData.id || generateReportId(),
+      createdAt: new Date().toISOString(),
+    };
+
+    const updatedReports = [newReport, ...apiReports];
+    setApiReports(updatedReports);
+
+    setFormData({
+      id: "",
+      type: "Hazard",
+      status: "No Action",
+      description: "",
+    });
+    setShowForm(false);
+  };
+
+  const getStatusColor = (status: any) => {
+    switch (status) {
+      case "Closed":
+        return "bg-green-500";
+      case "In Progress":
+        return "bg-blue-500";
+      case "No Action":
+      default:
+        return "bg-gray-300";
+    }
+  };
+
+  return (
+    <div className="h-[426px] max-w-xl mx-auto bg-white rounded-xl shadow-md overflow-hidden">
+      <div>
+        {/* Header */}
+        <div className="flex justify-between items-center mb-2">
+          <div className="text-neutral-400 text-2xl font-normal leading-loose pl-3">
+            Reports
+          </div>
+          {(userRole === "admin" || userRole === "doctor") && (
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              size="middle"
+              className="text-sm font-normal text-white bg-black rounded-lg"
+              style={{ backgroundColor: "black", color: "white" }}
+              onClick={() => setShowForm(!showForm)}
+            >
+              {showForm ? "Cancel" : "Create Report"}
+            </Button>
+          )}
+        </div>
+
+        {/* Form */}
+        {showForm && (
+          <div className="p-5 bg-gray-50 border-b">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Report Type
+                </label>
+                <select
+                  name="type"
+                  value={formData.type}
+                  onChange={handleInputChange}
+                  className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-400"
+                >
+                  <option value="Hazard">Hazard</option>
+                  <option value="Incident">Incident</option>
+                  <option value="Near Miss">Near Miss</option>
+                  <option value="Observation">Observation</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Status</label>
+                <select
+                  name="status"
+                  value={formData.status}
+                  onChange={handleInputChange}
+                  className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-400"
+                >
+                  <option value="No Action">No Action</option>
+                  <option value="In Progress">In Progress</option>
+                  <option value="Closed">Closed</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Description
+                </label>
+                <textarea
+                  name="description"
+                  value={formData.description}
+                  onChange={handleInputChange}
+                  className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-400"
+                  rows={3}
+                  placeholder="Enter description..."
+                />
+              </div>
+
+              <Button
+                type="primary"
+                htmlType="submit"
+                className="w-full py-2 text-white bg-black rounded-md hover:bg-blue-700 transition"
+              >
+                Save Report
+              </Button>
+            </form>
+          </div>
+        )}
+
+        {/* Reports List */}
+        <div className="max-h-96 overflow-y-auto divide-y">
+          {apiReports.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">
+              No reports yet. Create your first report!
+            </div>
+          ) : (
+            apiReports.slice(0, 4).map((report: any, index) => (
+              <Card
+                key={report.id + index}
+                className="ml-2 mt-2 w-[359px] flex flex-col h-[72px] justify-center px-3 gap-10 bg-[#F5F5F5] border border-[#E0E0E0] rounded-md"
+              >
+                <div className="flex flex-row justify-between items-center">
+                  <div className="font-medium text-base text-black">
+                    {report.id}
+                  </div>
+                  <div className="text-center text-base text-black">
+                    Type: {report.type}
+                  </div>
+                  <div className="flex items-center">
+                    <div
+                      className={`w-2 h-2 rounded-full ${getStatusColor(
+                        report.status
+                      )}`}
+                    ></div>
+                    <div className="ml-1 text-base text-black">
+                      {report.status}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center justify-center w-[343px] mr-10 cursor-pointer mt-2 bg-white h-[24px] border border-solid border-neutral-5 shadow-button-secondary rounded-md">
+                  <div className="text-sm font-normal text-neutral-800">
+                    View
+                  </div>
+                </div>
+              </Card>
+            ))
+          )}
+        </div>
+
+        {/* Footer */}
+        {apiReports.length > 4 && (
+          <div className="text-center py-3 bg-blue-50 hover:bg-blue-100 text-blue-700 font-medium cursor-pointer transition">
+            See All ({apiReports.length})
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default DataReport;

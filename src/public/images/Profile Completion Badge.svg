@@ -1,0 +1,25 @@
+<svg width="93" height="93" viewBox="0 0 93 93" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g opacity="0.4" filter="url(#filter0_f_332_8969)">
+<circle cx="46.3024" cy="46.3024" r="22.3024" fill="#FFC64D"/>
+</g>
+<path d="M56.3843 52.7178H36.2205V63.0854C36.2205 65.2528 38.4484 66.705 40.4314 65.8301L45.3593 63.656C46.1526 63.3061 47.0585 63.3164 47.8435 63.6844L52.111 65.6848C54.1004 66.6173 56.3843 65.1655 56.3843 62.9684V52.7178Z" fill="#D46B08"/>
+<circle cx="46.3024" cy="42.6359" r="17.4142" fill="#FFDE99"/>
+<circle cx="46.3025" cy="42.6358" r="15.5811" fill="url(#paint0_linear_332_8969)"/>
+<circle cx="46.3024" cy="42.6364" r="5.37074" fill="#D9D9D9" fill-opacity="0.15"/>
+<circle cx="46.3025" cy="42.6356" r="7.40511" fill="#D9D9D9" fill-opacity="0.15"/>
+<circle cx="46.3025" cy="42.6361" r="9.76499" fill="#D9D9D9" fill-opacity="0.15"/>
+<circle cx="46.3026" cy="42.6365" r="12.6131" fill="#D9D9D9" fill-opacity="0.15"/>
+<circle cx="46.3025" cy="42.6361" r="14.7289" fill="#D9D9D9" fill-opacity="0.15"/>
+<path d="M41.7197 42.636L44.7713 45.9967L50.8851 39.2754" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<defs>
+<filter id="filter0_f_332_8969" x="0" y="0" width="92.6049" height="92.6045" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feGaussianBlur stdDeviation="12" result="effect1_foregroundBlur_332_8969"/>
+</filter>
+<linearGradient id="paint0_linear_332_8969" x1="60.5088" y1="42.6358" x2="30.7213" y2="42.6358" gradientUnits="userSpaceOnUse">
+<stop stop-color="#FFAE00"/>
+<stop offset="1" stop-color="#FF8C00"/>
+</linearGradient>
+</defs>
+</svg>
