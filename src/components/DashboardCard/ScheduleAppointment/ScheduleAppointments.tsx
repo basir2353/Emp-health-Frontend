@@ -38,7 +38,7 @@ const ScheduleAppointments: React.FC = () => {
     const fetchAppointments = async () => {
       setLoading(true);
       try {
-        const response = await axios.get("/api/appointments");
+        const response = await axios.get("https://e-health-backend-production.up.railway.app/api/appointments");
         // ✅ FIX: Ensure appointments is always an array
         setAppointments(response?.data?.appointments || []);
       } catch (err: any) {
