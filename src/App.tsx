@@ -106,7 +106,6 @@ const App: React.FC = () => (
           />
 
           {/* CAll */}
-          <Route path="/call" element={<Call />}/>
 
           {/* Chat/Inbox Routes */}
           <Route
@@ -117,7 +116,9 @@ const App: React.FC = () => (
                   <Routes>
                     <Route path="/" element={<UserMassage />} />
                     <Route path="/messages" element={<MessagingSection />} />
-                    <Route path="/call" element={<Callchat />} />
+                    <Route path="/call2" element={<Callchat />} />
+          <Route path="/call" element={<Call />}/>
+
                   </Routes>
                 </ChatBoxLayout>
               </ProtectedRoute>

@@ -19,7 +19,7 @@ import {
   LeftOutlined,
   RightOutlined,
   EllipsisOutlined,
-  SendOutlined,
+  PhoneOutlined ,
 } from "@ant-design/icons";
 import ProfileCardschedule from "./ProfileCardschedule";
 
@@ -66,46 +66,47 @@ const ScheduleAppointments: React.FC = () => {
     fetchAppointments();
   }, []);
 
-  const handleMenuClick = (key: string, index: number) => {
-    setActiveDropdown(null);
-    switch (key) {
-      case "reschedule":
-        // handle reschedule logic
-        break;
-      case "edit":
-        setIsSidebarOpen(!isSidebarOpen);
-        break;
-      case "cancel":
-        // handle cancel logic
-        break;
-      default:
-        break;
-    }
-  };
+ const handleMenuClick = (key: string, index: number) => {
+  setActiveDropdown(null);
+  switch (key) {
+    case "call":
+      // Navigate to call page (replace '/call' with your actual route)
+      navigate("/call");
+      break;
+    case "edit":
+      setIsSidebarOpen(!isSidebarOpen);
+      break;
+    case "cancel":
+      // handle cancel logic
+      break;
+    default:
+      break;
+  }
+};
 
-  const renderMenu = (index: number) => (
-    <Menu
-      onClick={({ key }) => handleMenuClick(key, index)}
-      items={[
-        {
-          key: "reschedule",
-          label: "Request Reschedule",
-          icon: <SendOutlined />,
-        },
-        {
-          key: "edit",
-          label: "Edit",
-          icon: <EditOutlined />,
-        },
-        {
-          key: "cancel",
-          label: "Cancel",
-          icon: <CloseCircleOutlined />,
-          danger: true,
-        },
-      ]}
-    />
-  );
+const renderMenu = (index: number) => (
+  <Menu
+    onClick={({ key }) => handleMenuClick(key, index)}
+    items={[
+      {
+        key: "call",
+        label: "Call",
+        icon: <PhoneOutlined />,  // Changed icon to a phone icon for clarity
+      },
+      {
+        key: "edit",
+        label: "Edit",
+        icon: <EditOutlined />,
+      },
+      {
+        key: "cancel",
+        label: "Cancel",
+        icon: <CloseCircleOutlined />,
+        danger: true,
+      },
+    ]}
+  />
+);
 
   return (
     <div className="mt-4 h-5 justify-start items-center pl-3 bg-white ml-10 max-lg:ml-0">
