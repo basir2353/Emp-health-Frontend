@@ -1,6 +1,5 @@
 import React, { useState } from "react";
-import { Button, Drawer, Input } from "antd";
-import UploadChallages from "./Uploadchallanges";
+import { Button, Drawer, Input, message } from "antd";
 import axios from "axios";
 
 interface ReportSidebarProps {
@@ -12,8 +11,14 @@ const Sidebarchallegex: React.FC<ReportSidebarProps> = ({ visible, onClose }) =>
   const [title, setTitle] = useState("");
   const [rewardPoints, setRewardPoints] = useState("");
   const [description, setDescription] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleCreateChallenge = () => {
+  const handleCreateChallenge = async () => {
+    if (!title || !description || !rewardPoints) {
+      message.warning("Please fill in all fields.");
+      return;
+    }
+
     const newChallenge = {
       id: Date.now(),
       title,
@@ -23,26 +28,41 @@ const Sidebarchallegex: React.FC<ReportSidebarProps> = ({ visible, onClose }) =>
       imageSrc: "/challange.png",
     };
 
-    const existing = JSON.parse(localStorage.getItem("challenges") || "[]");
-    existing.push(newChallenge);
-    localStorage.setItem("challenges", JSON.stringify(existing));
+    try {
+      setLoading(true);
+      // Save locally
+      const existing = JSON.parse(localStorage.getItem("challenges") || "[]");
+      existing.push(newChallenge);
+      localStorage.setItem("challenges", JSON.stringify(existing));
 
-    axios.post("/api/createChallenge", {
-      title,
-      description,
-      rewardPoints: Number(rewardPoints),
-    }).then((response) => {
-      if (response.data && response.data.success) {
-      // Optionally handle success, e.g., show notification
-      console.log("Challenge created successfully");
+      // Save to backend
+      const response = await axios.post(
+        "https://e-health-backend-production.up.railway.app/api/createChallenge",
+        {
+          title,
+          description,
+          rewardPoints: Number(rewardPoints),
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (response.data && response.status === 201) {
+        message.success("Challenge created successfully!");
+      } else {
+        message.error("Unexpected response from server.");
       }
-    }).catch((error) => {
-      // Optionally handle error, e.g., show notification
-      console.error("Failed to create challenge:", error);
-    });
-
-    onClose();
-    // window.location.reload();
+    } catch (error: any) {
+      message.error(
+        error?.response?.data?.message || "Failed to create challenge"
+      );
+    } finally {
+      setLoading(false);
+      onClose();
+    }
   };
 
   return (
@@ -55,7 +75,12 @@ const Sidebarchallegex: React.FC<ReportSidebarProps> = ({ visible, onClose }) =>
             <Button onClick={onClose} style={{ marginRight: 8 }}>
               Cancel
             </Button>
-            <Button type="primary" style={{ background: "black" }} onClick={handleCreateChallenge}>
+            <Button
+              type="primary"
+              loading={loading}
+              style={{ background: "black" }}
+              onClick={handleCreateChallenge}
+            >
               Create
             </Button>
           </div>
@@ -71,7 +96,7 @@ const Sidebarchallegex: React.FC<ReportSidebarProps> = ({ visible, onClose }) =>
           <Input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Heading"
+            placeholder="Title"
             className="mb-2"
           />
         </div>
@@ -81,7 +106,7 @@ const Sidebarchallegex: React.FC<ReportSidebarProps> = ({ visible, onClose }) =>
           <Input.TextArea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Autosize height based on content lines"
+            placeholder="Describe the challenge..."
             autoSize={{ minRows: 3, maxRows: 5 }}
             style={{ resize: "vertical" }}
           />
@@ -93,9 +118,9 @@ const Sidebarchallegex: React.FC<ReportSidebarProps> = ({ visible, onClose }) =>
             value={rewardPoints}
             onChange={(e) => setRewardPoints(e.target.value)}
             placeholder="Reward Points"
-            className="mb-2"
             type="number"
             min={0}
+            className="mb-2"
           />
         </div>
       </div>
