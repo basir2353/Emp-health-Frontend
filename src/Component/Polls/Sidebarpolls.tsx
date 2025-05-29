@@ -1,95 +1,146 @@
 import React, { useState } from "react";
-import { Drawer,  } from "antd";
+import { Drawer, Input, Button, message } from "antd";
 
-import { Form, Input, Button, List } from 'antd';
-import axios from "axios";
-interface CreatePollSidebarProps {
+export interface CreatePollSidebarProps {
   visible: boolean;
   onClose: () => void;
+  // other props if any
 }
 
 const CreatePollSidebar: React.FC<CreatePollSidebarProps> = ({ visible, onClose }) => {
   const [question, setQuestion] = useState("");
+  const [choices, setChoices] = useState<string[]>(["Yes", "No"]);
+  const [loading, setLoading] = useState(false);
 
   const handleQuestionChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setQuestion(e.target.value);
   };
-  const [choices, setChoices] = useState<string[]>(['Yes', 'No']);
 
-  // Axios import
-
-  const handleSubmit = async () => {
-    try {
-      const response = await axios.post("/api/add_poll", {
-        question,
-        choices,
-      });
-      // Optionally handle response
-      setQuestion('');
-      setChoices(['Yes', 'No']);
-      onClose();
-    } catch (error) {
-      // Optionally handle error
-      console.error("Failed to create poll:", error);
-    }
+  const handleChoiceChange = (index: number, value: string) => {
+    setChoices((prev) => prev.map((c, i) => (i === index ? value : c)));
   };
 
   const handleAddChoice = () => {
-    setChoices([...choices, '']);
+    setChoices((prev) => [...prev, ""]);
   };
 
-  const handleChoiceChange = (index: number, value: string) => {
-    setChoices([
-      ...choices.slice(0, index),
-      value,
-      ...choices.slice(index + 1),
-    ]);
+  const handleRemoveChoice = (index: number) => {
+    if (choices.length <= 2) {
+      message.warning("Poll must have at least two choices");
+      return;
+    }
+    setChoices((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSubmit = async () => {
+    if (!question.trim()) {
+      message.error("Poll question is required");
+      return;
+    }
+    if (choices.some((c) => !c.trim())) {
+      message.error("All choices must be filled out");
+      return;
+    }
+    if (choices.length < 2) {
+      message.error("At least two choices are required");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch("https://e-health-backend-production.up.railway.app/api/add_poll", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          question: question.trim(),
+          choices: choices.map((c) => c.trim()),
+        }),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.message || "Failed to create poll");
+      }
+
+      message.success("Poll created successfully");
+      setQuestion("");
+      setChoices(["Yes", "No"]);
+      onClose();
+    } catch (error: any) {
+      message.error(error.message || "Failed to create poll");
+      console.error("Poll submission error:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <Drawer
-      title={
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div>Create Poll</div>
-          <div>
-            <Button onClick={onClose} style={{ marginRight: 8 }}>
-              Cancel
-            </Button>
-            <Button
-
-  type="primary"
-  style={{ background: 'black' }}
-  onClick={handleSubmit}
->
-
-              Submit
-            </Button>
-          </div>
-        </div>
-      }
+      title="Create Poll"
       placement="right"
-      closable={true}
+      closable
       onClose={onClose}
-      visible={visible}
-      width={500}
-      headerStyle={{ backgroundColor: "#f0f2f5" }} // Adjust background color if needed
+      open={visible}
+      width={480}
+      destroyOnClose
     >
-      <div>
-        <h3>Poll Question:</h3>
-        <Input value={question} onChange={handleQuestionChange} />
+      <div className="mb-6">
+        <label className="block font-semibold mb-1">Poll Question:</label>
+        <Input
+          placeholder="Enter your poll question"
+          value={question}
+          onChange={handleQuestionChange}
+          maxLength={200}
+        />
       </div>
-      {/* Add more inputs or content for the poll options, etc. */}
-      <div>
-  <h2>Choices</h2>
-  {choices.map((choice, index) => (
-    <div key={index} style={{ marginBottom: 10, display: 'flex', alignItems: 'center' }}>
-      <div className="rounded-sm border bg-gray-200 shadow-md px-4 py-1 ">{index+1}</div>
-      <Input value={choice} onChange={(e) => handleChoiceChange(index, e.target.value)} style={{ width: 'calc(100% - 30px)' }} />
-    </div>
-  ))}
-  <Button onClick={handleAddChoice}>+ Add Choice</Button>
-</div>
 
+      <div className="mb-6">
+        <label className="block font-semibold mb-2">Choices:</label>
+        {choices.map((choice, index) => (
+          <div key={index} className="flex items-center space-x-2 mb-3">
+            <div className="w-6 text-center font-semibold">{index + 1}.</div>
+            <Input
+              value={choice}
+              placeholder={`Choice ${index + 1}`}
+              onChange={(e) => handleChoiceChange(index, e.target.value)}
+              maxLength={100}
+              className="flex-grow"
+            />
+            {choices.length > 2 && (
+              <Button
+                type="text"
+                danger
+                onClick={() => handleRemoveChoice(index)}
+                aria-label={`Remove choice ${index + 1}`}
+              >
+                ×
+              </Button>
+            )}
+          </div>
+        ))}
+        <Button type="dashed" onClick={handleAddChoice} block>
+          + Add Choice
+        </Button>
+      </div>
+
+      <div className="flex justify-end space-x-3">
+        <Button onClick={onClose} disabled={loading}>
+          Cancel
+        </Button>
+        <Button
+          type="primary"
+          onClick={handleSubmit}
+          loading={loading}
+          disabled={
+            loading ||
+            !question.trim() ||
+            choices.some((c) => !c.trim()) ||
+            choices.length < 2
+          }
+        >
+          Submit
+        </Button>
+      </div>
     </Drawer>
   );
 };

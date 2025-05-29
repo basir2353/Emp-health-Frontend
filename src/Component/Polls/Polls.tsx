@@ -1,14 +1,12 @@
 import {
   ArrowLeftOutlined,
   PlusCircleOutlined,
-  UploadOutlined,
 } from "@ant-design/icons";
 import { Breadcrumb, Button } from "antd";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import axios from "axios";
 import PollsDetails from "./PollsDetails";
 import CreatePollSidebar from "./Sidebarpolls";
-import axios from "axios";
-import { useEffect } from "react";
 
 function Polls() {
   const [sidebarVisible, setSidebarVisible] = useState(false);
@@ -20,6 +18,7 @@ function Polls() {
   const handleCloseSidebar = () => {
     setSidebarVisible(false);
   };
+
   type Poll = {
     _id: string;
     answered: boolean;
@@ -48,14 +47,12 @@ function Polls() {
   const participationRate =
     totalPolls === 0
       ? 0
-      : Math.round(
-          ((totalPolls - unansweredPolls) / totalPolls) * 100
-        );
+      : Math.round(((totalPolls - unansweredPolls) / totalPolls) * 100);
   const engagementThisMonth = participationRate; // Replace with actual logic if needed
+
   return (
     <div>
-      
-      <div className=" mx-10 mt-10">
+      <div className="mx-10 mt-10">
         <div className="flex justify-between">
           <div>
             <div className="flex text-xl gap-5 font-bold">
@@ -68,7 +65,6 @@ function Polls() {
                 {
                   title: "Wellness",
                 },
-
                 {
                   title: <a href="">Polls</a>,
                 },
@@ -80,22 +76,20 @@ function Polls() {
               style={{ background: "black", color: "white" }}
               icon={<PlusCircleOutlined />}
               onClick={handleCreatePollClick}
-
             >
               Create Poll
             </Button>
           </div>
         </div>
       </div>
+
       <div>
-        <div className="flex  max-lg:flex-col  gap-6 justify-center pb-10">
+        <div className="flex max-lg:flex-col gap-6 justify-center pb-10">
           <div className="flex items-center h-[111px] justify-between px-2 py-4 w-[344px] bg-white border border-gray-300 rounded-md mt-4">
             <div className="flex items-start gap-4">
               <div className="w-2 h-24 bg-gray-700 rounded-full"></div>
               <div className="flex flex-col">
-                <h2 className="text-base font-semibold text-black">
-                  Total Polls
-                </h2>
+                <h2 className="text-base font-semibold text-black">Total Polls</h2>
                 <p className="text-6xl font-bold text-black">{totalPolls}</p>
               </div>
             </div>
@@ -114,13 +108,11 @@ function Polls() {
             </svg>
           </div>
 
-          <div className="flex items-center  h-[111px]  justify-between px-2 py-4 w-[344px] bg-white border border-gray-300 rounded-md mt-4">
+          <div className="flex items-center h-[111px] justify-between px-2 py-4 w-[344px] bg-white border border-gray-300 rounded-md mt-4">
             <div className="flex items-start gap-4">
               <div className="w-2 h-24 bg-green-700 rounded-full"></div>
               <div className="flex flex-col">
-                <h2 className="text-base font-semibold text-black">
-                  Unanswered Polls
-                </h2>
+                <h2 className="text-base font-semibold text-black">Unanswered Polls</h2>
                 <p className="text-6xl font-bold text-black">{unansweredPolls}</p>
               </div>
             </div>
@@ -138,13 +130,12 @@ function Polls() {
               />
             </svg>
           </div>
-          <div className="flex items-center justify-between h-[111px]  px-2 py-4 w-[344px] bg-white border border-gray-300 rounded-md mt-4">
+
+          <div className="flex items-center justify-between h-[111px] px-2 py-4 w-[344px] bg-white border border-gray-300 rounded-md mt-4">
             <div className="flex items-start gap-4">
               <div className="w-2 h-24 bg-red-700 rounded-full"></div>
               <div className="flex flex-col">
-                <h2 className="text-base font-semibold text-black">
-                  Participation Rate
-                </h2>
+                <h2 className="text-base font-semibold text-black">Participation Rate</h2>
                 <p className="text-6xl font-bold text-black">{participationRate}</p>
               </div>
             </div>
@@ -157,18 +148,18 @@ function Polls() {
             >
               <rect y="0.5" width="56" height="56" rx="8" fill="#F6FFED" />
               <path
-                d="M41.9207 38.6039C41.1628 36.8086 40.0629 35.1779 38.6823 33.8026C37.3059 32.4233 35.6755 31.3236 33.881 30.5642C33.8649 30.5561 33.8488 30.5521 33.8328 30.5441C36.3359 28.7361 37.9631 25.791 37.9631 22.4682C37.9631 16.9637 33.5033 12.5039 27.9988 12.5039C22.4944 12.5039 18.0346 16.9637 18.0346 22.4682C18.0346 25.791 19.6618 28.7361 22.1649 30.5481C22.1488 30.5561 22.1328 30.5602 22.1167 30.5682C20.3167 31.3276 18.7015 32.4164 17.3154 33.8066C15.9361 35.183 14.8364 36.8134 14.077 38.6079C13.3309 40.3647 12.9286 42.2483 12.8917 44.1566C12.8906 44.1995 12.8982 44.2421 12.9138 44.2821C12.9295 44.322 12.953 44.3584 12.983 44.3891C13.0129 44.4198 13.0487 44.4442 13.0882 44.4608C13.1278 44.4775 13.1702 44.4861 13.2131 44.4861H15.6238C15.8006 44.4861 15.9413 44.3454 15.9453 44.1727C16.0256 41.0709 17.2712 38.166 19.473 35.9642C21.7511 33.6861 24.7765 32.4325 27.9988 32.4325C31.2212 32.4325 34.2466 33.6861 36.5247 35.9642C38.7265 38.166 39.9721 41.0709 40.0524 44.1727C40.0564 44.3494 40.1971 44.4861 40.3738 44.4861H42.7846C42.8275 44.4861 42.8699 44.4775 42.9095 44.4608C42.949 44.4442 42.9848 44.4198 43.0147 44.3891C43.0447 44.3584 43.0682 44.322 43.0839 44.2821C43.0995 44.2421 43.1071 44.1995 43.106 44.1566C43.0658 42.2361 42.668 40.3678 41.9207 38.6039ZM27.9988 29.3789C26.1546 29.3789 24.4189 28.6597 23.1131 27.3539C21.8073 26.0481 21.0881 24.3124 21.0881 22.4682C21.0881 20.624 21.8073 18.8883 23.1131 17.5825C24.4189 16.2767 26.1546 15.5575 27.9988 15.5575C29.843 15.5575 31.5788 16.2767 32.8846 17.5825C34.1904 18.8883 34.9096 20.624 34.9096 22.4682C34.9096 24.3124 34.1904 26.0481 32.8846 27.3539C31.5788 28.6597 29.843 29.3789 27.9988 29.3789Z"
-                fill="#52C41A"
+                d="M41.9207 38.6039C41.1628 36.8086 40.0629 35.1779 38.6823 33.8026C37.3059 32.4233 35.6755 31.3236 33.881 30.5642C33.8649 30.5561 33.8488 30.5521 33.8328 30.5441C36.3359 28.7361 37.9631 25.791 37.9631 22.4682C37.9631 16.9637 33.5033 12.5039 27.9988 12.5039C22.4943 12.5039 18.0346 16.9637 18.0346 22.4682C18.0346 28.1469 22.7316 33.2347 28.4888 33.4173C29.1363 33.4471 29.7695 33.3339 30.3375 33.0837C30.687 32.9216 30.8423 32.4761 30.6751 32.1353C30.5063 31.7946 30.0586 31.637 29.709 31.7991C25.5996 33.7471 22.7399 29.8665 22.7399 25.7552C22.7399 21.5238 25.8686 18.1462 30.0651 18.1462C34.2617 18.1462 37.3904 21.5182 37.3904 25.7552C37.3904 27.5224 36.7959 29.1377 35.7689 30.3674C36.6939 31.4536 37.3943 32.7694 37.812 34.2162C38.1737 35.4644 38.2579 36.789 38.0537 38.0702C37.8496 39.3514 37.365 40.5471 36.6363 41.5672C35.8581 42.683 34.8453 43.5976 33.657 44.2435C32.5721 44.8133 31.3645 45.1222 30.1034 45.1506C28.9327 45.1722 27.7701 44.9179 26.7042 44.4048C25.6304 43.8863 24.693 43.1247 23.9629 42.1743"
+                stroke="#52C41A"
+                strokeWidth="2"
               />
             </svg>
           </div>
-          <div className="flex items-center  justify-between h-[111px]  px-2 py-4 w-[344px] bg-white border border-gray-300 rounded-md mt-4">
+
+          <div className="flex items-center justify-between h-[111px] px-2 py-4 w-[344px] bg-white border border-gray-300 rounded-md mt-4">
             <div className="flex items-start gap-4">
-              <div className="w-2 h-24 bg-blue-700 rounded-full"></div>
+              <div className="w-2 h-24 bg-yellow-700 rounded-full"></div>
               <div className="flex flex-col">
-                <h2 className="text-base font-semibold text-black">
-                  Engagement this month
-                </h2>
+                <h2 className="text-base font-semibold text-black">Engagement This Month</h2>
                 <p className="text-6xl font-bold text-black">{engagementThisMonth}</p>
               </div>
             </div>
@@ -179,18 +170,21 @@ function Polls() {
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
             >
-              <rect y="0.5" width="56" height="56" rx="8" fill="#E6F7FF" />
+              <rect y="0.5" width="56" height="56" rx="8" fill="#FFF7E6" />
               <path
-                d="M43.1065 39.7522H15.4637V14.6808C15.4637 14.504 15.319 14.3594 15.1422 14.3594H12.8922C12.7154 14.3594 12.5708 14.504 12.5708 14.6808V42.3237C12.5708 42.5004 12.7154 42.6451 12.8922 42.6451H43.1065C43.2833 42.6451 43.4279 42.5004 43.4279 42.3237V40.0737C43.4279 39.8969 43.2833 39.7522 43.1065 39.7522ZM19.7146 33.5527C19.8391 33.6772 20.04 33.6772 20.1686 33.5527L25.7253 28.0241L30.8521 33.183C30.9766 33.3076 31.1815 33.3076 31.3061 33.183L42.3713 22.1219C42.4958 21.9973 42.4958 21.7924 42.3713 21.6679L40.7802 20.0768C40.7198 20.017 40.6382 19.9834 40.5532 19.9834C40.4682 19.9834 40.3866 20.017 40.3262 20.0768L31.0851 29.3138L25.9663 24.1629C25.9059 24.1031 25.8243 24.0696 25.7393 24.0696C25.6543 24.0696 25.5727 24.1031 25.5123 24.1629L18.1275 31.5036C18.0677 31.564 18.0341 31.6456 18.0341 31.7306C18.0341 31.8156 18.0677 31.8972 18.1275 31.9576L19.7146 33.5527Z"
-                fill="#096DD9"
+                d="M41.9003 21.8573C40.5632 21.8001 39.3237 22.3736 38.4832 23.4069C37.6426 24.4401 37.3171 25.8328 37.5873 27.1619C37.7564 28.014 37.8566 28.8683 37.8876 29.7221C38.0031 32.7011 35.6807 35.0867 32.7273 35.2018C29.7739 35.317 27.2303 32.9656 27.1155 30.0025C27.0605 28.583 27.6293 27.2016 28.6743 26.2631C29.7189 25.3243 31.142 24.942 32.5063 25.3116"
+                stroke="#FA8C16"
+                strokeWidth="2"
               />
             </svg>
           </div>
         </div>
-        <PollsDetails />
-        <CreatePollSidebar visible={sidebarVisible} onClose={handleCloseSidebar} />
-
       </div>
+
+      {sidebarVisible && (
+        <CreatePollSidebar visible={sidebarVisible} onClose={handleCloseSidebar} />
+      )}
+      <PollsDetails />
     </div>
   );
 }

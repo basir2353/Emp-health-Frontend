@@ -12,7 +12,6 @@ const AdminDashboard = ({ socket, user }) => {
   });
 
   useEffect(() => {
-    // Socket listeners for real-time updates
     socket.on('active-calls', (calls) => {
       setActiveCalls(calls);
     });
@@ -22,18 +21,18 @@ const AdminDashboard = ({ socket, user }) => {
     });
 
     socket.on('call-status-update', (callData) => {
-      setActiveCalls(prev => 
-        prev.map(call => 
+      setActiveCalls(prev =>
+        prev.map(call =>
           call.callId === callData.callId ? callData : call
         )
       );
     });
 
     socket.on('call-ended', (data) => {
-      setActiveCalls(prev => 
+      setActiveCalls(prev =>
         prev.filter(call => call.callId !== data.callId)
       );
-      fetchCallHistory(); // Refresh history when call ends
+      fetchCallHistory();
     });
 
     socket.on('user-status-update', (userData) => {
@@ -46,7 +45,6 @@ const AdminDashboard = ({ socket, user }) => {
       });
     });
 
-    // Initial data fetch
     fetchInitialData();
     socket.emit('get-active-calls');
 
@@ -61,23 +59,19 @@ const AdminDashboard = ({ socket, user }) => {
 
   const fetchInitialData = async () => {
     try {
-      // Fetch call history
       const callsResponse = await fetch('https://e-health-backend-production.up.railway.app/api/calls', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
       });
-      
       if (callsResponse.ok) {
         const calls = await callsResponse.json();
-        setCallHistory(calls.slice(0, 20)); // Last 20 calls
-        
-        // Calculate today's calls
+        setCallHistory(calls.slice(0, 20));
         const today = new Date().toDateString();
-        const todayCalls = calls.filter(call => 
+        const todayCalls = calls.filter(call =>
           new Date(call.startTime).toDateString() === today
         ).length;
-        
+
         setStats(prev => ({
           ...prev,
           totalCallsToday: todayCalls
@@ -95,7 +89,7 @@ const AdminDashboard = ({ socket, user }) => {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
       });
-      
+
       if (response.ok) {
         const calls = await response.json();
         setCallHistory(calls.slice(0, 20));
@@ -125,75 +119,67 @@ const AdminDashboard = ({ socket, user }) => {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'initiated': return '#ffa500';
-      case 'accepted': return '#4caf50';
-      case 'rejected': return '#f44336';
-      case 'ended': return '#9e9e9e';
-      default: return '#2196f3';
+      case 'initiated': return 'text-yellow-500';
+      case 'accepted': return 'text-green-600';
+      case 'rejected': return 'text-red-600';
+      case 'ended': return 'text-gray-500';
+      default: return 'text-blue-600';
     }
   };
 
   return (
-    <div className="dashboard admin-dashboard">
-      <div className="dashboard-content">
-        <h2>Admin Dashboard</h2>
-        <p>System overview and call monitoring for {user.username}</p>
-        
+    <div className="min-h-screen bg-gray-50 p-6 md:p-10 font-sans">
+      <div className="max-w-7xl mx-auto">
+        <header className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-1">Admin Dashboard</h1>
+          <p className="text-gray-600">System overview and call monitoring for <span className="font-semibold">{user.username}</span></p>
+        </header>
+
         {/* Stats Cards */}
-        <div className="stats-grid">
-          <div className="stat-card">
-            <h3>{onlineUsers.length}</h3>
-            <p>Online Users</p>
-            <div className="stat-breakdown">
-              <small>
-                Employees: {onlineUsers.filter(u => u.role === 'employee').length} | 
-                Doctors: {onlineUsers.filter(u => u.role === 'doctor').length}
-              </small>
-            </div>
+        <section className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-10">
+          <div className="bg-white rounded-lg shadow p-6 flex flex-col items-center">
+            <h3 className="text-4xl font-extrabold text-indigo-600">{onlineUsers.length}</h3>
+            <p className="text-gray-700 mt-1">Online Users</p>
+            <small className="mt-2 text-gray-500">
+              Employees: <span className="font-medium">{onlineUsers.filter(u => u.role === 'employee').length}</span> | Doctors: <span className="font-medium">{onlineUsers.filter(u => u.role === 'doctor').length}</span>
+            </small>
           </div>
-          <div className="stat-card">
-            <h3>{activeCalls.length}</h3>
-            <p>Active Calls</p>
+          <div className="bg-white rounded-lg shadow p-6 flex flex-col items-center">
+            <h3 className="text-4xl font-extrabold text-green-600">{activeCalls.length}</h3>
+            <p className="text-gray-700 mt-1">Active Calls</p>
           </div>
-          <div className="stat-card">
-            <h3>{stats.totalCallsToday}</h3>
-            <p>Today's Total Calls</p>
+          <div className="bg-white rounded-lg shadow p-6 flex flex-col items-center">
+            <h3 className="text-4xl font-extrabold text-purple-600">{stats.totalCallsToday}</h3>
+            <p className="text-gray-700 mt-1">Today's Total Calls</p>
           </div>
-          <div className="stat-card">
-            <h3>{callHistory.length}</h3>
-            <p>Total Call Records</p>
+          <div className="bg-white rounded-lg shadow p-6 flex flex-col items-center">
+            <h3 className="text-4xl font-extrabold text-pink-600">{callHistory.length}</h3>
+            <p className="text-gray-700 mt-1">Total Call Records</p>
           </div>
-        </div>
+        </section>
 
         {/* Active Calls Monitor */}
-        <div className="active-calls-section">
-          <h3>🟢 Live Call Monitor</h3>
+        <section className="mb-10">
+          <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">🟢 Live Call Monitor</h2>
           {activeCalls.length === 0 ? (
-            <div className="no-active-calls">
-              <p>No active calls at the moment</p>
+            <div className="bg-white rounded-lg shadow p-6 text-center text-gray-500">
+              No active calls at the moment
             </div>
           ) : (
-            <div className="active-calls-grid">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {activeCalls.map((call) => (
-                <div key={call.callId} className="active-call-card">
-                  <div className="call-header">
-                    <h4>📞 Live Call</h4>
-                    <span 
-                      className={`call-status ${call.status}`}
-                      style={{ color: getStatusColor(call.status) }}
-                    >
-                      {call.status.toUpperCase()}
+                <div key={call.callId} className="bg-white rounded-lg shadow p-5 flex flex-col justify-between">
+                  <div className="flex justify-between items-center mb-3">
+                    <h3 className="font-semibold text-lg">📞 Live Call</h3>
+                    <span className={`${getStatusColor(call.status)} font-semibold uppercase text-sm`}>
+                      {call.status}
                     </span>
                   </div>
-                  <div className="call-participants">
-                    <div className="participant">
-                      <strong>Employee:</strong> {call.caller.name}
-                    </div>
-                    <div className="participant">
-                      <strong>Doctor:</strong> {call.callee.name}
-                    </div>
+                  <div className="mb-3 space-y-1">
+                    <p><strong>Employee:</strong> {call.caller.name}</p>
+                    <p><strong>Doctor:</strong> {call.callee.name}</p>
                   </div>
-                  <div className="call-details">
+                  <div className="text-sm text-gray-600 space-y-1">
                     <p><strong>Started:</strong> {formatTime(call.startTime)}</p>
                     <p><strong>Duration:</strong> {getCallDuration(call.startTime)}</p>
                     <p><strong>Call ID:</strong> {call.callId.substring(0, 8)}...</p>
@@ -202,66 +188,65 @@ const AdminDashboard = ({ socket, user }) => {
               ))}
             </div>
           )}
-        </div>
+        </section>
 
         {/* Online Users */}
-        <div className="online-users-section">
-          <h3>👥 Online Users</h3>
+        <section className="mb-10">
+          <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">👥 Online Users</h2>
           {onlineUsers.length === 0 ? (
-            <p>No users currently online</p>
+            <p className="text-gray-500">No users currently online</p>
           ) : (
-            <div className="users-grid">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
               {onlineUsers.map((user) => (
-                <div key={user.userId} className="user-card">
-                  <div className="user-info">
-                    <h4>{user.username}</h4>
-                    <span className={`role-badge ${user.role}`}>
-                      {user.role.toUpperCase()}
-                    </span>
-                  </div>
-                  <div className="online-indicator">
-                    <span className="green-dot">●</span> Online
+                <div key={user.userId} className="bg-white rounded-lg shadow p-4 flex flex-col items-center text-center">
+                  <h4 className="font-semibold text-lg">{user.username}</h4>
+                  <span className={`mt-1 px-3 py-1 rounded-full text-xs font-semibold uppercase ${
+                    user.role === 'employee' ? 'bg-blue-100 text-blue-800' :
+                    user.role === 'doctor' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                  }`}>
+                    {user.role}
+                  </span>
+                  <div className="mt-2 flex items-center gap-1 text-green-600 font-semibold">
+                    <span className="text-lg">●</span> Online
                   </div>
                 </div>
               ))}
             </div>
           )}
-        </div>
+        </section>
 
         {/* Call History */}
-        <div className="call-history-section">
-          <h3>📋 Recent Call History</h3>
+        <section className="mb-10">
+          <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">📋 Recent Call History</h2>
           {callHistory.length === 0 ? (
-            <p>No call history available</p>
+            <p className="text-gray-500">No call history available</p>
           ) : (
-            <div className="call-history-table">
-              <table>
-                <thead>
+            <div className="overflow-x-auto rounded-lg shadow">
+              <table className="min-w-full bg-white divide-y divide-gray-200">
+                <thead className="bg-indigo-600 text-white">
                   <tr>
-                    <th>Employee</th>
-                    <th>Doctor</th>
-                    <th>Start Time</th>
-                    <th>Duration</th>
-                    <th>Status</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold">Employee</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold">Doctor</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold">Start Time</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold">Duration</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold">Status</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-gray-100">
                   {callHistory.map((call) => (
-                    <tr key={call._id}>
-                      <td>{call.caller.username}</td>
-                      <td>{call.callee.username}</td>
-                      <td>{formatTime(call.startTime)}</td>
-                      <td>{formatDuration(call.duration)}</td>
-                      <td>
-                        <span 
-                          className={`status-badge ${call.status}`}
-                          style={{ 
-                            backgroundColor: getStatusColor(call.status),
-                            color: 'white',
-                            padding: '2px 8px',
-                            borderRadius: '12px',
-                            fontSize: '12px'
-                          }}
+                    <tr key={call._id} className="hover:bg-indigo-50 transition-colors">
+                      <td className="px-6 py-3 whitespace-nowrap">{call.caller.username}</td>
+                      <td className="px-6 py-3 whitespace-nowrap">{call.callee.username}</td>
+                      <td className="px-6 py-3 whitespace-nowrap">{formatTime(call.startTime)}</td>
+                      <td className="px-6 py-3 whitespace-nowrap">{formatDuration(call.duration)}</td>
+                      <td className="px-6 py-3 whitespace-nowrap">
+                        <span
+                          className={`inline-block px-3 py-1 text-xs font-semibold rounded-full ${
+                            call.status === 'initiated' ? 'bg-yellow-200 text-yellow-800' :
+                            call.status === 'accepted' ? 'bg-green-200 text-green-800' :
+                            call.status === 'rejected' ? 'bg-red-200 text-red-800' :
+                            call.status === 'ended' ? 'bg-gray-300 text-gray-700' : 'bg-blue-200 text-blue-800'
+                          }`}
                         >
                           {call.status}
                         </span>
@@ -272,10 +257,13 @@ const AdminDashboard = ({ socket, user }) => {
               </table>
             </div>
           )}
-        </div>
+        </section>
 
-        <div className="admin-actions">
-          <button onClick={fetchCallHistory} className="refresh-btn">
+        <div className="text-center">
+          <button
+            onClick={fetchCallHistory}
+            className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-5 rounded-md transition"
+          >
             🔄 Refresh Data
           </button>
         </div>
