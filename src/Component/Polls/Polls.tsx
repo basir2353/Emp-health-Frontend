@@ -31,7 +31,7 @@ function Polls() {
   useEffect(() => {
     const fetchPolls = async () => {
       try {
-        const res = await axios.get("/api/polls");
+        const res = await axios.get("https://e-health-backend-production.up.railway.app/api/polls");
         setPolls(res.data.polls);
       } catch (error) {
         // handle error as needed
