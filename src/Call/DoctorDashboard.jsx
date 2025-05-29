@@ -1,24 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Phone, 
-  PhoneCall, 
-  PhoneOff, 
-  Video, 
-  Clock, 
-  Calendar, 
-  TrendingUp, 
-  User, 
-  CheckCircle, 
-  XCircle, 
-  Activity,
-  Bell,
-  BarChart3,
-  UserCheck
+  Phone, PhoneCall, PhoneOff, Video, Clock, Calendar, TrendingUp, User, 
+  CheckCircle, XCircle, Activity, Bell, BarChart3, UserCheck 
 } from 'lucide-react';
 
 const DoctorDashboard = ({ socket, user }) => {
   const [incomingCalls, setIncomingCalls] = useState([
-    // Mock data for demonstration
+    // Mock initial incoming call for demo
     {
       callId: '1',
       callerName: 'John Smith',
@@ -26,9 +14,9 @@ const DoctorDashboard = ({ socket, user }) => {
       priority: 'urgent'
     }
   ]);
-  
+
   const [callHistory, setCallHistory] = useState([
-    // Mock data for demonstration
+    // Mock initial call history for demo
     {
       _id: '1',
       caller: { username: 'Alice Johnson' },
@@ -51,7 +39,7 @@ const DoctorDashboard = ({ socket, user }) => {
       status: 'missed'
     }
   ]);
-  
+
   const [stats, setStats] = useState({
     totalCalls: 47,
     todayCalls: 8,
@@ -60,28 +48,32 @@ const DoctorDashboard = ({ socket, user }) => {
 
   const [cameraActive, setCameraActive] = useState(false);
 
+  // Setup socket listeners
   useEffect(() => {
-    if (socket) {
-      socket.on('incoming-call', (data) => {
-        setIncomingCalls(prev => [...prev, data]);
-      });
+    if (!socket) return;
 
-      socket.on('call-accepted', (data) => {
-        setIncomingCalls(prev => prev.filter(call => call.callId !== data.callId));
-      });
+    const onIncomingCall = (data) => {
+      setIncomingCalls(prev => [...prev, data]);
+    };
+    const onCallAccepted = (data) => {
+      setIncomingCalls(prev => prev.filter(call => call.callId !== data.callId));
+    };
+    const onCallRejected = (data) => {
+      setIncomingCalls(prev => prev.filter(call => call.callId !== data.callId));
+    };
 
-      socket.on('call-rejected', (data) => {
-        setIncomingCalls(prev => prev.filter(call => call.callId !== data.callId));
-      });
+    socket.on('incoming-call', onIncomingCall);
+    socket.on('call-accepted', onCallAccepted);
+    socket.on('call-rejected', onCallRejected);
 
-      return () => {
-        socket.off('incoming-call');
-        socket.off('call-accepted');
-        socket.off('call-rejected');
-      };
-    }
+    return () => {
+      socket.off('incoming-call', onIncomingCall);
+      socket.off('call-accepted', onCallAccepted);
+      socket.off('call-rejected', onCallRejected);
+    };
   }, [socket]);
 
+  // Start camera preview
   const startCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -95,16 +87,17 @@ const DoctorDashboard = ({ socket, user }) => {
     }
   };
 
+  // Stop camera preview
   const stopCamera = () => {
     const videoElement = document.getElementById('doctor-camera-preview');
     if (videoElement && videoElement.srcObject) {
-      const tracks = videoElement.srcObject.getTracks();
-      tracks.forEach(track => track.stop());
+      videoElement.srcObject.getTracks().forEach(track => track.stop());
       videoElement.srcObject = null;
       setCameraActive(false);
     }
   };
 
+  // Accept incoming call
   const acceptCall = (callId) => {
     if (socket) {
       socket.emit('accept-call', { callId });
@@ -113,6 +106,7 @@ const DoctorDashboard = ({ socket, user }) => {
     startCamera();
   };
 
+  // Reject incoming call
   const rejectCall = (callId) => {
     if (socket) {
       socket.emit('reject-call', { callId });
@@ -120,6 +114,7 @@ const DoctorDashboard = ({ socket, user }) => {
     setIncomingCalls(prev => prev.filter(call => call.callId !== callId));
   };
 
+  // Format duration in seconds to "Xm Ys"
   const formatDuration = (seconds) => {
     if (!seconds) return 'N/A';
     const mins = Math.floor(seconds / 60);
@@ -127,10 +122,12 @@ const DoctorDashboard = ({ socket, user }) => {
     return `${mins}m ${secs}s`;
   };
 
-  const formatTime = (dateString) => {
-    return new Date(dateString).toLocaleString();
+  // Format date string to locale string
+  const formatTime = (date) => {
+    return new Date(date).toLocaleString();
   };
 
+  // Map call status to colors
   const getStatusColor = (status) => {
     switch (status) {
       case 'completed': return 'text-green-600 bg-green-100';
@@ -221,216 +218,118 @@ const DoctorDashboard = ({ socket, user }) => {
               </div>
             </div>
             <div className="mt-4 flex items-center">
-              <BarChart3 className="h-4 w-4 text-purple-500 mr-1" />
-              <span className="text-sm text-purple-600 font-medium">Optimal range</span>
+              <TrendingUp className="h-4 w-4 text-purple-500 mr-1" />
+              <span className="text-sm text-purple-600 font-medium">Improved by 5%</span>
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Camera Preview Section */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                  <Video className="h-5 w-5 mr-2 text-blue-600" />
-                  Camera Preview
-                </h3>
-                <div className="flex space-x-2">
-                  <button
-                    onClick={startCamera}
-                    disabled={cameraActive}
-                    className="px-3 py-1 bg-green-100 text-green-700 rounded-lg text-sm font-medium hover:bg-green-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    Start
-                  </button>
-                  <button
-                    onClick={stopCamera}
-                    disabled={!cameraActive}
-                    className="px-3 py-1 bg-red-100 text-red-700 rounded-lg text-sm font-medium hover:bg-red-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    Stop
-                  </button>
+        {/* Incoming Calls */}
+        {incomingCalls.length > 0 && (
+          <section className="mb-8">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Incoming Calls</h2>
+            <div className="space-y-4">
+              {incomingCalls.map((call) => (
+                <div
+                  key={call.callId}
+                  className={`flex items-center justify-between p-4 rounded-xl border border-gray-200 hover:shadow-lg transition-shadow ${
+                    call.priority === 'urgent' ? 'bg-red-50 border-red-400' : 'bg-white'
+                  }`}
+                >
+                  <div>
+                    <p className="text-lg font-semibold text-gray-800">{call.callerName}</p>
+                    <p className="text-sm text-gray-600">{formatTime(call.timestamp)}</p>
+                  </div>
+                  <div className="flex space-x-3">
+                    <button
+                      onClick={() => acceptCall(call.callId)}
+                      className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center space-x-1"
+                      title="Accept Call"
+                    >
+                      <PhoneCall className="h-5 w-5" />
+                      <span>Accept</span>
+                    </button>
+                    <button
+                      onClick={() => rejectCall(call.callId)}
+                      className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg flex items-center space-x-1"
+                      title="Reject Call"
+                    >
+                      <PhoneOff className="h-5 w-5" />
+                      <span>Reject</span>
+                    </button>
+                  </div>
                 </div>
-              </div>
-              <div className="relative">
-                <video
-                  id="doctor-camera-preview"
-                  autoPlay
-                  muted
-                  className="w-full h-48 bg-gray-900 rounded-xl object-cover"
-                />
-                {!cameraActive && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-gray-900 rounded-xl">
-                    <div className="text-center">
-                      <Video className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-                      <p className="text-gray-400 text-sm">Camera not active</p>
-                    </div>
-                  </div>
-                )}
-                {cameraActive && (
-                  <div className="absolute top-3 right-3">
-                    <div className="flex items-center space-x-1 bg-red-500 text-white px-2 py-1 rounded-full text-xs">
-                      <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                      <span>LIVE</span>
-                    </div>
-                  </div>
-                )}
-              </div>
+              ))}
             </div>
+          </section>
+        )}
 
-            {/* Incoming Calls */}
-            {incomingCalls.length > 0 && (
-              <div className="mt-6 bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                  <PhoneCall className="h-5 w-5 mr-2 text-orange-600" />
-                  Incoming Calls
-                  <span className="ml-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full">
-                    {incomingCalls.length}
-                  </span>
-                </h3>
-                <div className="space-y-4">
-                  {incomingCalls.map((call) => (
-                    <div key={call.callId} className="border border-orange-200 rounded-xl p-4 bg-orange-50 animate-pulse">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <div className="p-2 bg-orange-100 rounded-full">
-                            <User className="h-5 w-5 text-orange-600" />
-                          </div>
-                          <div>
-                            <h4 className="font-semibold text-gray-900">{call.callerName}</h4>
-                            <p className="text-sm text-gray-600">Employee consultation request</p>
-                            {call.priority === 'urgent' && (
-                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 mt-1">
-                                Urgent
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex space-x-3 mt-4">
-                        <button
-                          onClick={() => acceptCall(call.callId)}
-                          className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-xl font-medium transition-colors flex items-center justify-center space-x-2"
-                        >
-                          <CheckCircle className="h-4 w-4" />
-                          <span>Accept</span>
-                        </button>
-                        <button
-                          onClick={() => rejectCall(call.callId)}
-                          className="flex-1 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl font-medium transition-colors flex items-center justify-center space-x-2"
-                        >
-                          <XCircle className="h-4 w-4" />
-                          <span>Reject</span>
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Call History */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
-                <Clock className="h-5 w-5 mr-2 text-gray-600" />
-                Recent Call History
-              </h3>
-              
-              {callHistory.length === 0 ? (
-                <div className="text-center py-12">
-                  <PhoneOff className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-500">No call history available</p>
-                </div>
+        {/* Camera Preview */}
+        <section className="mb-8">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">Camera Preview</h2>
+          <div className="border rounded-lg p-4 bg-white shadow-sm">
+            <video
+              id="doctor-camera-preview"
+              className="w-full h-64 rounded-lg bg-black"
+              autoPlay
+              playsInline
+              muted
+            />
+            <div className="mt-4 flex space-x-4">
+              {!cameraActive ? (
+                <button
+                  onClick={startCamera}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center space-x-2"
+                >
+                  <Video className="h-5 w-5" />
+                  <span>Start Camera</span>
+                </button>
               ) : (
-                <div className="overflow-hidden">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-gray-200">
-                        <th className="text-left py-3 px-4 font-semibold text-gray-700">Employee</th>
-                        <th className="text-left py-3 px-4 font-semibold text-gray-700">Date & Time</th>
-                        <th className="text-left py-3 px-4 font-semibold text-gray-700">Duration</th>
-                        <th className="text-left py-3 px-4 font-semibold text-gray-700">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {callHistory.map((call, index) => (
-                        <tr key={call._id} className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                          <td className="py-4 px-4">
-                            <div className="flex items-center space-x-3">
-                              <div className="p-2 bg-blue-100 rounded-full">
-                                <User className="h-4 w-4 text-blue-600" />
-                              </div>
-                              <span className="font-medium text-gray-900">
-                                {call.caller?.username || call.caller?.name || call.caller?.email}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="py-4 px-4 text-gray-600">
-                            {formatTime(call.startTime)}
-                          </td>
-                          <td className="py-4 px-4 text-gray-600">
-                            {formatDuration(call.duration)}
-                          </td>
-                          <td className="py-4 px-4">
-                            <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(call.status)}`}>
-                              {call.status.charAt(0).toUpperCase() + call.status.slice(1)}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <button
+                  onClick={stopCamera}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg flex items-center space-x-2"
+                >
+                  <Video className="h-5 w-5" />
+                  <span>Stop Camera</span>
+                </button>
               )}
             </div>
-
-            {/* Instructions */}
-            <div className="mt-6 bg-gradient-to-r from-blue-50 to-green-50 rounded-2xl p-6 border border-blue-100">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Instructions</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex items-start space-x-3">
-                  <div className="p-1 bg-blue-100 rounded-full mt-1">
-                    <CheckCircle className="h-4 w-4 text-blue-600" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-900">Stay Online</p>
-                    <p className="text-sm text-gray-600">Remain available to receive employee consultation requests</p>
-                  </div>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <div className="p-1 bg-green-100 rounded-full mt-1">
-                    <Video className="h-4 w-4 text-green-600" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-900">Video Calls</p>
-                    <p className="text-sm text-gray-600">Provide medical consultation through video calls</p>
-                  </div>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <div className="p-1 bg-purple-100 rounded-full mt-1">
-                    <BarChart3 className="h-4 w-4 text-purple-600" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-900">Track Progress</p>
-                    <p className="text-sm text-gray-600">Monitor your call statistics and history automatically</p>
-                  </div>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <div className="p-1 bg-orange-100 rounded-full mt-1">
-                    <Bell className="h-4 w-4 text-orange-600" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-900">Notifications</p>
-                    <p className="text-sm text-gray-600">Receive instant alerts for incoming calls</p>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
-        </div>
+        </section>
+
+        {/* Call History */}
+        <section>
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">Call History</h2>
+          <div className="overflow-x-auto bg-white rounded-xl shadow-sm border border-gray-100">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Caller</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Duration</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {callHistory.map((call) => (
+                  <tr key={call._id} className="hover:bg-gray-50 cursor-pointer">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{call.caller.username}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{formatTime(call.startTime)}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{formatDuration(call.duration)}</td>
+                    <td className={`px-6 py-4 whitespace-nowrap text-sm font-semibold rounded-full w-max ${getStatusColor(call.status)}`}>
+                      {call.status.charAt(0).toUpperCase() + call.status.slice(1)}
+                    </td>
+                  </tr>
+                ))}
+                {callHistory.length === 0 && (
+                  <tr>
+                    <td colSpan="4" className="text-center p-4 text-gray-500">No call history available.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
       </div>
     </div>
   );
