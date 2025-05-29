@@ -37,7 +37,7 @@ function Progessbar({ choices }: ProgessbarProps) {
 
   const fetchPolls = async () => {
     try {
-      const response = await fetch(`/api/polls`);
+      const response = await fetch(`https://e-health-backend-production.up.railway.app/api/polls`);
       const data = await response.json();
       if (data.polls && data.polls.length > 0) {
         const poll = data.polls[0]; // example: take the first poll
