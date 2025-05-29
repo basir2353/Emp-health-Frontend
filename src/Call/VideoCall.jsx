@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Button, Avatar, Typography } from 'antd';
+import { Button, Typography } from 'antd';
 import {
   AudioMutedOutlined,
   AudioOutlined,
@@ -10,7 +10,7 @@ import {
 
 const { Title, Text } = Typography;
 
-const VideoCall = ({ socket, currentCall, user, onEndCall }) => {
+function VideoCall({ socket, currentCall, user, onEndCall }) {
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const peerConnectionRef = useRef(null);
@@ -23,121 +23,140 @@ const VideoCall = ({ socket, currentCall, user, onEndCall }) => {
   const [remoteStreamReceived, setRemoteStreamReceived] = useState(false);
 
   useEffect(() => {
-    initializeCall();
-    const timer = setInterval(() => setCallDuration((prev) => prev + 1), 1000);
+    let callTimer;
+
+    const initCall = async () => {
+      try {
+        // 1. Get user media
+        const localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        localStreamRef.current = localStream;
+        if (localVideoRef.current) localVideoRef.current.srcObject = localStream;
+
+        // 2. Create RTCPeerConnection
+        const peerConnection = new RTCPeerConnection({
+          iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+        });
+        peerConnectionRef.current = peerConnection;
+
+        // Add local tracks to peer connection
+        localStream.getTracks().forEach((track) => peerConnection.addTrack(track, localStream));
+
+        // When remote track arrives
+        peerConnection.ontrack = (event) => {
+          if (remoteVideoRef.current) {
+            remoteVideoRef.current.srcObject = event.streams[0];
+            setRemoteStreamReceived(true);
+            setConnectionStatus('Connected');
+          }
+        };
+
+        // Listen for ICE candidates and send to remote peer via socket
+        peerConnection.onicecandidate = (event) => {
+          if (event.candidate) {
+            socket.emit('ice-candidate', {
+              candidate: event.candidate,
+              callId: currentCall.callId,
+              target:
+                user.role === 'employee'
+                  ? currentCall.calleeSocketId || currentCall.callee?.socketId
+                  : currentCall.callerSocketId || currentCall.caller?.socketId,
+            });
+          }
+        };
+
+        // Connection state changes
+        peerConnection.onconnectionstatechange = () => {
+          const state = peerConnection.connectionState;
+          setConnectionStatus(state.charAt(0).toUpperCase() + state.slice(1));
+          if (state === 'disconnected' || state === 'failed' || state === 'closed') {
+            // End call if connection lost
+            onEndCall();
+          }
+        };
+
+        // 3. Signaling logic: Offer/Answer depending on role
+
+        if (user.role === 'employee') {
+          // Employee starts the call by creating offer
+          const offer = await peerConnection.createOffer();
+          await peerConnection.setLocalDescription(offer);
+          socket.emit('offer', {
+            callId: currentCall.callId,
+            offer,
+            target: currentCall.calleeSocketId || currentCall.callee?.socketId,
+          });
+        }
+
+        // 4. Start call timer on connection
+        callTimer = setInterval(() => setCallDuration((prev) => prev + 1), 1000);
+      } catch (err) {
+        setConnectionStatus(`Error: ${err.message}`);
+      }
+    };
+
+    initCall();
+
+    // Socket listeners for signaling:
+
+    // When receiving offer (doctor side)
+    socket.on('offer', async ({ offer, callId, caller }) => {
+      if (callId !== currentCall.callId) return;
+
+      if (user.role === 'doctor') {
+        const pc = peerConnectionRef.current;
+        await pc.setRemoteDescription(new RTCSessionDescription(offer));
+
+        // Create answer
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+
+        socket.emit('answer', {
+          callId,
+          answer,
+          target: caller,
+        });
+      }
+    });
+
+    // When receiving answer (employee side)
+    socket.on('answer', async ({ answer, callId }) => {
+      if (callId !== currentCall.callId) return;
+
+      if (user.role === 'employee') {
+        const pc = peerConnectionRef.current;
+        await pc.setRemoteDescription(new RTCSessionDescription(answer));
+      }
+    });
+
+    // When receiving ICE candidate from remote
+    socket.on('ice-candidate', async ({ candidate, callId }) => {
+      if (callId !== currentCall.callId) return;
+
+      try {
+        const pc = peerConnectionRef.current;
+        await pc.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch (err) {
+        console.error('Error adding received ICE candidate', err);
+      }
+    });
+
     return () => {
-      clearInterval(timer);
-      cleanup();
+      clearInterval(callTimer);
+      socket.off('offer');
+      socket.off('answer');
+      socket.off('ice-candidate');
+
+      // Cleanup peer connection and media
+      localStreamRef.current?.getTracks().forEach((track) => track.stop());
+      peerConnectionRef.current?.close();
+      if (localVideoRef.current) localVideoRef.current.srcObject = null;
+      if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+      setConnectionStatus('Disconnected');
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    if (!socket) return;
-    socket.on('offer', handleIncomingOffer);
-    socket.on('answer', handleIncomingAnswer);
-    socket.on('ice-candidate', handleIncomingIceCandidate);
-    return () => {
-      socket.off('offer', handleIncomingOffer);
-      socket.off('answer', handleIncomingAnswer);
-      socket.off('ice-candidate', handleIncomingIceCandidate);
-    };
-  }, [socket]);
-
-  const initializeCall = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true,
-      });
-      localStreamRef.current = stream;
-      if (localVideoRef.current) localVideoRef.current.srcObject = stream;
-
-      const peerConnection = new RTCPeerConnection({
-        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
-      });
-      peerConnectionRef.current = peerConnection;
-
-      stream.getTracks().forEach((track) =>
-        peerConnection.addTrack(track, stream)
-      );
-
-      peerConnection.ontrack = (event) => {
-        if (remoteVideoRef.current) {
-          remoteVideoRef.current.srcObject = event.streams[0];
-          setRemoteStreamReceived(true);
-          setConnectionStatus('Connected');
-        }
-      };
-
-      peerConnection.onicecandidate = (event) => {
-        if (event.candidate) {
-          const targetSocketId =
-            user.role === 'employee'
-              ? currentCall.calleeSocketId || currentCall.callee?.socketId
-              : currentCall.callerSocketId || currentCall.caller?.socketId;
-
-          socket.emit('ice-candidate', {
-            candidate: event.candidate,
-            target: targetSocketId,
-            callId: currentCall.callId,
-          });
-        }
-      };
-
-      if (user.role === 'employee') await createAndSendOffer();
-    } catch (error) {
-      setConnectionStatus(`Error: ${error.message}`);
-    }
-  };
-
-  const createAndSendOffer = async () => {
-    const pc = peerConnectionRef.current;
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-    socket.emit('offer', {
-      offer,
-      target: currentCall.calleeSocketId || currentCall.callee?.socketId,
-      callId: currentCall.callId,
-      caller: socket.id,
-    });
-  };
-
-  const handleIncomingOffer = async ({ offer, caller }) => {
-    const pc = peerConnectionRef.current;
-    await pc.setRemoteDescription(new RTCSessionDescription(offer));
-
-    if (!localStreamRef.current) {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true,
-      });
-      localStreamRef.current = stream;
-      if (localVideoRef.current) localVideoRef.current.srcObject = stream;
-      stream.getTracks().forEach((track) => pc.addTrack(track, stream));
-    }
-
-    const answer = await pc.createAnswer();
-    await pc.setLocalDescription(answer);
-    socket.emit('answer', {
-      answer,
-      target: caller,
-      callId: currentCall.callId,
-    });
-  };
-
-  const handleIncomingAnswer = async ({ answer }) => {
-    const pc = peerConnectionRef.current;
-    await pc.setRemoteDescription(new RTCSessionDescription(answer));
-  };
-
-  const handleIncomingIceCandidate = async ({ candidate }) => {
-    const pc = peerConnectionRef.current;
-    if (pc.remoteDescription) {
-      await pc.addIceCandidate(new RTCIceCandidate(candidate));
-    }
-  };
-
+  // Toggle mic
   const toggleAudio = () => {
     const audioTrack = localStreamRef.current?.getAudioTracks()[0];
     if (audioTrack) {
@@ -146,6 +165,7 @@ const VideoCall = ({ socket, currentCall, user, onEndCall }) => {
     }
   };
 
+  // Toggle camera
   const toggleVideo = () => {
     const videoTrack = localStreamRef.current?.getVideoTracks()[0];
     if (videoTrack) {
@@ -154,26 +174,19 @@ const VideoCall = ({ socket, currentCall, user, onEndCall }) => {
     }
   };
 
-  const cleanup = () => {
-    localStreamRef.current?.getTracks().forEach((track) => track.stop());
-    peerConnectionRef.current?.close();
-    if (localVideoRef.current) localVideoRef.current.srcObject = null;
-    if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
-  };
-
+  // End call handler
   const handleEndCall = () => {
-    cleanup();
     onEndCall();
   };
 
+  // Format timer (mm:ss)
   const formatDuration = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs
-      .toString()
-      .padStart(2, '0')}`;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // Get other participant's name for display
   const getParticipantName = () => {
     return user.role === 'employee'
       ? currentCall.calleeName || currentCall.callee?.name || 'Doctor'
@@ -182,89 +195,84 @@ const VideoCall = ({ socket, currentCall, user, onEndCall }) => {
 
   return (
     <div className="w-full h-screen bg-black flex flex-col text-white">
-      <div className="p-4 border-b border-gray-800 bg-[#141414]">
+      <div className="p-4 border-b border-gray-800 bg-[#141414] flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <Title level={4} className="!text-white m-0">
           Video Call with {getParticipantName()}
         </Title>
-        <div className="text-sm text-white flex gap-4 mt-1">
-          <Text className="text-white">Status: {connectionStatus}</Text>
-          <Text className="text-white">Duration: {formatDuration(callDuration)}</Text>
+        <div className="flex gap-4 text-sm text-white mt-2 sm:mt-0">
+          <Text>Status: {connectionStatus}</Text>
+          <Text>Duration: {formatDuration(callDuration)}</Text>
         </div>
       </div>
 
-      <div className="flex-1 relative bg-black">
+      <div className="flex-1 relative bg-black flex flex-col sm:flex-row gap-4 p-4">
         <video
           ref={remoteVideoRef}
           autoPlay
           playsInline
-          className="w-full h-full object-cover"
+          className="flex-grow rounded-lg border border-white object-cover min-h-[300px]"
           style={{ display: remoteStreamReceived ? 'block' : 'none' }}
         />
         {!remoteStreamReceived && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-800">
-            <Avatar size={96} style={{ backgroundColor: '#666' }}>
-              {getParticipantName().charAt(0).toUpperCase()}
-            </Avatar>
+          <div className="flex-grow flex flex-col items-center justify-center bg-gray-900 rounded-lg p-6 text-center">
+            <div className="w-24 h-24 rounded-full bg-gray-600 flex items-center justify-center text-4xl font-bold uppercase">
+              {getParticipantName().charAt(0)}
+            </div>
             <Title level={4} className="text-white mt-4">
               {getParticipantName()}
             </Title>
             <Text className="text-white">{connectionStatus}</Text>
           </div>
         )}
+
         <video
           ref={localVideoRef}
           autoPlay
           playsInline
           muted
-          className="absolute bottom-5 right-5 w-48 h-36 rounded-lg border border-white object-cover"
+          className="absolute bottom-8 right-8 w-48 h-36 rounded-lg border border-white object-cover sm:static sm:w-48 sm:h-36"
         />
       </div>
 
-      <div className="p-4 border-t border-gray-800 bg-[#141414] flex justify-center gap-4">
+      <div className="p-4 border-t border-gray-800 bg-[#141414] flex justify-center gap-6">
         <Button
           shape="circle"
-          className="bg-[#141414]"
           onClick={toggleAudio}
           aria-label="Toggle Audio"
+          className="bg-white"
         >
-          <div className="rounded-full bg-white p-1 flex items-center justify-center">
-            {isAudioMuted ? (
-              <AudioMutedOutlined style={{ color: '#141414', fontSize: '18px' }} />
-            ) : (
-              <AudioOutlined style={{ color: '#141414', fontSize: '18px' }} />
-            )}
-          </div>
+          {isAudioMuted ? (
+            <AudioMutedOutlined style={{ color: '#141414', fontSize: 20 }} />
+          ) : (
+            <AudioOutlined style={{ color: '#141414', fontSize: 20 }} />
+          )}
         </Button>
 
         <Button
           shape="circle"
-          className="bg-[#141414]"
           onClick={toggleVideo}
           aria-label="Toggle Video"
+          className="bg-white"
         >
-          <div className="rounded-full bg-white p-1 flex items-center justify-center">
-            {isVideoOff ? (
-              <VideoCameraAddOutlined style={{ color: '#141414', fontSize: '18px' }} />
-            ) : (
-              <VideoCameraOutlined style={{ color: '#141414', fontSize: '18px' }} />
-            )}
-          </div>
+          {isVideoOff ? (
+            <VideoCameraAddOutlined style={{ color: '#141414', fontSize: 20 }} />
+          ) : (
+            <VideoCameraOutlined style={{ color: '#141414', fontSize: 20 }} />
+          )}
         </Button>
 
         <Button
           shape="circle"
           danger
-          className="bg-[#141414]"
           onClick={handleEndCall}
           aria-label="End Call"
+          className="bg-white"
         >
-          <div className="rounded-full bg-white p-1 flex items-center justify-center">
-            <PhoneOutlined style={{ color: '#141414', fontSize: '18px' }} />
-          </div>
+          <PhoneOutlined style={{ color: '#141414', fontSize: 20 }} />
         </Button>
       </div>
     </div>
   );
-};
+}
 
 export default VideoCall;

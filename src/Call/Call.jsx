@@ -1,10 +1,10 @@
+// Call.js
 import React, { useState, useEffect, useRef } from 'react';
 import io from 'socket.io-client';
-import { Layout, Button, Modal, Typography, Card } from 'antd';
+import { Layout, Button, Modal, Typography } from 'antd';
 import {
   LogoutOutlined,
   PhoneOutlined,
-  PhoneFilled,
   CloseCircleOutlined,
 } from '@ant-design/icons';
 import EmployeeDashboard from './EmployeeDashboard';
@@ -55,11 +55,54 @@ function Call() {
     socket.on('call-ended', () => {
       setIsInCall(false);
       setCurrentCall(null);
+      if (peerConnection) peerConnection.close();
     });
 
     socket.on('call-error', (data) => {
       Modal.error({ title: 'Call Error', content: data.message });
       setCurrentCall(null);
+    });
+
+    socket.on('offer', async (data) => {
+      const pc = new RTCPeerConnection();
+      setPeerConnection(pc);
+
+      const localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      localVideoRef.current.srcObject = localStream;
+      localStream.getTracks().forEach((track) => pc.addTrack(track, localStream));
+
+      pc.ontrack = (event) => {
+        remoteVideoRef.current.srcObject = event.streams[0];
+      };
+
+      pc.onicecandidate = (event) => {
+        if (event.candidate) {
+          socket.emit('ice-candidate', {
+            candidate: event.candidate,
+            to: data.from,
+          });
+        }
+      };
+
+      await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      socket.emit('answer', {
+        answer,
+        to: data.from,
+      });
+    });
+
+    socket.on('answer', async (data) => {
+      if (peerConnection) {
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+      }
+    });
+
+    socket.on('ice-candidate', async (data) => {
+      if (peerConnection) {
+        await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+      }
     });
 
     return () => {
@@ -68,8 +111,11 @@ function Call() {
       socket.off('call-rejected');
       socket.off('call-ended');
       socket.off('call-error');
+      socket.off('offer');
+      socket.off('answer');
+      socket.off('ice-candidate');
     };
-  }, []);
+  }, [peerConnection]);
 
   const handleLogout = () => {
     setUser(null);
@@ -94,14 +140,30 @@ function Call() {
     localVideoRef.current.srcObject = localStream;
 
     const pc = new RTCPeerConnection();
+    setPeerConnection(pc);
+
     localStream.getTracks().forEach((track) => pc.addTrack(track, localStream));
 
     pc.ontrack = (event) => {
       remoteVideoRef.current.srcObject = event.streams[0];
     };
 
-    setPeerConnection(pc);
-    socket.emit('initiate-call', callData);
+    pc.onicecandidate = (event) => {
+      if (event.candidate) {
+        socket.emit('ice-candidate', {
+          candidate: event.candidate,
+          to: doctorId,
+        });
+      }
+    };
+
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+
+    socket.emit('initiate-call', {
+      ...callData,
+      offer,
+    });
 
     setCurrentCall({
       type: 'outgoing',
@@ -127,6 +189,7 @@ function Call() {
     if (currentCall?.callId) {
       socket.emit('end-call', { callId: currentCall.callId });
     }
+    if (peerConnection) peerConnection.close();
     setIsInCall(false);
     setCurrentCall(null);
   };
@@ -162,7 +225,6 @@ function Call() {
       </Header>
 
       <Content className="p-4">
-        {/* Incoming Call Modal */}
         <Modal
           open={currentCall?.type === 'incoming'}
           title="Incoming Call"
@@ -179,7 +241,6 @@ function Call() {
           <p>Call from: {currentCall?.callerName}</p>
         </Modal>
 
-        {/* Outgoing Call Modal */}
         <Modal
           open={currentCall?.type === 'outgoing'}
           title="Calling..."
@@ -193,7 +254,6 @@ function Call() {
           <p>Calling: {currentCall?.calleeName}</p>
         </Modal>
 
-        {/* Dashboard */}
         <div className="mt-6">
           {user.role === 'employee' && (
             <EmployeeDashboard socket={socket} user={user} onStartCall={startCall} />
