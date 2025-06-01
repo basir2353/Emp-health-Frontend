@@ -52,7 +52,6 @@
     "eject": "react-scripts eject"
   },
   "proxy": "https://e-health-backend-production.up.railway.app/",
-
   "eslintConfig": {
     "extends": [
       "react-app",
