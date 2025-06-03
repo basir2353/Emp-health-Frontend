@@ -125,7 +125,6 @@ const CreateAppointments: React.FC = () => {
 
   return (
     <>
-      <Navbar />
       <div className="mt-4 h-5 justify-start items-center pl-3 bg-white ml-10 max-lg:ml-0">
         <Breadcrumb
           className=""
