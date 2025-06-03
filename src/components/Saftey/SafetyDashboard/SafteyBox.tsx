@@ -15,33 +15,34 @@ function SafteyBox() {
 
   useEffect(() => {
     const fetchReports = async () => {
-      setLoading(true);
+      setLoading(true)
       try {
-        const token = localStorage.getItem("token");
-        const user = JSON.parse(localStorage.getItem("user") || "{}");
-        const isAdminOrDoctor = user?.role === "admin" || user?.role === "doctor";
+        const token = localStorage.getItem('token')
+        const user = JSON.parse(localStorage.getItem('user') || '{}')
+        const isAdminOrDoctor = user?.role === 'admin' || user?.role === 'doctor'
+
         const endpoint = isAdminOrDoctor
-          ? "https://e-health-backend-production.up.railway.app/api/reports/all"
-          : "https://e-health-backend-production.up.railway.app/api/reports";
+          ? 'https://e-health-backend-production.up.railway.app/api/reports/all'
+          : 'https://e-health-backend-production.up.railway.app/api/reports'
+
         const response = await axios.get(endpoint, {
           headers: {
-            "x-auth-token": token || "",
+            'x-auth-token': token || '',
           },
-        });
-        if (isAdminOrDoctor) {
-          setApiReports(response.data.reports);
-        } else {
-          setApiReports(response.data.reports);
-        }
+        })
+
+        setApiReports(response.data.reports)
       } catch (error) {
-        console.error("Failed to fetch reports:", error);
-        message.error("Failed to fetch reports");
+        console.error('Failed to fetch reports:', error)
+        message.error('Failed to fetch reports')
       } finally {
-        setLoading(false);
+        setLoading(false)
       }
-    };
-    fetchReports();
-  }, []);
+    }
+
+    fetchReports()
+  }, [])
+
 
   // Count incidents by status
   const activeCount = apiReports.filter(r => r.status === "active").length;
