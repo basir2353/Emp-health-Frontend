@@ -135,7 +135,7 @@ const SafetyBox: React.FC = () => {
           }
 
           const response = await axios.patch(
-            `http://localhost:5000/api/reports/${reportId}/status`,
+            `https://e-health-backend-production.up.railway.app/api/reports/${reportId}/status`,
             { status: newStatus },
             {
               headers: {
