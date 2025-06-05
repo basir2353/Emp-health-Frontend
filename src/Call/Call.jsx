@@ -1,28 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import io from 'socket.io-client';
 import { Button, Input, Card, Typography, message } from 'antd';
-import { BreadCrumb } from '../components/BreadCrumbs';
-// import 'antd/dist/antd.min.css';
+// import BreadCrumb from '../components/BreadCrumbs'; // Uncomment if needed
+// import 'antd/dist/antd.min.css'; // Uncomment if using Ant Design CSS
 
 const { Title, Paragraph } = Typography;
 
 const Call = () => {
-
-   const breadcrumbs = [
-    {
-      title: <a href="/health">Home</a>,
-    },
-    {
-      title: <a href=" /health">Health</a>,
-    },
-    {
-      title: <a href="/health/appointments">Appointment</a>,
-    },
-    {
-      title: "Call/Chat",
-    },
-  ]; 
-
+  const breadcrumbs = [
+    { title: <a href="/health">Home</a> },
+    { title: <a href="/health">Health</a> },
+    { title: <a href="/health/appointments">Appointment</a> },
+    { title: 'Call/Chat' },
+  ];
 
   const [socket, setSocket] = useState(null);
   const [localStream, setLocalStream] = useState(null);
@@ -48,6 +38,12 @@ const Call = () => {
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
       { urls: 'stun:stun2.l.google.com:19302' },
+      // Add TURN server if available
+      // {
+      //   urls: 'turn:your.turn.server:3478',
+      //   username: 'your_username',
+      //   credential: 'your_password',
+      // },
     ],
   };
 
@@ -66,17 +62,20 @@ const Call = () => {
   const addIceCandidateSafely = async (candidate) => {
     if (peerConnection && remoteDescriptionSet) {
       try {
+        console.log('Adding ICE candidate:', candidate);
         await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
       } catch (error) {
         console.error('Error adding ICE candidate:', error);
       }
     } else {
+      console.log('Queuing ICE candidate:', candidate);
       setPendingCandidates(prev => [...prev, candidate]);
     }
   };
 
   const processPendingCandidates = async () => {
     if (peerConnection && remoteDescriptionSet && pendingCandidates.length > 0) {
+      console.log('Processing pending ICE candidates:', pendingCandidates);
       for (const candidate of pendingCandidates) {
         try {
           await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
@@ -91,16 +90,21 @@ const Call = () => {
   const createPeerConnection = () => {
     const pc = new RTCPeerConnection(iceServers);
     pc.ontrack = (event) => {
+      console.log('ontrack event triggered:', event);
       if (event.streams && event.streams[0]) {
+        console.log('Received remote stream:', event.streams[0]);
         setRemoteStream(event.streams[0]);
         if (remoteVideoRef.current) {
           remoteVideoRef.current.srcObject = event.streams[0];
-          remoteVideoRef.current.play().catch(e => console.log('Remote video play error:', e));
+          remoteVideoRef.current.play().catch(e => console.error('Remote video play error:', e));
         }
+      } else {
+        console.warn('No streams in ontrack event');
       }
     };
     pc.onicecandidate = (event) => {
       if (event.candidate) {
+        console.log('Sending ICE candidate:', event.candidate);
         socket.emit('ice-candidate', {
           candidate: event.candidate,
           to: callerData?.from || connectedUsers[0],
@@ -108,16 +112,18 @@ const Call = () => {
       }
     };
     pc.oniceconnectionstatechange = () => {
+      console.log('ICE Connection State:', pc.iceConnectionState);
       setCallStatus(`Connection: ${pc.iceConnectionState}`);
-      if (pc.iceConnectionState === 'failed') {
+      if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected') {
         endCall();
-        message.error('Connection failed');
+        message.error('Connection failed or disconnected');
       }
     };
     pc.onnegotiationneeded = async () => {
       try {
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
+        console.log('Created and set local offer:', offer);
         if (socket && connectedUsers[0]) {
           socket.emit('offer', { offer: pc.localDescription, to: connectedUsers[0] });
         }
@@ -133,18 +139,21 @@ const Call = () => {
 
     socket.on('room-users', (users) => {
       setConnectedUsers(users.filter(user => user !== userId));
+      console.log('Room users:', users);
     });
 
     socket.on('user-connected', (newUserId) => {
       if (newUserId !== userId) {
         setConnectedUsers(prev => [...new Set([...prev, newUserId])]);
         setCallStatus(`User ${newUserId} joined`);
+        console.log('User connected:', newUserId);
       }
     });
 
     socket.on('user-disconnected', (disconnectedUserId) => {
       setConnectedUsers(prev => prev.filter(id => id !== disconnectedUserId));
       setCallStatus(`User ${disconnectedUserId} left`);
+      console.log('User disconnected:', disconnectedUserId);
     });
 
     socket.on('call-made', async ({ signal, from, name }) => {
@@ -158,7 +167,10 @@ const Call = () => {
       const pc = createPeerConnection();
       setPeerConnection(pc);
       if (localStream) {
-        localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+        localStream.getTracks().forEach(track => {
+          console.log('Adding track to peer connection:', track);
+          pc.addTrack(track, localStream);
+        });
       }
     });
 
@@ -167,6 +179,7 @@ const Call = () => {
       setCallStatus('Call connected');
       if (peerConnection) {
         try {
+          console.log('Setting remote description:', signal);
           await peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
           setRemoteDescriptionSet(true);
           await processPendingCandidates();
@@ -191,10 +204,12 @@ const Call = () => {
     socket.on('offer', async ({ offer, from }) => {
       if (peerConnection) {
         try {
+          console.log('Received offer:', offer);
           await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
           setRemoteDescriptionSet(true);
           const answer = await peerConnection.createAnswer();
           await peerConnection.setLocalDescription(answer);
+          console.log('Sending answer:', answer);
           socket.emit('answer', { answer, to: from });
           await processPendingCandidates();
         } catch (error) {
@@ -206,6 +221,7 @@ const Call = () => {
     socket.on('answer', async ({ answer }) => {
       if (peerConnection) {
         try {
+          console.log('Received answer:', answer);
           await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
           setRemoteDescriptionSet(true);
           await processPendingCandidates();
@@ -216,7 +232,10 @@ const Call = () => {
     });
 
     socket.on('ice-candidate', ({ candidate }) => {
-      if (candidate) addIceCandidateSafely(candidate);
+      if (candidate) {
+        console.log('Received ICE candidate:', candidate);
+        addIceCandidateSafely(candidate);
+      }
     });
 
     return () => {
@@ -235,28 +254,35 @@ const Call = () => {
 
   useEffect(() => {
     if (remoteStream && remoteVideoRef.current) {
+      console.log('Setting remote stream to video element:', remoteStream);
       remoteVideoRef.current.srcObject = remoteStream;
       remoteVideoRef.current.play().catch(e => {
-        console.log('Remote video autoplay prevented:', e);
+        console.error('Remote video autoplay error:', e);
         remoteVideoRef.current.muted = true;
-        remoteVideoRef.current.play();
+        remoteVideoRef.current.play().catch(err => console.error('Retry play failed:', err));
       });
     } else if (!remoteStream && remoteVideoRef.current) {
+      console.log('Clearing remote video srcObject');
       remoteVideoRef.current.srcObject = null;
     }
   }, [remoteStream]);
 
   const joinRoom = async () => {
-    if (!roomId || !socket) return;
+    if (!roomId || !socket) {
+      message.error('Room ID or socket not available');
+      return;
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
         audio: { echoCancellation: true, noiseSuppression: true },
       });
+      console.log('Local stream obtained:', stream);
       setLocalStream(stream);
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
         localVideoRef.current.play().catch(e => {
+          console.error('Local video play error:', e);
           localVideoRef.current.muted = true;
           localVideoRef.current.play();
         });
@@ -264,25 +290,34 @@ const Call = () => {
 
       const pc = createPeerConnection();
       setPeerConnection(pc);
-      stream.getTracks().forEach(track => pc.addTrack(track, stream));
+      stream.getTracks().forEach(track => {
+        console.log('Adding track to peer connection:', track);
+        pc.addTrack(track, stream);
+      });
 
       socket.emit('join-room', { roomId, userId });
       setCallStatus('Connected to room');
     } catch (error) {
       console.error('Error joining room:', error);
-      message.error(
-        error.name === 'NotAllowedError'
-          ? 'Camera/microphone permission denied'
-          : 'Failed to access camera/microphone'
-      );
+      if (error.name === 'NotAllowedError') {
+        message.error('Camera or microphone access denied. Please allow permissions.');
+      } else if (error.name === 'NotFoundError') {
+        message.error('No camera or microphone found. Please check your devices.');
+      } else {
+        message.error('Failed to access camera/microphone: ' + error.message);
+      }
     }
   };
 
   const makeCall = async (targetUserId) => {
-    if (!peerConnection || !socket || !targetUserId) return;
+    if (!peerConnection || !socket || !targetUserId) {
+      message.error('Cannot make call: Missing peer connection or target user');
+      return;
+    }
     try {
       const offer = await peerConnection.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
       await peerConnection.setLocalDescription(offer);
+      console.log('Making call with offer:', offer);
       socket.emit('call-user', { userToCall: targetUserId, signalData: offer, from: socket.id, name: userId });
       setCallStatus('Calling...');
     } catch (error) {
@@ -292,8 +327,12 @@ const Call = () => {
   };
 
   const answerCall = async () => {
-    if (!callerData || !peerConnection) return;
+    if (!callerData || !peerConnection) {
+      message.error('Cannot answer call: Missing caller data or peer connection');
+      return;
+    }
     try {
+      console.log('Answering call with signal:', callerData.signal);
       await peerConnection.setRemoteDescription(new RTCSessionDescription(callerData.signal));
       setRemoteDescriptionSet(true);
       const answer = await peerConnection.createAnswer();
@@ -348,7 +387,11 @@ const Call = () => {
       if (audioTrack) {
         audioTrack.enabled = !audioTrack.enabled;
         setIsAudioOn(audioTrack.enabled);
+        console.log('Audio track enabled:', audioTrack.enabled);
         message.info(audioTrack.enabled ? 'Microphone ON' : 'Microphone OFF');
+      } else {
+        console.warn('No audio track found');
+        message.error('No audio track available');
       }
     }
   };
@@ -359,20 +402,23 @@ const Call = () => {
       if (videoTrack) {
         videoTrack.enabled = !videoTrack.enabled;
         setIsVideoOn(videoTrack.enabled);
+        console.log('Video track enabled:', videoTrack.enabled);
         message.info(videoTrack.enabled ? 'Camera ON' : 'Camera OFF');
+      } else {
+        console.warn('No video track found');
+        message.error('No video track available');
       }
     }
   };
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col font-sans">
-            <BreadCrumb items={breadcrumbs} />
-      
-      <header className=" p-4 flex justify-between items-center">
-        <Title level={3} className=""> Video Call</Title>
+      {/* <BreadCrumb items={breadcrumbs} /> */} {/* Uncomment if BreadCrumb is available */}
+      <header className="p-4 flex justify-between items-center">
+        <Title level={3}>Video Call</Title>
         <div className="flex items-center space-x-4">
-          <span className="text-sm"> Use this id to start call{userId}</span>
-          <Button type="primary" danger onClick={endCall} >
+          <span className="text-sm">Use this ID to start call: {userId}</span>
+          <Button type="primary" danger onClick={endCall}>
             Leave Call
           </Button>
         </div>
@@ -399,28 +445,23 @@ const Call = () => {
                 onChange={(e) => setRoomId(e.target.value)}
                 className="w-64"
               />
-              <Button type="primary" onClick={joinRoom} disabled={!roomId.trim()} style={{backgroundColor:'black'}}>
+              <Button type="primary" onClick={joinRoom} disabled={!roomId.trim()} style={{ backgroundColor: 'black' }}>
                 Join
               </Button>
             </div>
             <Paragraph className="text-sm text-gray-500">
               Share the Room ID with others to start a video call!
             </Paragraph>
-              <Paragraph className="text-sm text-gray-500">
-                   <span className="text-sm"> Use this id to start call :: {userId}</span>
-
+            <Paragraph className="text-sm text-gray-500">
+              <span>Use this ID to start call: {userId}</span>
             </Paragraph>
           </Card>
         )}
-
         {localStream && !isCallActive && !isIncomingCall && connectedUsers.length > 0 && (
           <Card className="mb-4 border-green-500 border-2">
             <Title level={4}>Available Users</Title>
             {connectedUsers.map(user => (
-              <div
-                key={user}
-                className="flex justify-between items-center p-2 bg-gray-50 rounded mb-2"
-              >
+              <div key={user} className="flex justify-between items-center p-2 bg-gray-50 rounded mb-2">
                 <span className="font-medium">{user}</span>
                 <Button type="primary" className="bg-green-600" onClick={() => makeCall(user)}>
                   Call
@@ -429,7 +470,6 @@ const Call = () => {
             ))}
           </Card>
         )}
-
         {localStream && !isCallActive && !isIncomingCall && connectedUsers.length === 0 && (
           <Card className="mb-4 border-yellow-400 border-2">
             <Paragraph>
@@ -438,7 +478,6 @@ const Call = () => {
             <Paragraph>Share this Room ID to start a video call!</Paragraph>
           </Card>
         )}
-
         {isIncomingCall && (
           <Card className="mb-4 bg-blue-50 border-blue-500 border-2">
             <Title level={4}>Incoming Call from {callerData?.name}</Title>
@@ -452,13 +491,12 @@ const Call = () => {
             </div>
           </Card>
         )}
-
         {isCallActive && (
           <Card className="mb-4 bg-green-50">
             <Title level={4}>Call Controls</Title>
             <div className="flex space-x-2">
               <Button
-              style={{backgroundColor:'black'}}
+                style={{ backgroundColor: 'black' }}
                 type={isAudioOn ? 'primary' : 'default'}
                 onClick={toggleAudio}
                 icon={<span>{isAudioOn ? '🎤' : '🔇'}</span>}
@@ -466,8 +504,7 @@ const Call = () => {
                 {isAudioOn ? 'Mute' : 'Unmute'}
               </Button>
               <Button
-              style={{backgroundColor:'black'}}
-
+                style={{ backgroundColor: 'black' }}
                 type={isVideoOn ? 'primary' : 'default'}
                 onClick={toggleVideo}
                 icon={<span>{isVideoOn ? '📹' : '📷'}</span>}
@@ -480,14 +517,12 @@ const Call = () => {
             </div>
           </Card>
         )}
-
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="relative">
             <Title level={4} className="text-center">
               Your Video
             </Title>
             <video
-
               ref={localVideoRef}
               autoPlay
               playsInline
@@ -495,12 +530,12 @@ const Call = () => {
               className="w-full h-[500px] bg-black rounded-lg object-cover border-2 border-blue-500"
             />
             <div className="absolute bottom-2 left-2 bg-gray-800 text-white px-2 py-1 rounded text-sm">
-              You  ({isVideoOn ? 'Camera On' : 'Camera Off'})
+              You ({isVideoOn ? 'Camera On' : 'Camera Off'})
             </div>
           </div>
           <div className="relative">
             <Title level={4} className="text-center">
-            Doctor 
+              Doctor
             </Title>
             <video
               ref={remoteVideoRef}

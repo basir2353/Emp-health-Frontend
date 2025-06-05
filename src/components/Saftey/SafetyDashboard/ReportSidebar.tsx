@@ -52,21 +52,18 @@ const apiClient = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-// Dynamically add token to each request
 apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) config.headers['x-auth-token'] = token;
   return config;
 });
 
-// Handle 401 globally
 apiClient.interceptors.response.use(
   (res) => res,
   (error: AxiosErrorWithResponse) => {
     if (error.response?.status === 401) {
       message.error('Session expired. Please login again.');
       localStorage.removeItem('token');
-      // Optional: redirect to login
     }
     return Promise.reject(error);
   }
@@ -81,67 +78,69 @@ const ReportSidebar: React.FC<ReportSidebarProps> = ({ visible, onClose }) => {
   const [switch2, setSwitch2] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const [description, setDescription] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const dispatch = useDispatch();
 
   const handleChange = (e: any) => setValue(e.target.value);
 
   const submitReport = async (report: Report): Promise<{ success: boolean; data?: any; error?: string }> => {
-    if (report.type && report.date && report.time && report.location && report.description) {
-      try {
-        const hideLoading = message.loading('Saving report...', 0);
-        const response: AxiosResponse<ApiResponse<any>> = await apiClient.post('/report', report);
-        hideLoading();
+    try {
+      const hideLoading = message.loading('Saving report...', 0);
+      const response: AxiosResponse<ApiResponse<any>> = await apiClient.post('/report', report);
+      hideLoading();
 
-        if (response.data.success) {
-          message.success("Report generated and saved successfully");
-          return { success: true, data: response.data.data };
-        } else {
-          message.error(response.data.message || "Failed to save report");
-          return { success: false, error: response.data.message };
-        }
-      } catch (error: any) {
-        const err = error as AxiosErrorWithResponse;
-        if (err.code === 'ECONNABORTED') {
-          message.error('⏱️ Request timed out. Server may be slow.');
-        } else if (err.response) {
-          message.error(err.response.data.message || '⚠️ Server error occurred');
-        } else if (err.request) {
-          message.error('📡 Network error. Please check your connection.');
-        } else {
-          message.error('❗ Unexpected error occurred');
-        }
-        return { success: false, error: err.message };
+      if (response.data.success) {
+        message.success("Report generated and saved successfully");
+        return { success: true, data: response.data.data };
+      } else {
+        message.error(response.data.message || "Failed to save report");
+        return { success: false, error: response.data.message };
       }
-    } else {
-      message.error("Please fill all required fields");
-      return { success: false, error: "Missing required fields" };
+    } catch (error: any) {
+      const err = error as AxiosErrorWithResponse;
+      console.error("Report submission error:", err);
+
+      if (err.code === 'ECONNABORTED') {
+        message.error('⏱️ Request timed out. Server may be slow.');
+      } else if (err.response) {
+        message.error(err.response.data.message || '⚠️ Server error occurred');
+      } else if (err.request) {
+        message.error('📡 Network error. Please check your connection.');
+      } else {
+        message.error('❗ Unexpected error occurred');
+      }
+      return { success: false, error: err.message };
     }
   };
 
   const handleSubmit = async () => {
-    if (value && selectedDate && selectedTime && inputValue && description) {
-      const newReport: Report = {
-        type: value,
-        date: selectedDate.format('YYYY-MM-DD'),
-        time: selectedTime.format('HH:mm'),
-        reportToHR: switch1,
-        anonymous: switch2,
-        location: inputValue,
-        description,
-        involvedParties: involvedParties, // always a string[]
-      };
-
-      dispatch(addReport({ ...newReport, involvedParties: involvedParties ?? [] }));
-      const result = await submitReport(newReport);
-
-      if (result.success) {
-        setValue(""); setSelectedDate(null); setSelectedTime(null); setSwitch1(false); setSwitch2(false);
-        setInputValue(""); setDescription(""); setInvolvedParties([]);
-        onClose();
-      }
-    } else {
+    if (!value || !selectedDate || !selectedTime || !inputValue || !description) {
       message.error("Please fill all required fields");
+      return;
+    }
+
+    const newReport: Report = {
+      type: value,
+      date: selectedDate.format('YYYY-MM-DD'),
+      time: selectedTime.format('HH:mm'),
+      reportToHR: switch1,
+      anonymous: switch2,
+      location: inputValue,
+      description,
+      involvedParties: involvedParties,
+    };
+
+    setIsSubmitting(true);
+    dispatch(addReport({ ...newReport, involvedParties: involvedParties ?? [] }));
+
+    const result = await submitReport(newReport);
+    setIsSubmitting(false);
+
+    if (result.success) {
+      setValue(""); setSelectedDate(null); setSelectedTime(null);
+      setSwitch1(false); setSwitch2(false); setInputValue(""); setDescription(""); setInvolvedParties([]);
+      onClose();
     }
   };
 
@@ -153,7 +152,14 @@ const ReportSidebar: React.FC<ReportSidebarProps> = ({ visible, onClose }) => {
           <span>Create Report</span>
           <div>
             <Button onClick={onClose} style={{ marginRight: 8 }}>Cancel</Button>
-            <Button type="primary" style={{ background: "black" }} onClick={handleSubmit}>Submit</Button>
+            <Button
+              type="primary"
+              style={{ background: "black" }}
+              onClick={handleSubmit}
+              loading={isSubmitting}
+            >
+              Submit
+            </Button>
           </div>
         </div>
       }
@@ -163,12 +169,12 @@ const ReportSidebar: React.FC<ReportSidebarProps> = ({ visible, onClose }) => {
     >
       <Radio.Group onChange={handleChange} value={value}>
         <div className="flex space-x-6">
-          <div className="w-[215px] h-[118px] p-[12px] border-2 border-black">
-            <Radio value={"option1"}><span className="text-lg font-bold">Hazard Incident</span></Radio>
+          <div className={`w-[215px] h-[118px] p-[12px] border-2 ${value === "hazard" ? "border-black" : "border-gray-300"}`}>
+            <Radio value="hazard"><span className="text-lg font-bold">Hazard Incident</span></Radio>
             <p className="text-xs mt-4">Any issue with your environment in the office e.g. broken equipment</p>
           </div>
-          <div className="w-[215px] h-[118px] p-[12px] border-2 border-black">
-            <Radio value={"option2"}><span className="text-lg font-bold">Safety Incident</span></Radio>
+          <div className={`w-[215px] h-[118px] p-[12px] border-2 ${value === "safety" ? "border-black" : "border-gray-300"}`}>
+            <Radio value="safety"><span className="text-lg font-bold">Safety Incident</span></Radio>
             <p className="text-xs mt-4">Issues within your personal space e.g. bullying.</p>
           </div>
         </div>
@@ -177,8 +183,16 @@ const ReportSidebar: React.FC<ReportSidebarProps> = ({ visible, onClose }) => {
       <hr className="my-5" />
       <h3 className="mb-2 text-lg">Date & Time</h3>
       <div className="flex">
-        <DatePicker value={selectedDate} onChange={setSelectedDate} className="w-[255px] mr-4" />
-        <TimePicker value={selectedTime} onChange={setSelectedTime} className="w-[255px]" />
+        <DatePicker
+          value={selectedDate}
+          onChange={setSelectedDate}
+          className={`w-[255px] mr-4 ${!selectedDate ? "border-red-500 border" : ""}`}
+        />
+        <TimePicker
+          value={selectedTime}
+          onChange={setSelectedTime}
+          className={`w-[255px] ${!selectedTime ? "border-red-500 border" : ""}`}
+        />
       </div>
 
       <SafteyUpload involvedParties={involvedParties} setInvolvedParties={setInvolvedParties} />
@@ -201,7 +215,12 @@ const ReportSidebar: React.FC<ReportSidebarProps> = ({ visible, onClose }) => {
 
       <div className="mb-4 mt-4">
         <h2 className="text-xl mb-2">Location</h2>
-        <Input value={inputValue} onChange={(e) => setInputValue(e.target.value)} placeholder="Enter Location..." />
+        <Input
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          placeholder="Enter Location..."
+          className={!inputValue ? "border-red-500 border" : ""}
+        />
       </div>
 
       <div className="mb-4 mt-4">
@@ -211,6 +230,7 @@ const ReportSidebar: React.FC<ReportSidebarProps> = ({ visible, onClose }) => {
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Description"
           autoSize={{ minRows: 3, maxRows: 5 }}
+          className={!description ? "border-red-500 border" : ""}
         />
       </div>
     </Drawer>
