@@ -1,19 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import io from 'socket.io-client';
 import { Button, Input, Card, Typography, message } from 'antd';
-// import BreadCrumb from '../components/BreadCrumbs'; // Uncomment if needed
-// import 'antd/dist/antd.min.css'; // Uncomment if using Ant Design CSS
 
 const { Title, Paragraph } = Typography;
 
 const Call = () => {
-  const breadcrumbs = [
-    { title: <a href="/health">Home</a> },
-    { title: <a href="/health">Health</a> },
-    { title: <a href="/health/appointments">Appointment</a> },
-    { title: 'Call/Chat' },
-  ];
-
   const [socket, setSocket] = useState(null);
   const [localStream, setLocalStream] = useState(null);
   const [remoteStream, setRemoteStream] = useState(null);
@@ -29,6 +20,7 @@ const Call = () => {
   const [isVideoOn, setIsVideoOn] = useState(true);
   const [pendingCandidates, setPendingCandidates] = useState([]);
   const [remoteDescriptionSet, setRemoteDescriptionSet] = useState(false);
+  const [mediaError, setMediaError] = useState(null);
 
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
@@ -38,27 +30,39 @@ const Call = () => {
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
       { urls: 'stun:stun2.l.google.com:19302' },
-      // Add TURN server if available
-      // {
-      //   urls: 'turn:your.turn.server:3478',
-      //   username: 'your_username',
-      //   credential: 'your_password',
-      // },
     ],
   };
 
+  // Initialize Socket.IO connection
   useEffect(() => {
-    const newSocket = io('https://e-health-backend-production.up.railway.app/', {
+    const newSocket = io('http://localhost:5000', {
       transports: ['websocket', 'polling'],
       withCredentials: true,
     });
+    console.log('Socket initialized:', newSocket.id);
     setSocket(newSocket);
+
+    newSocket.on('connect', () => {
+      console.log('Socket connected:', newSocket.id);
+      setCallStatus('Socket connected');
+    });
+
+    newSocket.on('connect_error', (error) => {
+      console.error('Socket connection error:', error);
+      message.error('Failed to connect to server. Please try again.');
+      setCallStatus('Socket connection failed');
+    });
+
     return () => {
+      console.log('Cleaning up socket');
       newSocket.close();
-      if (localStream) localStream.getTracks().forEach(track => track.stop());
+      if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+      }
     };
   }, []);
 
+  // Handle ICE candidates safely
   const addIceCandidateSafely = async (candidate) => {
     if (peerConnection && remoteDescriptionSet) {
       try {
@@ -73,6 +77,7 @@ const Call = () => {
     }
   };
 
+  // Process queued ICE candidates
   const processPendingCandidates = async () => {
     if (peerConnection && remoteDescriptionSet && pendingCandidates.length > 0) {
       console.log('Processing pending ICE candidates:', pendingCandidates);
@@ -87,6 +92,7 @@ const Call = () => {
     }
   };
 
+  // Create WebRTC peer connection
   const createPeerConnection = () => {
     const pc = new RTCPeerConnection(iceServers);
     pc.ontrack = (event) => {
@@ -98,8 +104,6 @@ const Call = () => {
           remoteVideoRef.current.srcObject = event.streams[0];
           remoteVideoRef.current.play().catch(e => console.error('Remote video play error:', e));
         }
-      } else {
-        console.warn('No streams in ontrack event');
       }
     };
     pc.onicecandidate = (event) => {
@@ -125,38 +129,43 @@ const Call = () => {
         await pc.setLocalDescription(offer);
         console.log('Created and set local offer:', offer);
         if (socket && connectedUsers[0]) {
-          socket.emit('offer', { offer: pc.localDescription, to: connectedUsers[0] });
+          socket.emit('offer', { offer: pc.localDescription, to: connectedUsers[0], from: socket.id });
         }
       } catch (err) {
         console.error('Error during negotiation:', err);
+        message.error('Failed to negotiate call');
       }
     };
     return pc;
   };
 
+  // Handle socket events
   useEffect(() => {
     if (!socket) return;
 
     socket.on('room-users', (users) => {
-      setConnectedUsers(users.filter(user => user !== userId));
-      console.log('Room users:', users);
+      console.log('Received room-users:', users);
+      setConnectedUsers(users.filter(user => user !== socket.id));
+      console.log('Updated connectedUsers:', users.filter(user => user !== socket.id));
+      setCallStatus(users.length > 1 ? 'Users in room' : 'Waiting for users');
     });
 
     socket.on('user-connected', (newUserId) => {
-      if (newUserId !== userId) {
+      console.log('User connected:', newUserId);
+      if (newUserId !== socket.id) {
         setConnectedUsers(prev => [...new Set([...prev, newUserId])]);
         setCallStatus(`User ${newUserId} joined`);
-        console.log('User connected:', newUserId);
       }
     });
 
     socket.on('user-disconnected', (disconnectedUserId) => {
+      console.log('User disconnected:', disconnectedUserId);
       setConnectedUsers(prev => prev.filter(id => id !== disconnectedUserId));
       setCallStatus(`User ${disconnectedUserId} left`);
-      console.log('User disconnected:', disconnectedUserId);
     });
 
     socket.on('call-made', async ({ signal, from, name }) => {
+      console.log('Received call-made:', { signal, from, name });
       setIsIncomingCall(true);
       setCallerData({ signal, from, name });
       setCallStatus('Incoming call...');
@@ -175,36 +184,39 @@ const Call = () => {
     });
 
     socket.on('call-accepted', async (signal) => {
+      console.log('Call accepted:', signal);
       setIsCallActive(true);
       setCallStatus('Call connected');
       if (peerConnection) {
         try {
-          console.log('Setting remote description:', signal);
           await peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
           setRemoteDescriptionSet(true);
           await processPendingCandidates();
         } catch (error) {
           console.error('Error setting remote description:', error);
+          message.error('Failed to connect call');
         }
       }
     });
 
     socket.on('call-rejected', () => {
+      console.log('Call rejected');
       setCallStatus('Call rejected');
       endCall();
       message.warning('Call was rejected');
     });
 
     socket.on('call-ended', () => {
+      console.log('Call ended');
       setCallStatus('Call ended');
       endCall();
       message.info('Call ended');
     });
 
     socket.on('offer', async ({ offer, from }) => {
+      console.log('Received offer:', { offer, from });
       if (peerConnection) {
         try {
-          console.log('Received offer:', offer);
           await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
           setRemoteDescriptionSet(true);
           const answer = await peerConnection.createAnswer();
@@ -214,19 +226,21 @@ const Call = () => {
           await processPendingCandidates();
         } catch (error) {
           console.error('Error handling offer:', error);
+          message.error('Failed to handle offer');
         }
       }
     });
 
     socket.on('answer', async ({ answer }) => {
+      console.log('Received answer:', answer);
       if (peerConnection) {
         try {
-          console.log('Received answer:', answer);
           await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
           setRemoteDescriptionSet(true);
           await processPendingCandidates();
         } catch (error) {
           console.error('Error handling answer:', error);
+          message.error('Failed to handle answer');
         }
       }
     });
@@ -250,8 +264,9 @@ const Call = () => {
       socket.off('answer');
       socket.off('ice-candidate');
     };
-  }, [socket, peerConnection, remoteDescriptionSet, pendingCandidates, localStream, userId, callerData, connectedUsers]);
+  }, [socket, peerConnection, remoteDescriptionSet, pendingCandidates, localStream]);
 
+  // Update remote video stream
   useEffect(() => {
     if (remoteStream && remoteVideoRef.current) {
       console.log('Setting remote stream to video element:', remoteStream);
@@ -267,6 +282,7 @@ const Call = () => {
     }
   }, [remoteStream]);
 
+  // Join room and initialize media
   const joinRoom = async () => {
     if (!roomId || !socket) {
       message.error('Room ID or socket not available');
@@ -279,10 +295,11 @@ const Call = () => {
       });
       console.log('Local stream obtained:', stream);
       setLocalStream(stream);
+      setMediaError(null);
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
         localVideoRef.current.play().catch(e => {
-          console.error('Local video play error:', e);
+          console.error('Local video autoplay error:', e);
           localVideoRef.current.muted = true;
           localVideoRef.current.play();
         });
@@ -295,20 +312,24 @@ const Call = () => {
         pc.addTrack(track, stream);
       });
 
-      socket.emit('join-room', { roomId, userId });
+      socket.emit('join-room', { roomId: roomId.toLowerCase(), userId: socket.id });
       setCallStatus('Connected to room');
     } catch (error) {
       console.error('Error joining room:', error);
       if (error.name === 'NotAllowedError') {
+        setMediaError('Camera or microphone access denied. Please allow permissions.');
         message.error('Camera or microphone access denied. Please allow permissions.');
       } else if (error.name === 'NotFoundError') {
+        setMediaError('No camera or microphone found. Please check your devices.');
         message.error('No camera or microphone found. Please check your devices.');
       } else {
+        setMediaError('Failed to access camera/microphone: ' + error.message);
         message.error('Failed to access camera/microphone: ' + error.message);
       }
     }
   };
 
+  // Initiate a call
   const makeCall = async (targetUserId) => {
     if (!peerConnection || !socket || !targetUserId) {
       message.error('Cannot make call: Missing peer connection or target user');
@@ -326,6 +347,7 @@ const Call = () => {
     }
   };
 
+  // Answer an incoming call
   const answerCall = async () => {
     if (!callerData || !peerConnection) {
       message.error('Cannot answer call: Missing caller data or peer connection');
@@ -348,6 +370,7 @@ const Call = () => {
     }
   };
 
+  // Reject an incoming call
   const rejectCall = () => {
     if (socket && callerData) {
       socket.emit('reject-call', { to: callerData.from });
@@ -358,9 +381,12 @@ const Call = () => {
     setRemoteDescriptionSet(false);
     setPendingCandidates([]);
     setRemoteStream(null);
+    console.log('Call rejected, states reset');
   };
 
+  // End the call
   const endCall = () => {
+    console.log('Ending call');
     if (socket && callerData) socket.emit('end-call', { to: callerData.from });
     if (peerConnection) {
       peerConnection.close();
@@ -381,6 +407,7 @@ const Call = () => {
     if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
   };
 
+  // Toggle audio
   const toggleAudio = () => {
     if (localStream) {
       const audioTrack = localStream.getAudioTracks()[0];
@@ -396,6 +423,7 @@ const Call = () => {
     }
   };
 
+  // Toggle video
   const toggleVideo = () => {
     if (localStream) {
       const videoTrack = localStream.getVideoTracks()[0];
@@ -413,11 +441,10 @@ const Call = () => {
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col font-sans">
-      {/* <BreadCrumb items={breadcrumbs} /> */} {/* Uncomment if BreadCrumb is available */}
       <header className="p-4 flex justify-between items-center">
         <Title level={3}>Video Call</Title>
         <div className="flex items-center space-x-4">
-          <span className="text-sm">Use this ID to start call: {userId}</span>
+          <span className="text-sm">User ID: {socket?.id || 'Not connected'}</span>
           <Button type="primary" danger onClick={endCall}>
             Leave Call
           </Button>
@@ -435,17 +462,27 @@ const Call = () => {
           )}
         </Card>
 
-        {!localStream && (
+        {mediaError && (
+          <Card className="mb-4 border-red-500 border-2">
+            <Title level={4}>Media Error</Title>
+            <Paragraph className="text-red-500">{mediaError}</Paragraph>
+            <Button type="primary" onClick={joinRoom}>
+              Retry
+            </Button>
+          </Card>
+        )}
+
+        {!localStream && !mediaError && (
           <Card className="mb-4 border-blue-500 border-2">
             <Title level={4}>Join Room</Title>
             <div className="flex space-x-2 mb-2">
               <Input
                 placeholder="Enter Room ID (e.g., room123)"
                 value={roomId}
-                onChange={(e) => setRoomId(e.target.value)}
+                onChange={(e) => setRoomId(e.target.value.toLowerCase())}
                 className="w-64"
               />
-              <Button type="primary" onClick={joinRoom} disabled={!roomId.trim()} style={{ backgroundColor: 'black' }}>
+              <Button type="primary" onClick={joinRoom} disabled={!roomId.trim() || !socket} style={{ backgroundColor: 'black' }}>
                 Join
               </Button>
             </div>
@@ -453,10 +490,11 @@ const Call = () => {
               Share the Room ID with others to start a video call!
             </Paragraph>
             <Paragraph className="text-sm text-gray-500">
-              <span>Use this ID to start call: {userId}</span>
+              <span>Your User ID: {socket?.id || 'Not connected'}</span>
             </Paragraph>
           </Card>
         )}
+
         {localStream && !isCallActive && !isIncomingCall && connectedUsers.length > 0 && (
           <Card className="mb-4 border-green-500 border-2">
             <Title level={4}>Available Users</Title>
@@ -470,6 +508,7 @@ const Call = () => {
             ))}
           </Card>
         )}
+
         {localStream && !isCallActive && !isIncomingCall && connectedUsers.length === 0 && (
           <Card className="mb-4 border-yellow-400 border-2">
             <Paragraph>
@@ -478,9 +517,10 @@ const Call = () => {
             <Paragraph>Share this Room ID to start a video call!</Paragraph>
           </Card>
         )}
+
         {isIncomingCall && (
           <Card className="mb-4 bg-blue-50 border-blue-500 border-2">
-            <Title level={4}>Incoming Call from {callerData?.name}</Title>
+            <Title level={4}>Incoming Call from {callerData?.name || 'Unknown'}</Title>
             <div className="flex space-x-2">
               <Button type="primary" className="bg-green-600" onClick={answerCall}>
                 Accept
@@ -491,6 +531,7 @@ const Call = () => {
             </div>
           </Card>
         )}
+
         {isCallActive && (
           <Card className="mb-4 bg-green-50">
             <Title level={4}>Call Controls</Title>
@@ -517,6 +558,7 @@ const Call = () => {
             </div>
           </Card>
         )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="relative">
             <Title level={4} className="text-center">

@@ -33,7 +33,7 @@ const useAppointments = (userId?: string) => {
       setLoading(true);
       try {
         const params = userId ? { userId } : {};
-        const res = await axios.get("https://e-health-backend-production.up.railway.app/api/appointments", { params });
+        const res = await axios.get("https://empolyee-backedn.onrender.com/api/appointments", { params });
         if (isMounted) {
           setAppointments(res.data.appointments || []);
         }

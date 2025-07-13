@@ -2,7 +2,6 @@ import {
   Button,
   Col,
   Flex,
-  Input,
   Radio,
   Layout,
   Row,
@@ -12,14 +11,12 @@ import {
 } from "antd";
 import { useNavigate } from "react-router-dom";
 import type { RadioChangeEvent } from "antd";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import styled from "styled-components";
 import { setEmployeeContact } from "../../../features/onboardSlice";
 import { saveStepData } from "../../../utils/onboardingStorage";
-import BaseInput from "../../form/base-input";
 import { BaseButton } from "../../form/base-button";
-import { ReactNode } from "react";
 import { FlagOutlined } from "@ant-design/icons";
 
 function StepFour() {
@@ -31,6 +28,8 @@ function StepFour() {
   const [contact, setContact] = useState("");
   const [placement, setPlacement] = useState("");
   const [countryCode, setCountryCode] = useState("");
+
+  const contactInputRef = useRef<HTMLInputElement>(null); // Ref for contact input
 
   const { onboarding_master_data } = useSelector((state: any) => state["onboard"] || {});
 
@@ -47,28 +46,62 @@ function StepFour() {
     text-align: center;
     flex: 0 0 0 0;
     max-width: 50%;
+    position: relative;
+    z-index: 10;
     @media (max-width: 768px) {
       flex: 0 0 100%;
       max-width: 100%;
     }
   `;
 
-  const handlePlacementChange = (e: RadioChangeEvent) => {
+  const StyledInput = styled.input`
+    width: 100%;
+    height: 40px;
+    padding: 8px 12px;
+    border: 1px solid #d9d9d9;
+    border-radius: 6px;
+    font-size: 16px;
+    outline: none;
+    transition: border-color 0.3s;
+    &:focus {
+      border-color: #1890ff;
+      box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+    }
+    &:hover {
+      border-color: #40a9ff;
+    }
+    &::placeholder {
+      color: #bfbfbf;
+    }
+  `;
+
+  const handlePlacementChange = useCallback((e: RadioChangeEvent) => {
     setPlacement(e.target.value);
-  };
+  }, []);
 
-  // Updated input handlers
-  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setName(e.target.value);
-  };
+  }, []);
 
-  const handleContactChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Only allow numbers
-    const value = e.target.value.replace(/\D/g, '');
-    setContact(value);
-  };
+  const handleContactChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (/^\d*$/.test(value)) {
+      setContact(value);
+    }
+  }, []);
 
-  const validateInputs = (): boolean => {
+  const handleContactClick = useCallback((e: React.MouseEvent<HTMLInputElement>) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (contactInputRef.current) {
+      contactInputRef.current.focus();
+      // Slight delay for mobile to ensure keyboard appears
+      setTimeout(() => contactInputRef.current?.focus(), 100);
+    }
+    console.log("Contact input clicked");
+  }, []);
+
+  const validateInputs = useCallback((): boolean => {
     if (!name.trim()) {
       message.error("Please enter the emergency contact name.");
       return false;
@@ -90,9 +123,9 @@ function StepFour() {
     }
 
     return true;
-  };
+  }, [name, placement, countryCode, contact]);
 
-  const handleClick = () => {
+  const handleClick = useCallback(() => {
     if (!validateInputs()) return;
 
     const payload = {
@@ -104,9 +137,9 @@ function StepFour() {
     dispatch(setEmployeeContact(payload));
     saveStepData(2, payload);
     navigate("/step-5");
-  };
+  }, [dispatch, navigate, name, placement, countryCode, contact]);
 
-  const countryFlagMap: Record<string, ReactNode> = {
+  const countryFlagMap: Record<string, React.ReactNode> = {
     "+92": "🇵🇰",
     "+91": "🇮🇳",
     "+1": "🇺🇸",
@@ -161,12 +194,11 @@ function StepFour() {
               Please provide the details of someone we can contact in case of an emergency.
             </Text>
 
-            <Input
+            <StyledInput
               value={name}
-              size="large"
+              onChange={handleNameChange}
               placeholder="Emergency Contact Name..."
               style={{ margin: "20px 0px 5px 0px" }}
-              onChange={handleNameChange}
             />
 
             <div style={{ textAlign: "left", marginTop: "5px" }}>
@@ -192,16 +224,20 @@ function StepFour() {
                 placeholder="Code"
                 options={countryOptions}
                 onChange={setCountryCode}
-                style={{ width: "30%" }}
+                style={{ width: "30%", zIndex: 10 }}
                 value={countryCode || undefined}
               />
-
-              <Input
+              <StyledInput
+                ref={contactInputRef}
                 value={contact}
-                size="large"
-                placeholder="Enter Emergency Contact"
                 onChange={handleContactChange}
-                style={{ width: "70%" }}
+                onClick={handleContactClick}
+                onFocus={() => console.log("Contact input focused")}
+                onBlur={() => console.log("Contact input blurred")}
+                type="tel"
+                inputMode="numeric"
+                placeholder="Enter Emergency Contact"
+                style={{ width: "70%", zIndex: 10 }}
               />
             </Flex>
 

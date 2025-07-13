@@ -100,8 +100,8 @@ const SafetyBox: React.FC = () => {
       }
 
       const endpoint = canModify
-        ? "https://e-health-backend-production.up.railway.app/api/reports/all"
-        : "https://e-health-backend-production.up.railway.app/api/reports";
+        ? "https://empolyee-backedn.onrender.com/api/reports/all"
+        : "https://empolyee-backedn.onrender.com/api/reports";
 
       const response = await axios.get(endpoint, {
         headers: { "x-auth-token": token },
@@ -135,7 +135,7 @@ const SafetyBox: React.FC = () => {
           }
 
           const response = await axios.patch(
-            `https://e-health-backend-production.up.railway.app/api/reports/${reportId}/status`,
+            `https://empolyee-backedn.onrender.com/api/reports/${reportId}/status`,
             { status: newStatus },
             {
               headers: {
@@ -179,7 +179,7 @@ const SafetyBox: React.FC = () => {
             return;
           }
 
-          await axios.delete(`https://e-health-backend-production.up.railway.app/api/reports/${reportId}`, {
+          await axios.delete(`https://empolyee-backedn.onrender.com/api/reports/${reportId}`, {
             headers: { "x-auth-token": token },
           });
 

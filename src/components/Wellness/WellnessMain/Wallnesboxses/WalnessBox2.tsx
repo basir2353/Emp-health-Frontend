@@ -8,7 +8,7 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 
 const { Meta } = Card;
-const BASE_URL = "https://e-health-backend-production.up.railway.app/api";
+const BASE_URL = "https://empolyee-backedn.onrender.com/api";
 
 function WalnessBox2() {
   const [loading, setLoading] = useState(false);

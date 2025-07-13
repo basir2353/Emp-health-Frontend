@@ -438,6 +438,7 @@ function StepFive() {
                     size="large" 
                     className="w-4/5"
                     onClick={continueToNext}
+                    style={{backgroundColor: '#000000', color: '#fff'}}
                   >
                     Continue
                   </Button>
@@ -538,6 +539,7 @@ function StepFive() {
                 type="primary" 
                 htmlType="submit" 
                 loading={authLoading}
+                style={{backgroundColor: '#1890ff', borderColor: '#1890ff', color: '#fff'}}
               >
                 Sign In & Connect
               </Button>

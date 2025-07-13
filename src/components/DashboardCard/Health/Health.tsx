@@ -46,7 +46,7 @@ const Health: React.FC = () => {
       setLoading(true);
       setError(null);
       try {
-        const res = await axios.get("https://e-health-backend-production.up.railway.app/api/appointments");
+        const res = await axios.get("https://empolyee-backedn.onrender.com/api/appointments");
         setAppointments(res.data.appointments || []);
       } catch (err) {
         setError("Failed to fetch appointments");

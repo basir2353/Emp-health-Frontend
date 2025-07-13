@@ -27,14 +27,12 @@ const LoginForm = () => {
       if (response?.token && response?.user) {
         const { user, token } = response;
 
-        // Save user and token
         localStorage.setItem("token", token);
         localStorage.setItem("loggedInUser", JSON.stringify(user));
-     if (response?.user) {
-        localStorage.setItem("user", JSON.stringify(response.user));
+        localStorage.setItem("user", JSON.stringify(user));
         message.success("Login successfully!");
 
-        const role = response.user?.role;
+        const role = user.role;
         switch (role) {
           case "doctor":
             navigate("/health/doctor-schedule-appointments");
@@ -48,26 +46,18 @@ const LoginForm = () => {
           default:
             navigate("/");
         }
-
       } else {
-        navigate("/login");
-      }
-      } else {
-        const errorMsg = "Authentication error. Please try again.";
-        setError(errorMsg);
-        message.error(errorMsg);
+        setError("Authentication failed. Please try again.");
+        message.error("Authentication failed. Please try again.");
         setIsLoading(false);
       }
     } catch (err) {
       console.error("Login error:", err);
       const errorMessage =
-        err.response?.data?.message ||
-        "Unable to login. Please check your credentials.";
+        err.response?.data?.message || "Login failed. Please check credentials.";
       toast.error(errorMessage, {
         position: "top-right",
         autoClose: 2000,
-        hideProgressBar: false,
-        closeOnClick: true,
       });
       setError(errorMessage);
       setIsLoading(false);
@@ -108,7 +98,7 @@ const LoginForm = () => {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="Email"
                   required
-                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                 />
               </div>
 
@@ -120,7 +110,7 @@ const LoginForm = () => {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Password"
                   required
-                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                 />
               </div>
             </div>
@@ -140,14 +130,11 @@ const LoginForm = () => {
               <label className="flex items-center">
                 <input
                   type="checkbox"
-                  className="form-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500 border-gray-300"
+                  className="form-checkbox h-4 w-4 text-blue-600"
                 />
                 <span className="ml-2 text-sm text-gray-600">Remember me</span>
               </label>
-              <a
-                href="#"
-                className="text-sm text-blue-600 hover:text-blue-800 transition-colors duration-200"
-              >
+              <a href="#" className="text-sm text-blue-600 hover:text-blue-800">
                 Forgot password?
               </a>
             </div>
@@ -162,8 +149,7 @@ const LoginForm = () => {
                   isLoading
                     ? "opacity-70 cursor-not-allowed"
                     : "hover:bg-blue-700"
-                }
-                transition-colors duration-200 flex items-center justify-center`}
+                } transition-all flex items-center justify-center`}
             >
               {isLoading ? (
                 <motion.div
@@ -180,7 +166,7 @@ const LoginForm = () => {
               Don&apos;t have an account?{" "}
               <a
                 href="/register"
-                className="text-blue-600 hover:text-blue-800 font-medium transition-colors duration-200"
+                className="text-blue-600 hover:text-blue-800 font-medium"
               >
                 Sign up
               </a>

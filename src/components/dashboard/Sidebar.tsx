@@ -143,7 +143,15 @@ const Sidebar: React.FC<SidebarProps> = ({
 
     dispatch(addAppointment(appointmentData));
     // Post appointment to backend
-    axios.post("https://e-health-backend-production.up.railway.app/api/appointments", appointmentData)
+ const token = localStorage.getItem("token");
+
+axios.post("https://empolyee-backedn.onrender.com/api/appointments", appointmentData, {
+  headers: {
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "application/json",
+  },
+})
+
       .then(() => {
       // Optionally handle success
       })

@@ -1,14 +1,14 @@
-// api/auth.js
+// services/api.js
+
 import axios from 'axios';
 
-const API_URL = 'https://e-health-backend-production.up.railway.app/api';
+const API_URL = 'https://empolyee-backedn.onrender.com/api';
 
-// Setup axios with authentication
+// Axios instance with token injection
 const authAxios = axios.create({
-  baseURL: API_URL
+  baseURL: API_URL,
 });
 
-// Add token to requests if available
 authAxios.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -20,75 +20,65 @@ authAxios.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Register new user (initiates email verification)
+// Register user
 export const registerUser = async (userData) => {
-  const response = await axios.post(`https://e-health-backend-production.up.railway.app/api/auth/register`, userData);
+  const response = await axios.post(`${API_URL}/auth/register`, userData);
   return response.data;
 };
 
-// Verify OTP code
-export const verifyOTP = async (verificationData) => {
-  console.log(verificationData, 'heello');
-  const response = await axios.post(`https://e-health-backend-production.up.railway.app/api/auth/verify-otp`, verificationData);
-  return response.data;
-};
-
-export const sendReport = async (credentials) => {
-  console.log(credentials);
-  const { email, password } = credentials;
-
-  const token = localStorage.getItem('token');
-  const allIncidents = JSON.parse(localStorage.getItem('allIncidents'));
-
-  const headers = token ? { 'x-auth-token': token } : {};
-
-  const response = await axios.post(
-    `https://e-health-backend-production.up.railway.app/api/report`,
-    { allIncidents },
-    { headers }
-  );
-
+// Verify OTP
+export const verifyOTP = async (data) => {
+  const response = await axios.post(`${API_URL}/auth/verify-otp`, data);
   return response.data;
 };
 
 // Resend OTP
 export const resendOTP = async (emailData) => {
-  const response = await axios.post(`https://e-health-backend-production.up.railway.app/resend-otp`, emailData);
+  const response = await axios.post(`${API_URL}/auth/resend-otp`, emailData);
   return response.data;
 };
 
 // Login user
-export const loginUser = async (credentials) => {
-  console.log(credentials);
-  const { email, password } = credentials;
-
-  const token = localStorage.getItem('token');
-  const headers = token ? { Authorization: `Bearer ${token}` } : {};
-
-  const response = await axios.post(
-    `https://e-health-backend-production.up.railway.app/api/auth/login`,
-    { email, password },
-    { headers }
-  );
-
+export const loginUser = async ({ email, password }) => {
+  const response = await axios.post(`${API_URL}/auth/login`, {
+    email,
+    password,
+  });
+  if (response.data.token) {
+    localStorage.setItem('token', response.data.token);
+  }
   return response.data;
 };
 
-// Get user profile
+// Get authenticated user profile
 export const getUserProfile = async () => {
   const response = await authAxios.get(`/auth/profile`);
   return response.data;
 };
 
-// Get all users (admin only)
+// Admin: Get all users
 export const getAllUsers = async () => {
   const response = await authAxios.get(`/auth/users`);
   return response.data;
 };
 
-// Logout (client-side only - clears localStorage)
+// Submit report (with token + incidents)
+export const sendReport = async () => {
+  const allIncidents = JSON.parse(localStorage.getItem('allIncidents') || '[]');
+  const response = await authAxios.post(`/report`, { allIncidents });
+  return response.data;
+};
+
+// Create appointment
+export const createAppointment = async (appointmentData) => {
+  const response = await authAxios.post(`/appointments`, appointmentData);
+  return response.data;
+};
+
+// Logout
 export const logoutUser = () => {
   localStorage.removeItem('token');
   localStorage.removeItem('loggedInUser');
+  localStorage.removeItem('user');
   return true;
 };

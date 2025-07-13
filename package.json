@@ -51,7 +51,7 @@
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
-  "proxy": "https://e-health-backend-production.up.railway.app/",
+  "proxy": "https://empolyee-backedn.onrender.com/",
   "eslintConfig": {
     "extends": [
       "react-app",

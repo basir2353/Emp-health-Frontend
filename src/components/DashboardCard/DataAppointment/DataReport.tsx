@@ -37,8 +37,8 @@ const DataReport = () => {
         user?.role === "admin" || user?.role === "doctor";
 
       const endpoint = isAdminOrDoctor
-        ? "https://e-health-backend-production.up.railway.app/api/reports/all"
-        : "https://e-health-backend-production.up.railway.app/api/reports";
+        ? "https://empolyee-backedn.onrender.com/api/reports/all"
+        : "https://empolyee-backedn.onrender.com/api/reports";
 
       const response = await axios.get(endpoint, {
         headers: {

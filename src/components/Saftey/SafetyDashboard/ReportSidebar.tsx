@@ -13,6 +13,7 @@ interface ReportSidebarProps {
 }
 
 export interface Report {
+  title: string;
   type: string;
   date: string;
   time: string;
@@ -44,7 +45,7 @@ interface AxiosErrorWithResponse extends Error {
   request?: any;
 }
 
-const API_BASE_URL = 'https://e-health-backend-production.up.railway.app/api';
+const API_BASE_URL = 'https://empolyee-backedn.onrender.com/api';
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -78,6 +79,7 @@ const ReportSidebar: React.FC<ReportSidebarProps> = ({ visible, onClose }) => {
   const [switch2, setSwitch2] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const [description, setDescription] = useState("");
+  const [title, setTitle] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const dispatch = useDispatch();
@@ -115,33 +117,39 @@ const ReportSidebar: React.FC<ReportSidebarProps> = ({ visible, onClose }) => {
   };
 
   const handleSubmit = async () => {
-    if (!value || !selectedDate || !selectedTime || !inputValue || !description) {
+    if (!title || !value || !selectedDate || !selectedTime || !inputValue || !description) {
       message.error("Please fill all required fields");
       return;
     }
 
     const newReport: Report = {
-      type: value,
+      title,
+      type: value,  // <--- FIXED: send the exact value ('hazard' or 'safety')
       date: selectedDate.format('YYYY-MM-DD'),
       time: selectedTime.format('HH:mm'),
       reportToHR: switch1,
       anonymous: switch2,
       location: inputValue,
       description,
-      involvedParties: involvedParties,
+      involvedParties: involvedParties ?? [],
     };
 
     setIsSubmitting(true);
-    dispatch(addReport({ ...newReport, involvedParties: involvedParties ?? [] }));
-
     const result = await submitReport(newReport);
-    setIsSubmitting(false);
-
     if (result.success) {
-      setValue(""); setSelectedDate(null); setSelectedTime(null);
-      setSwitch1(false); setSwitch2(false); setInputValue(""); setDescription(""); setInvolvedParties([]);
+      dispatch(addReport({ ...newReport, involvedParties: involvedParties ?? [] }));
+      setValue("");
+      setSelectedDate(null);
+      setSelectedTime(null);
+      setSwitch1(false);
+      setSwitch2(false);
+      setInputValue("");
+      setDescription("");
+      setTitle("");
+      setInvolvedParties([]);
       onClose();
     }
+    setIsSubmitting(false);
   };
 
   return (
@@ -157,6 +165,7 @@ const ReportSidebar: React.FC<ReportSidebarProps> = ({ visible, onClose }) => {
               style={{ background: "black" }}
               onClick={handleSubmit}
               loading={isSubmitting}
+              disabled={isSubmitting}
             >
               Submit
             </Button>
@@ -167,70 +176,64 @@ const ReportSidebar: React.FC<ReportSidebarProps> = ({ visible, onClose }) => {
       width={520}
       onClose={onClose}
     >
-      <Radio.Group onChange={handleChange} value={value}>
-        <div className="flex space-x-6">
-          <div className={`w-[215px] h-[118px] p-[12px] border-2 ${value === "hazard" ? "border-black" : "border-gray-300"}`}>
-            <Radio value="hazard"><span className="text-lg font-bold">Hazard Incident</span></Radio>
-            <p className="text-xs mt-4">Any issue with your environment in the office e.g. broken equipment</p>
-          </div>
-          <div className={`w-[215px] h-[118px] p-[12px] border-2 ${value === "safety" ? "border-black" : "border-gray-300"}`}>
-            <Radio value="safety"><span className="text-lg font-bold">Safety Incident</span></Radio>
-            <p className="text-xs mt-4">Issues within your personal space e.g. bullying.</p>
-          </div>
+      <Radio.Group onChange={handleChange} value={value} className="flex space-x-4">
+        <div className={`w-1/2 border p-4 rounded ${value === "hazard" ? "border-black" : "border-gray-300"}`}>
+          <Radio value="hazard"><span className="text-lg font-semibold">Hazard</span></Radio>
+          <p className="text-sm mt-2">Hazard like broken equipment or unsafe work environment.</p>
+        </div>
+        <div className={`w-1/2 border p-4 rounded ${value === "safety" ? "border-black" : "border-gray-300"}`}>
+          <Radio value="safety"><span className="text-lg font-semibold">Safety</span></Radio>
+          <p className="text-sm mt-2">Issues like bullying or personal safety threats.</p>
         </div>
       </Radio.Group>
-
-      <hr className="my-5" />
-      <h3 className="mb-2 text-lg">Date & Time</h3>
-      <div className="flex">
-        <DatePicker
-          value={selectedDate}
-          onChange={setSelectedDate}
-          className={`w-[255px] mr-4 ${!selectedDate ? "border-red-500 border" : ""}`}
-        />
-        <TimePicker
-          value={selectedTime}
-          onChange={setSelectedTime}
-          className={`w-[255px] ${!selectedTime ? "border-red-500 border" : ""}`}
-        />
-      </div>
-
-      <SafteyUpload involvedParties={involvedParties} setInvolvedParties={setInvolvedParties} />
-
-      <div className="flex justify-between items-center p-4">
-        <div>
-          <Switch checked={switch1} onChange={setSwitch1} style={{ backgroundColor: switch1 ? "black" : "gray" }} />
-          <span className="ml-2">Report directly to HR</span>
-        </div>
-        <div>
-          <Switch checked={switch2} onChange={setSwitch2} style={{ backgroundColor: switch2 ? "black" : "gray" }} />
-          <span className="ml-2">Report anonymously</span>
-        </div>
-      </div>
-
-      <div className="h-[64px] bg-[#E6F7FF] flex items-center p-4">
-        <InfoCircleOutlined className="mr-4" />
-        <span>This report is submitted anonymously unless you toggle it off.</span>
-      </div>
-
       <div className="mb-4 mt-4">
-        <h2 className="text-xl mb-2">Location</h2>
+        <label className="block text-md mb-1 font-medium">Title</label>
+        <Input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Enter a title for the report"
+          disabled={isSubmitting}
+        />
+      </div>
+      <div className="my-4">
+        <label className="block text-md mb-1 font-medium">Date & Time</label>
+        <div className="flex gap-4">
+          <DatePicker value={selectedDate} onChange={setSelectedDate} className="w-1/2" disabled={isSubmitting} />
+          <TimePicker value={selectedTime} onChange={setSelectedTime} className="w-1/2" disabled={isSubmitting} />
+        </div>
+      </div>
+      <SafteyUpload involvedParties={involvedParties} setInvolvedParties={setInvolvedParties} />
+      <div className="flex items-center justify-between my-4">
+        <label className="flex items-center gap-2">
+          <Switch checked={switch1} onChange={setSwitch1} disabled={isSubmitting} />
+          Report to HR
+        </label>
+        <label className="flex items-center gap-2">
+          <Switch checked={switch2} onChange={setSwitch2} disabled={isSubmitting} />
+          Report Anonymously
+        </label>
+      </div>
+      <div className="flex items-center gap-2 bg-blue-50 p-3 rounded mb-4">
+        <InfoCircleOutlined />
+        <span className="text-sm">This report will be submitted anonymously unless toggled off.</span>
+      </div>
+      <div className="mb-4">
+        <label className="block text-md mb-1 font-medium">Location</label>
         <Input
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
-          placeholder="Enter Location..."
-          className={!inputValue ? "border-red-500 border" : ""}
+          placeholder="Location"
+          disabled={isSubmitting}
         />
       </div>
-
-      <div className="mb-4 mt-4">
-        <h2 className="text-xl mb-2">Description</h2>
+      <div>
+        <label className="block text-md mb-1 font-medium">Description</label>
         <Input.TextArea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="Description"
-          autoSize={{ minRows: 3, maxRows: 5 }}
-          className={!description ? "border-red-500 border" : ""}
+          placeholder="Describe the incident"
+          rows={4}
+          disabled={isSubmitting}
         />
       </div>
     </Drawer>

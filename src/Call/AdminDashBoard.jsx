@@ -59,7 +59,7 @@ const AdminDashboard = ({ socket, user }) => {
 
   const fetchInitialData = async () => {
     try {
-      const callsResponse = await fetch('https://e-health-backend-production.up.railway.app/api/calls', {
+      const callsResponse = await fetch('https://empolyee-backedn.onrender.com/api/calls', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -84,7 +84,7 @@ const AdminDashboard = ({ socket, user }) => {
 
   const fetchCallHistory = async () => {
     try {
-      const response = await fetch('https://e-health-backend-production.up.railway.app/api/calls', {
+      const response = await fetch('https://empolyee-backedn.onrender.com/api/calls', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
