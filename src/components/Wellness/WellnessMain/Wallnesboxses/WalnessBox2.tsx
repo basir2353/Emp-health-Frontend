@@ -105,11 +105,7 @@ function WalnessBox2() {
           >
             <div className="w-[94px] h-[94px] bg-[#FAFAFA] rounded-md flex justify-center items-center">
               <img
-                src={
-                  typeof challenge.imageSrc === "string"
-                    ? challenge.imageSrc
-                    : challenge.imageSrc?.src || ""
-                }
+                src='/challange.png'
                 alt="Challenge"
                 className="w-[98px] h-[98px]"
               />

@@ -1,60 +1,135 @@
-import { InfoCircleOutlined } from "@ant-design/icons";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { InfoCircleOutlined, ClockCircleOutlined, EnvironmentOutlined } from "@ant-design/icons";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
 
-const NotifictionSaftey: React.FC = () => {
+interface Report {
+  _id: string;
+  title: string;
+  description: string;
+  createdAt: string;
+  time?: string;      // add if your API provides this
+  location?: string;  // add if your API provides this
+}
+
+const NotifictionSaftey: React.FC<{ canModify: boolean }> = ({ canModify }) => {
   const [closed, setClosed] = useState(false);
+  const [report, setReport] = useState<Report | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
 
-  const handleClose = () => {
-    setClosed(true);
-    // You can add additional logic here if needed, such as sending a request to mark the notification as read
-  };
+  useEffect(() => {
+    const fetchReports = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) {
+          setError("No authentication token found.");
+          return;
+        }
 
-  if (closed) {
-    return null; // If the notification is closed, don't render anything
-  }
+        const allEndpoint = "https://empolyee-backedn.onrender.com/api/reports/all";
+        const userEndpoint = "https://empolyee-backedn.onrender.com/api/reports";
+
+        const endpoint = canModify ? allEndpoint : userEndpoint;
+
+        const response = await axios.get(endpoint, {
+          headers: { "x-auth-token": token },
+        });
+
+        const reports = response.data.reports || response.data;
+
+        if (reports.length === 0) {
+          setError("No reports found.");
+          return;
+        }
+
+        const latestReport = reports.reduce((a: Report, b: Report) =>
+          new Date(a.createdAt) > new Date(b.createdAt) ? a : b
+        );
+
+        setReport(latestReport);
+
+        setTimeout(() => setClosed(true), 30000);
+      } catch (err: any) {
+        if (err.response?.status === 403 && canModify) {
+          try {
+            const token = localStorage.getItem("token");
+            const fallbackResponse = await axios.get("https://empolyee-backedn.onrender.com/api/reports", {
+              headers: { "x-auth-token": token || "" },
+            });
+
+            const fallbackReports = fallbackResponse.data.reports || fallbackResponse.data;
+
+            if (fallbackReports.length === 0) {
+              setError("No reports found.");
+              return;
+            }
+
+            const latestReport = fallbackReports.reduce((a: Report, b: Report) =>
+              new Date(a.createdAt) > new Date(b.createdAt) ? a : b
+            );
+
+            setReport(latestReport);
+            setTimeout(() => setClosed(true), 30000);
+          } catch (fallbackErr) {
+            setError("Failed to fetch reports.");
+            console.error(fallbackErr);
+          }
+        } else {
+          setError("Failed to fetch reports.");
+          console.error(err);
+        }
+      }
+    };
+
+    fetchReports();
+  }, [canModify]);
+
+  if (closed || !report) return null;
 
   return (
-    <div className="flex z-50 flex-row items-start p-4  w-[372px] h-[159px] absolute right-4 top-24 bg-white shadow-xl rounded-lg">
-      <div className="flex-none flex text-yellow-300 mt-2">
-      <InfoCircleOutlined />
-
+    <div className="flex z-50 flex-row items-start p-4 w-[372px] h-[180px] absolute right-4 top-24 bg-white shadow-xl rounded-lg">
+      {/* Main icon */}
+      <div className="flex-none flex text-yellow-400 mt-2">
+        <InfoCircleOutlined style={{ fontSize: "28px" }} />
       </div>
-      <div className="flex flex-col">
-        <div className="flex items-center px-2">
-          <p className="text-lg text-yellow-300">
-          Pending Incident
-          </p>
-        </div>
-        <div className="">
-          <p className="font-normal text-xs text-black ml-4">
-          Incident <span> #0023</span> is pending to be investigated please review proceed forward.          </p>
-        </div>
-        <div className="flex flex-col justify-center items-end gap-2 mt-4">
-          <button
-            className="top-5 mr-3 flex items-center justify-center absolute right-2"
-            onClick={handleClose}
-          >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 14 14"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                d="M9.70916 4.52905C9.70916 4.4603 9.65291 4.40405 9.58416 4.40405L8.55291 4.40874L6.99978 6.2603L5.44822 4.4103L4.41541 4.40562C4.34666 4.40562 4.29041 4.4603 4.29041 4.53062C4.29041 4.5603 4.30134 4.58843 4.32009 4.61187L6.35291 7.03374L4.32009 9.45405C4.30121 9.47695 4.29074 9.50562 4.29041 9.5353C4.29041 9.60405 4.34666 9.6603 4.41541 9.6603L5.44822 9.65561L6.99978 7.80405L8.55134 9.65405L9.58259 9.65874C9.65134 9.65874 9.70759 9.60405 9.70759 9.53374C9.70759 9.50405 9.69666 9.47593 9.67791 9.45249L7.64822 7.03218L9.68103 4.6103C9.69978 4.58843 9.70916 4.55874 9.70916 4.52905Z"
-                fill="black"
-                fillOpacity="0.45"
-              />
-              <path
-                d="M7 0C3.13437 0 0 3.13437 0 7C0 10.8656 3.13437 14 7 14C10.8656 14 14 10.8656 14 7C14 3.13437 10.8656 0 7 0ZM7 12.8125C3.79063 12.8125 1.1875 10.2094 1.1875 7C1.1875 3.79063 3.79063 1.1875 7 1.1875C10.2094 1.1875 12.8125 3.79063 12.8125 7C12.8125 10.2094 10.2094 12.8125 7 12.8125Z"
-                fill="black"
-                fillOpacity="0.45"
-              />
-            </svg>
+
+      <div className="flex flex-col ml-3 w-full">
+        <div className="flex justify-between items-center">
+          <p className="text-lg text-yellow-400 font-semibold">Pending Incident</p>
+          <button onClick={() => setClosed(true)} className="text-gray-500 text-sm font-bold">
+            ✕
           </button>
-          <button className="flex items-center justify-center px-2 py-1 gap-2 h-10 bg-[#000000] text-white font-semibold rounded-md">
-            View 
+        </div>
+
+        <p className="font-normal text-xs text-black mt-2">
+          Incident <span className="font-semibold">#{report._id.slice(0, 6)}</span> is pending to be
+          investigated. Please review and proceed forward.
+        </p>
+
+        {/* Time & Location row */}
+        <div className="flex items-center gap-4 mt-2 text-gray-700 text-xs">
+          {report.time && (
+            <div className="flex items-center gap-1">
+              <ClockCircleOutlined />
+              <span>{report.time}</span>
+            </div>
+          )}
+          {report.location && (
+            <div className="flex items-center gap-1">
+              <EnvironmentOutlined />
+              <span>{report.location}</span>
+            </div>
+          )}
+        </div>
+
+        {/* View button */}
+        <div className="flex justify-end mt-4">
+          <button
+            onClick={() => navigate("/safety")}
+            className="px-4 py-2 bg-black text-white font-semibold rounded-md text-sm"
+          >
+            View More
           </button>
         </div>
       </div>

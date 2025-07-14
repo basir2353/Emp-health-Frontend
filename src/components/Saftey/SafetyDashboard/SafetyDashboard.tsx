@@ -37,7 +37,8 @@ const SafetyDashboard: React.FC = () => {
       <SafteyBox />
       <Safetycoulm />
       <ReportSidebar visible={sidebarVisible} onClose={toggleSidebar} />
-      <NotifictionSaftey />
+      <NotifictionSaftey canModify={true} />
+
     </div>
   );
 };

@@ -1,43 +1,80 @@
 import axios from "axios";
 
-export const conversationalBotCall = async (input: string) => {
-  const response = await axios.post(
-    "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1",
-    {
-      inputs: `<s>[INST] You are a highly experienced and empathetic medical doctor. Your primary goal is to help users navigate the services provided on a website using the provided data, and to provide accurate medical advice, diagnose symptoms, and suggest treatments while maintaining a compassionate tone. 
+// Your OpenRouter API key (replace or set via env)
+const OPENROUTER_API_KEY: string | undefined =
+  process.env.OPENROUTER_API_KEY ||
+  "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";
 
-Use the provided data for navigation questions and your medical knowledge for general queries. 
+const MODEL = "deepseek/deepseek-chat-v3-0324:free";
 
-Add this note at the end of your answer if the user asks about connecting with a doctor via call: "##SHOW_CALL_BUTTON##"
-
-User: ${input}[/INST] Model answer</s>`
-      ,
-      parameters: {
-        temperature: 0.7,
-        max_new_tokens: 4000,
-      },
-    },
-    {
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: "Bearer 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",
-      },
-    }
-  );
-
-  const fullResponse = response.data[0].generated_text;
-  const answerStart = fullResponse.indexOf("</s>") + 4;
-  const botMessage = fullResponse.substring(answerStart).trim();
-
-  const cleanMessage = botMessage
-    .replace(/<[^>]*>/g, "")
-    .replace(/\[.*?\]/g, "")
-    .replace(/[\w-]+="[^"]*"/g, "")
-    .replace(/\{[^}]*\}/g, "")
-    .replace(/\bowerlevel\b/g, "")
-    .replace(/\bef\b/g, "")
-    .replace(/\bRIVERY Of cours\b/g, "")
+// Utility function to clean unwanted characters and markdown from response
+function cleanResponse(text: string): string {
+  return text
+    .replace(/[@#_*~`>\\-]+/g, "")           // Remove special markdown/symbol chars like @ # * _ ~ ` > \ -
+    .replace(/\[(.*?)\]\((.*?)\)/g, "$1")    // Convert markdown links [text](url) => text
+    .replace(/<\/?[^>]+(>|$)/g, "")          // Remove HTML tags if any
+    .replace(/\n{2,}/g, "\n")                 // Replace multiple line breaks with single line break
+    .replace(/\s{2,}/g, " ")                   // Replace multiple spaces with single space
     .trim();
+}
 
-  return cleanMessage;
+export const conversationalBotCall = async (input: string): Promise<string> => {
+  try {
+    if (!input || !input.trim()) {
+      return "Please provide a valid input query.";
+    }
+
+    if (!OPENROUTER_API_KEY) {
+      throw new Error("OpenRouter API key missing.");
+    }
+
+    // Define system prompt for the chatbot
+    const systemMessage = `<s>[INST] You are a highly experienced and empathetic medical doctor. Your primary goal is to help users navigate the services provided on a website using the provided data, and to provide accurate medical advice, diagnose symptoms, and suggest treatments while maintaining a compassionate tone.
+
+Use the provided data for navigation questions and your medical knowledge for general queries.
+
+Add this note at the end of your answer if the user asks about connecting with a doctor via call`;
+
+    // Call the OpenRouter chat completions API
+    const response = await axios.post(
+      "https://openrouter.ai/api/v1/chat/completions",
+      {
+        model: MODEL,
+        messages: [
+          { role: "system", content: systemMessage },
+          { role: "user", content: input },
+        ],
+        temperature: 0.7,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    let botMessage = response.data?.choices?.[0]?.message?.content ?? "";
+
+    // Clean the bot message of unwanted chars
+    botMessage = cleanResponse(botMessage);
+
+    if (!botMessage) {
+      return "Sorry, no response generated.";
+    }
+
+    return botMessage;
+  } catch (error: any) {
+    console.error("Error in conversationalBot:", error.response?.data || error.message);
+
+    if (error?.response?.status === 401) {
+      return "Authentication failed. Please check your OpenRouter API key.";
+    }
+
+    if (error?.response?.status === 429) {
+      return "Rate limit exceeded. Please try again later.";
+    }
+
+    return "Sorry, an error occurred. Please try again.";
+  }
 };

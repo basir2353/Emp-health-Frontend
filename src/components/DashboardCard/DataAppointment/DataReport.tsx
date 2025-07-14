@@ -1,8 +1,8 @@
-import { Button, Card } from "antd";
+import { Button, Card, message } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { message } from "antd";
+import { useNavigate } from "react-router-dom";
 
 const DataReport = () => {
   type Report = {
@@ -14,18 +14,9 @@ const DataReport = () => {
   };
 
   const [apiReports, setApiReports] = useState<Report[]>([]);
-  const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState({
-    id: "",
-    type: "Hazard",
-    status: "No Action",
-    description: "",
-  });
   const [loading, setLoading] = useState(false);
 
-  const generateReportId = () =>
-    "#" + Math.floor(10000 + Math.random() * 90000);
-
+  const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const userRole = user?.role;
 
@@ -33,8 +24,7 @@ const DataReport = () => {
     setLoading(true);
     try {
       const token = localStorage.getItem("token");
-      const isAdminOrDoctor =
-        user?.role === "admin" || user?.role === "doctor";
+      const isAdminOrDoctor = user?.role === "admin" || user?.role === "doctor";
 
       const endpoint = isAdminOrDoctor
         ? "https://empolyee-backedn.onrender.com/api/reports/all"
@@ -45,14 +35,8 @@ const DataReport = () => {
           "x-auth-token": token || "",
         },
       });
- console.log(response,'fetchReports');
 
-      const fetchedReports = isAdminOrDoctor
-        ? response.data.reports
-        : response.data.reports;
- 
-      setApiReports(fetchedReports || []);
-
+      setApiReports(response.data.reports || []);
     } catch (error) {
       console.error("Failed to fetch reports:", error);
       message.error("Failed to fetch reports");
@@ -64,31 +48,6 @@ const DataReport = () => {
   useEffect(() => {
     fetchReports();
   }, []);
-
-  const handleInputChange = (e: any) => {
-    const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
-  };
-
-  const handleSubmit = (e: any) => {
-    e.preventDefault();
-    const newReport: Report = {
-      ...formData,
-      id: formData.id || generateReportId(),
-      createdAt: new Date().toISOString(),
-    };
-
-    const updatedReports = [newReport, ...apiReports];
-    setApiReports(updatedReports);
-
-    setFormData({
-      id: "",
-      type: "Hazard",
-      status: "No Action",
-      description: "",
-    });
-    setShowForm(false);
-  };
 
   const getStatusColor = (status: any) => {
     switch (status) {
@@ -117,72 +76,12 @@ const DataReport = () => {
               size="middle"
               className="text-sm font-normal text-white bg-black rounded-lg"
               style={{ backgroundColor: "black", color: "white" }}
-              onClick={() => setShowForm(!showForm)}
+              onClick={() => navigate("/safety")}
             >
-              {showForm ? "Cancel" : "Create Report"}
+              Create Report
             </Button>
           )}
         </div>
-
-        {/* Form */}
-        {showForm && (
-          <div className="p-5 bg-gray-50 border-b">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Report Type
-                </label>
-                <select
-                  name="type"
-                  value={formData.type}
-                  onChange={handleInputChange}
-                  className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-400"
-                >
-                  <option value="Hazard">Hazard</option>
-                  <option value="Incident">Incident</option>
-                  <option value="Near Miss">Near Miss</option>
-                  <option value="Observation">Observation</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Status</label>
-                <select
-                  name="status"
-                  value={formData.status}
-                  onChange={handleInputChange}
-                  className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-400"
-                >
-                  <option value="No Action">No Action</option>
-                  <option value="In Progress">In Progress</option>
-                  <option value="Closed">Closed</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Description
-                </label>
-                <textarea
-                  name="description"
-                  value={formData.description}
-                  onChange={handleInputChange}
-                  className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-400"
-                  rows={3}
-                  placeholder="Enter description..."
-                />
-              </div>
-
-              <Button
-                type="primary"
-                htmlType="submit"
-                className="w-full py-2 text-white bg-black rounded-md hover:bg-blue-700 transition"
-              >
-                Save Report
-              </Button>
-            </form>
-          </div>
-        )}
 
         {/* Reports List */}
         <div className="max-h-96 overflow-y-auto divide-y">
@@ -214,7 +113,10 @@ const DataReport = () => {
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center justify-center w-[343px] mr-10 cursor-pointer mt-2 bg-white h-[24px] border border-solid border-neutral-5 shadow-button-secondary rounded-md">
+                <div
+                  onClick={() => navigate("/safety")}
+                  className="flex items-center justify-center w-[343px] mr-10 cursor-pointer mt-2 bg-white h-[24px] border border-solid border-neutral-5 shadow-button-secondary rounded-md"
+                >
                   <div className="text-sm font-normal text-neutral-800">
                     View
                   </div>

@@ -57,7 +57,7 @@ const ScheduleCalnder: React.FC = () => {
     setLoading(true);
     setError("");
 
-    fetch("/api/appointments")
+    fetch("https://empolyee-backedn.onrender.com/api/appointments")
       .then((res) => {
         if (!res.ok) throw new Error("Failed to fetch appointments");
         return res.json();

@@ -1,135 +1,72 @@
 import axios from "axios";
-import { data } from "../Constant";
+import { data } from "./constants";
 
-export const conversationalBot = async (input: string) => {
-  const response = await axios.post(
-"https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1",
+const OPENROUTER_API_KEY: string | undefined =
+  process.env.OPENROUTER_API_KEY || "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";
+const MODEL = "deepseek/deepseek-chat-v3-0324:free";
 
-  {inputs:` <s>[INST] You are a highly experienced and empathetic medical doctor. Your primary goal is to help users navigate the services provided on a website using the provided data, and to provide accurate medical advice, diagnose symptoms, and suggest treatments while maintaining a compassionate tone. 
-    Use the provided data for navigation questions and your medical knowledge for general queries. 
-
-    Below is the navigation data you should use to answer the user's questions:
-    
-    export const data = {
-      "navigation": [
-        {
-          "category": ["I want to book an appointment", "How can I schedule an appointment?", "Book a doctor's appointment"],
-          "response": "You can book an appointment [here](your-website-url/health/appointments).",
-          "link": "your-website-url/health/appointments"
-        },
-        {
-          "category": ["Show me the list of doctors", "I want to see doctors", "Doctors available"],
-          "response": "You can view the list of doctors [here](your-website-url/health/doctors).",
-          "link": "your-website-url/health/doctors"
-        },
-        {
-          "category": ["Go to Dashboard", "Show me the dashboard", "Open dashboard"],
-          "response": "You can access the dashboard [here](your-website-url/health).",
-          "link": "your-website-url/health"
-        },
-        {
-          "category": ["Open chat", "Go to my inbox", "I want to send a message"],
-          "response": "You can open your inbox [here](your-website-url/inbox).",
-          "link": "your-website-url/inbox"
-        },
-        {
-          "category": ["Show me wellness courses", "I want to see wellness content", "Go to wellness"],
-          "response": "You can access the wellness section [here](your-website-url/wellness).",
-          "link": "your-website-url/wellness"
-        },
-        {
-          "category": ["Show safety dashboard", "Open safety section", "Go to safety"],
-          "response": "You can view the safety dashboard [here](your-website-url/safety).",
-          "link": "your-website-url/safety"
-        },
-        {
-          "category": ["I want to schedule an appointment for an admin", "Admin schedule appointment", "Schedule appointment for doctor"],
-          "response": "You can schedule an appointment [here](your-website-url/health/admin-schedule-appointments).",
-          "link": "your-website-url/health/admin-schedule-appointments"
-        },
-        {
-          "category": ["Schedule appointment for doctor"],
-          "response": "You can schedule an appointment [here](your-website-url/health/doctor-schedule-appointments).",
-          "link": "your-website-url/health/doctor-schedule-appointments"
-        },
-        {
-          "category": ["Show notifications", "Go to notifications", "Open notification section"],
-          "response": "You can view notifications [here](your-website-url/health/notification).",
-          "link": "your-website-url/health/notification)
-        },
-        {
-          "category": ["Show insurance details", "Go to insurance section", "I want to see insurance information"],
-          "response": "You can view insurance information [here](your-website-url/health/insurance).",
-          "link": "your-website-url/health/insurance"
-        }
-      ],
-       "available_doctors": [
-    {
-      "name": "Dr. Maria Summers",
-      "profession": "Neurologist",
-      "education": "M.B.B.S., F.C.P.S. (Neurology)",
-      "experience": "8 Years",
-      "available_hours": "5:00 PM - 9:00 PM",
-      "image": "DrMaria",
-      "gender": "female"
-    },
-    {
-      "name": "Dr. Akhtar Javed",
-      "profession": "General Physician",
-      "education": "MBBS, MCPS (Medicine)",
-      "experience": "5 Years",
-      "available_hours": "1:00 PM - 6:00 PM",
-      "image": "DrAkhtar",
-      "gender": "male"
-    },
-    {
-      "name": "Dr. Andrew Smith",
-      "profession": "Cardiology, Interventional Cardiologist",
-      "education": "M.B.B.S., Dip. Cardiology, M.D Cardio, MESC (Europe), MACC (USA)",
-      "experience": "7 Years",
-      "available_hours": "3:00 PM - 7:00 PM",
-      "image": "DrAndrew",
-      "gender": "male"
-    },
-    {
-      "name": "Dr. Alisha Kane",
-      "profession": "Dermatologist, Aesthetic Physician",
-      "education": "M.B.B.S., MSc Clinical Dermatology, Diploma in Aesthetic Medicine",
-      "experience": "10 Years",
-      "available_hours": "1:00 PM - 7:00 PM",
-      "image": "DrAlishaKane",
-      "gender": "female"
-    }
-  ]
-    }
-    
-    User: ${input}[/INST] Model answer</s>
-`   ,
-      parameters: {
-        temperature: 0.7,
-        max_new_tokens : 4000
-        ,},},
-    {
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: "Bearer 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",
-      },
-    }
-  );
-
-  const fullResponse = response.data[0].generated_text;
-  const answerStart = fullResponse.indexOf("</s>") + 4;
-  const botMessage = fullResponse.substring(answerStart).trim();
-  const cleanMessage = botMessage
-    .replace(/<[^>]*>/g, "")
-    .replace(/\[.*?\]/g, "")
-    .replace(/[\w-]+="[^"]*"/g, "")
-    .replace(/\{[^}]*\}/g, "")
-    .replace(/\bowerlevel\b/g, "")
-    .replace(/\bef\b/g, "")
-    .replace(/\bRIVERY Of cours\b/g, "")
+// Utility function to clean unwanted characters and markdown from response
+function cleanResponse(text: string): string {
+  return text
+    .replace(/[@#_*~`>\\-]+/g, "")           // Remove special markdown/symbol chars like @ # * _ ~ ` > \ -
+    .replace(/\[(.*?)\]\((.*?)\)/g, "$1")    // Convert markdown links [text](url) => text
+    .replace(/<\/?[^>]+(>|$)/g, "")          // Remove HTML tags if any
+    .replace(/\n{2,}/g, "\n")                 // Replace multiple line breaks with single line break
+    .replace(/\s{2,}/g, " ")                   // Replace multiple spaces with single space
     .trim();
+}
 
-  console.log(cleanMessage);
-  return cleanMessage;
+export const conversationalBot = async (input: string): Promise<string> => {
+  try {
+    if (!input || !input.trim()) {
+      return "Please provide a valid input query.";
+    }
+
+    if (!OPENROUTER_API_KEY) {
+      throw new Error("OpenRouter API key missing.");
+    }
+
+    const systemMessage = `You are a highly experienced and empathetic medical doctor.
+Your goal is to help users navigate website services using this data and provide accurate medical advice.
+Use the following data for navigation questions:
+${JSON.stringify(data)}`;
+
+    const response = await axios.post(
+      "https://openrouter.ai/api/v1/chat/completions",
+      {
+        model: MODEL,
+        messages: [
+          { role: "system", content: systemMessage },
+          { role: "user", content: input },
+        ],
+        temperature: 0.7,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    let botMessage = response.data?.choices?.[0]?.message?.content ?? "";
+
+    // Clean the bot message
+    botMessage = cleanResponse(botMessage);
+
+    if (!botMessage) {
+      return "Sorry, no response generated.";
+    }
+
+    return botMessage;
+  } catch (error: any) {
+    console.error("Error in conversationalBot:", error.response?.data || error.message);
+    if (error?.response?.status === 401) {
+      return "Authentication failed. Please check your OpenRouter API key.";
+    }
+    if (error?.response?.status === 429) {
+      return "Rate limit exceeded. Please try again later.";
+    }
+    return "Sorry, an error occurred. Please try again.";
+  }
 };

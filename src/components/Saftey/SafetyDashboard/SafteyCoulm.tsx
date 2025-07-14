@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
-import { Button, Card, Drawer, Space, Table, Tag, Modal, message, Select, Spin } from "antd";
+import { Button, Card, Drawer, Table, Tag, Modal, message, Select, Spin } from "antd";
 import {
   ArrowUpOutlined,
   CheckCircleOutlined,
@@ -10,12 +10,7 @@ import {
   RedoOutlined,
   DeleteOutlined,
 } from "@ant-design/icons";
-import DrMaria from "../../../public/images/Maria.svg";
 import DrAkhtar from "../../../public/images/Akhtar.svg";
-import DrAndrew from "../../../public/images/Andrew.svg";
-import { useSelector } from "react-redux";
-import { RootState } from "../../../redux/store";
-import { Report } from "../../../redux/appointments/appointmentSlice";
 import axios from "axios";
 
 interface Incident {
@@ -35,6 +30,7 @@ interface Incident {
     email: string;
   };
   _id?: string;
+  identityStatus?: "provided" | "declined" | null;
 }
 
 const { Column } = Table;
@@ -82,7 +78,7 @@ const SafetyBox: React.FC = () => {
   const [sidebarVisible, setSidebarVisible] = useState<boolean>(false);
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
   const [activeTab, setActiveTab] = useState<"Detail" | "ActivityLog">("Detail");
-  const [apiReports, setApiReports] = useState<Report[]>([]);
+  const [apiReports, setApiReports] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
@@ -134,7 +130,7 @@ const SafetyBox: React.FC = () => {
             return;
           }
 
-          const response = await axios.patch(
+          await axios.patch(
             `https://empolyee-backedn.onrender.com/api/reports/${reportId}/status`,
             { status: newStatus },
             {
@@ -167,7 +163,7 @@ const SafetyBox: React.FC = () => {
     confirm({
       title: "Delete Report",
       content: `Are you sure you want to delete incident ${incidentID}? This action cannot be undone.`,
-      okText: "Yes, Delete",
+      okText: "Delete",
       okType: "danger",
       cancelText: "Cancel",
       onOk: async () => {
@@ -202,19 +198,45 @@ const SafetyBox: React.FC = () => {
     });
   };
 
+  const handleIdentityResponse = async (reportId: string, approve: boolean) => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        message.error("Authentication token missing");
+        return;
+      }
+
+
+      message.success(`Identity ${approve ? "provided" : "declined"} successfully`);
+      await fetchReports();
+
+      if (selectedIncident?._id === reportId) {
+        setSelectedIncident({
+          ...selectedIncident,
+          identityStatus: approve ? "provided" : "declined",
+        });
+      }
+    } catch (error: any) {
+      console.error("Failed to update identity status:", error);
+      message.error(
+        error.response?.data?.message || "Failed to update identity status"
+      );
+    }
+  };
+
   const toggleSidebar = (incident: Incident) => {
     setSelectedIncident(incident);
     setSidebarVisible(!sidebarVisible);
   };
 
   const transformReports = useMemo(() => {
-    return (reports: Report[]): Incident[] => {
+    return (reports: any[]): Incident[] => {
       if (!Array.isArray(reports)) return [];
 
       return reports.map((report, index) => ({
-        key: `r-${index}`,
-        incidentID: `R-${index + 1000}`,
-        status: (report as any).status || "Pending",
+        key: report._id || report.id || `r-${index}`,
+        incidentID: report._id ? `#${report._id.slice(0, 6)}` : report.id ? `#${report.id.slice(0, 6)}` : `#R${index + 1000}`,
+        status: report.status || "Pending",
         location: report.location || "N/A",
         type:
           report.type === "option1"
@@ -229,13 +251,14 @@ const SafetyBox: React.FC = () => {
         reportToHR: report.reportToHR,
         anonymous: report.anonymous,
         reportedBy:
-          (report as any).user?.name && (report as any).user?.email
+          report.user?.name && report.user?.email
             ? {
-                name: (report as any).user.name,
-                email: (report as any).user.email,
+                name: report.user.name,
+                email: report.user.email,
               }
             : undefined,
-        _id: (report as any)._id || (report as any).id,
+        _id: report._id || report.id,
+        identityStatus: report.identityStatus || null,
       }));
     };
   }, []);
@@ -262,7 +285,7 @@ const SafetyBox: React.FC = () => {
         <Table
           dataSource={sortedReports}
           rowKey="key"
-          scroll={{ x: 800 }}
+          // scroll={{ x hunting: true }}
           pagination={{ pageSize: 10 }}
         >
           <Column title="Incident ID" dataIndex="incidentID" key="incidentID" />
@@ -421,46 +444,88 @@ const SafetyBox: React.FC = () => {
                   {selectedIncident?.anonymous && (
                     <>
                       <h2>Reported anonymously</h2>
-                      <Card
-                        style={{
-                          width: 280,
-                          padding: "10px 16px",
-                          backgroundColor: "#FFFFFF",
-                          boxShadow: "0px 2px 8px rgba(0, 0, 0, 0.15)",
-                          borderRadius: 8,
-                          display: "flex",
-                          alignItems: "center",
-                        }}
-                      >
-                        <ExclamationCircleOutlined
-                          style={{ color: "#FFA500", fontSize: 20, marginRight: 5 }}
-                        />
-                        <span style={{ flexGrow: 1, fontSize: 14 }}>
-                          {user.name || "Admin"} is asking for your identity
-                        </span>
-                        <div style={{ display: "flex", gap: "8px", marginTop: "10px" }}>
-                          <Button
-                            type="primary"
-                            style={{
-                              backgroundColor: "#000000",
-                              borderColor: "#000000",
-                              borderRadius: 8,
-                            }}
-                          >
-                            Approve
-                          </Button>
-                          <Button
-                            type="default"
-                            style={{
-                              backgroundColor: "#FFFFFF",
-                              borderColor: "#D9D9D9",
-                              borderRadius: 8,
-                            }}
-                          >
-                            Deny
-                          </Button>
-                        </div>
-                      </Card>
+                      {selectedIncident.identityStatus === "provided" ? (
+                        <Card
+                          style={{
+                            width: 280,
+                            padding: "10px 16px",
+                            backgroundColor: "#F6FFED",
+                            boxShadow: "0px 2px 8px rgba(0, 0, 0, 0.15)",
+                            borderRadius: 8,
+                            display: "flex",
+                            alignItems: "center",
+                          }}
+                        >
+                          <CheckCircleOutlined
+                            style={{ color: "#52C41A", fontSize: 20, marginRight: 5 }}
+                          />
+                          <span style={{ flexGrow: 1, fontSize: 14 }}>
+                            Identity Provided
+                          </span>
+                        </Card>
+                      ) : selectedIncident.identityStatus === "declined" ? (
+                        <Card
+                          style={{
+                            width: 280,
+                            padding: "10px 16px",
+                            backgroundColor: "#FFF1F0",
+                            boxShadow: "0px 2px 8px rgba(0, 0, 0, 0.15)",
+                            borderRadius: 8,
+                            display: "flex",
+                            alignItems: "center",
+                          }}
+                        >
+                          <CloseCircleOutlined
+                            style={{ color: "#FF4D4F", fontSize: 20, marginRight: 5 }}
+                          />
+                          <span style={{ flexGrow: 1, fontSize: 14 }}>
+                            Identity Declined
+                          </span>
+                        </Card>
+                      ) : (
+                        <Card
+                          style={{
+                            width: 280,
+                            padding: "10px 16px",
+                            backgroundColor: "#FFFFFF",
+                            boxShadow: "0px 2px 8px rgba(0, 0, 0, 0.15)",
+                            borderRadius: 8,
+                            display: "flex",
+                            alignItems: "center",
+                          }}
+                        >
+                          <ExclamationCircleOutlined
+                            style={{ color: "#FFA500", fontSize: 20, marginRight: 5 }}
+                          />
+                          <span style={{ flexGrow: 1, fontSize: 14 }}>
+                            {user.name || "Admin"} is asking for your identity
+                          </span>
+                          <div style={{ display: "flex", gap: "8px", marginTop: "10px" }}>
+                            <Button
+                              type="primary"
+                              style={{
+                                backgroundColor: "#000000",
+                                borderColor: "#000000",
+                                borderRadius: 8,
+                              }}
+                              onClick={() => handleIdentityResponse(selectedIncident._id!, true)}
+                            >
+                              Approve
+                            </Button>
+                            <Button
+                              type="default"
+                              style={{
+                                backgroundColor: "#FFFFFF",
+                                borderColor: "#D9D9D9",
+                                borderRadius: 8,
+                              }}
+                              onClick={() => handleIdentityResponse(selectedIncident._id!, false)}
+                            >
+                              Deny
+                            </Button>
+                          </div>
+                        </Card>
+                      )}
                     </>
                   )}
                 </div>
