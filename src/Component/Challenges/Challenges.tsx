@@ -11,7 +11,7 @@ import axios from "axios";
 import Sidebarchallegex from "./Sidebarchallegex";
 import Banner from "./Challangedetails";
 
-const BASE_URL = "http://localhost:5000";
+const BASE_URL = "https://empolyee-backedn.onrender.com";
 
 const Challenges = () => {
   const [sidebarVisible, setSidebarVisible] = useState(false);
