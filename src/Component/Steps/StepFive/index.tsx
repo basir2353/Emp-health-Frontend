@@ -1,4 +1,4 @@
-import { Button, Col, Layout, Row, Modal, Progress, notification, Form, Input } from "antd";
+import { Button, Col, Layout, Row, Modal, Progress, notification, Form, Input, Image } from "antd";
 import { Typography } from "antd";
 import { useNavigate } from "react-router-dom";
 import { AppleFilled, LoadingOutlined, CheckCircleFilled, ExclamationCircleFilled, EyeInvisibleOutlined, EyeTwoTone } from "@ant-design/icons";
@@ -386,6 +386,7 @@ function StepFive() {
                   Note: You can only connect one primary health platform at a time to prevent data conflicts.
                 </Text>
               </Text>
+              <Image className="w-40 mx-10" src="/assests/Group.png" alt="Illustration devices" />
 
               <div className="mt-5 mb-5">
                 <Button
@@ -405,7 +406,8 @@ function StepFive() {
                 <Button
                   size="large"
                   className="w-4/5 mb-2"
-                  icon={<img src="assets/googleIcon.svg" width={"15px"} />}
+                  icon={<img src="/assests/googleIcon.svg" width={"25px "} />}
+
                   onClick={() => handleLinkDevice("Google")}
                   {...getButtonProps("Google")}
                 >
@@ -419,7 +421,7 @@ function StepFive() {
                 <Button
                   size="large"
                   className="w-4/5 mb-2"
-                  icon={<img src="assets/samsung.svg" width={"20px"} />}
+                  icon={<img src="/assests/samsung.svg" width={"44px"} />}
                   onClick={() => handleLinkDevice("Samsung")}
                   {...getButtonProps("Samsung")}
                 >

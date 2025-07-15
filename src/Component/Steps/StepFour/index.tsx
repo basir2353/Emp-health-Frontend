@@ -1,5 +1,4 @@
 import {
-  Button,
   Col,
   Flex,
   Radio,
@@ -8,10 +7,10 @@ import {
   Select,
   Typography,
   message,
+  RadioChangeEvent,
 } from "antd";
 import { useNavigate } from "react-router-dom";
-import type { RadioChangeEvent } from "antd";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useRef, useEffect, useCallback, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import styled from "styled-components";
 import { setEmployeeContact } from "../../../features/onboardSlice";
@@ -19,19 +18,44 @@ import { saveStepData } from "../../../utils/onboardingStorage";
 import { BaseButton } from "../../form/base-button";
 import { FlagOutlined } from "@ant-design/icons";
 
+// Define types for Redux state
+interface Country {
+  code: string;
+  description: string;
+}
+
+interface Relationship {
+  description: string;
+}
+
+interface OnboardingMasterData {
+  applicationMasterData?: {
+    countryCodes?: { masterData?: Country[] };
+    relationShips?: { masterData?: Relationship[] };
+  };
+}
+
+interface RootState {
+  onboard: {
+    onboarding_master_data: OnboardingMasterData;
+  };
+}
+
 function StepFour() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { Title, Text } = Typography;
 
-  const [name, setName] = useState("");
-  const [contact, setContact] = useState("");
-  const [placement, setPlacement] = useState("");
-  const [countryCode, setCountryCode] = useState("");
+  // Type refs explicitly
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const contactInputRef = useRef<HTMLInputElement>(null);
+  const placementRef = useRef<HTMLDivElement>(null);
 
-  const contactInputRef = useRef<HTMLInputElement>(null); // Ref for contact input
+  // State for controlled components
+  const [countryCode, setCountryCode] = useState<string | undefined>(undefined);
+  const [placement, setPlacement] = useState<string | undefined>(undefined);
 
-  const { onboarding_master_data } = useSelector((state: any) => state["onboard"] || {});
+  const { onboarding_master_data } = useSelector((state: RootState) => state.onboard || {});
 
   const StyledRadioButton = styled(Radio.Button)`
     &:not(:first-child)::before {
@@ -44,7 +68,6 @@ function StepFour() {
 
   const ResponsiveCol = styled(Col)`
     text-align: center;
-    flex: 0 0 0 0;
     max-width: 50%;
     position: relative;
     z-index: 10;
@@ -75,39 +98,33 @@ function StepFour() {
     }
   `;
 
+  const handleContactClick = useCallback((e: React.MouseEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    contactInputRef.current?.focus();
+    setTimeout(() => contactInputRef.current?.focus(), 100);
+  }, []);
+
+  const handleContactKeyPress = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    const charCode = e.charCode;
+    if (charCode < 48 || charCode > 57) {
+      e.preventDefault();
+    }
+  }, []);
+
   const handlePlacementChange = useCallback((e: RadioChangeEvent) => {
     setPlacement(e.target.value);
   }, []);
 
-  const handleNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setName(e.target.value);
-  }, []);
+  const validateInputs = useCallback(() => {
+    const name = nameInputRef.current?.value;
+    const contact = contactInputRef.current?.value;
 
-  const handleContactChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    if (/^\d*$/.test(value)) {
-      setContact(value);
-    }
-  }, []);
-
-  const handleContactClick = useCallback((e: React.MouseEvent<HTMLInputElement>) => {
-    e.stopPropagation();
-    e.preventDefault();
-    if (contactInputRef.current) {
-      contactInputRef.current.focus();
-      // Slight delay for mobile to ensure keyboard appears
-      setTimeout(() => contactInputRef.current?.focus(), 100);
-    }
-    console.log("Contact input clicked");
-  }, []);
-
-  const validateInputs = useCallback((): boolean => {
-    if (!name.trim()) {
+    if (!name?.trim()) {
       message.error("Please enter the emergency contact name.");
       return false;
     }
 
-    if (!placement.trim()) {
+    if (!placement?.trim()) {
       message.error("Please select the relationship.");
       return false;
     }
@@ -117,16 +134,19 @@ function StepFour() {
       return false;
     }
 
-    if (!contact.trim() || !/^\d+$/.test(contact)) {
+    if (!contact?.trim() || !/^\d+$/.test(contact)) {
       message.error("Please enter a valid emergency contact number.");
       return false;
     }
 
-    return true;
-  }, [name, placement, countryCode, contact]);
+    return { name, placement, countryCode, contact };
+  }, [countryCode, placement]);
 
   const handleClick = useCallback(() => {
-    if (!validateInputs()) return;
+    const validatedData = validateInputs();
+    if (!validatedData) return;
+
+    const { name, placement, countryCode, contact } = validatedData;
 
     const payload = {
       emergency_contact_relation: placement,
@@ -137,9 +157,9 @@ function StepFour() {
     dispatch(setEmployeeContact(payload));
     saveStepData(2, payload);
     navigate("/step-5");
-  }, [dispatch, navigate, name, placement, countryCode, contact]);
+  }, [dispatch, navigate, validateInputs]);
 
-  const countryFlagMap: Record<string, React.ReactNode> = {
+  const countryFlagMap: Record<string, string> = {
     "+92": "🇵🇰",
     "+91": "🇮🇳",
     "+1": "🇺🇸",
@@ -153,7 +173,7 @@ function StepFour() {
 
   const countryOptions =
     onboarding_master_data?.applicationMasterData?.countryCodes?.masterData?.map(
-      (country: { code: string; description: string }) => ({
+      (country: Country) => ({
         label: (
           <>
             <span style={{ marginRight: 8 }}>
@@ -180,7 +200,7 @@ function StepFour() {
     if (relationshipOptions.length && !placement) {
       setPlacement(relationshipOptions[0].description.toLowerCase());
     }
-  }, [relationshipOptions]);
+  }, [relationshipOptions, placement]);
 
   return (
     <Row style={{ height: "calc(100vh - 81px)", backgroundColor: "#f5f5f5" }} justify="center" align="middle">
@@ -195,8 +215,7 @@ function StepFour() {
             </Text>
 
             <StyledInput
-              value={name}
-              onChange={handleNameChange}
+              ref={nameInputRef}
               placeholder="Emergency Contact Name..."
               style={{ margin: "20px 0px 5px 0px" }}
             />
@@ -205,12 +224,13 @@ function StepFour() {
               <Text type="secondary">Relationship with emergency contact</Text>
             </div>
             <Radio.Group
+              ref={placementRef}
               value={placement}
               onChange={handlePlacementChange}
               style={{ margin: "5px 0px", flexWrap: "wrap" }}
             >
               {relationshipOptions.map(
-                (relationship: { description: string }, index: number) => (
+                (relationship: Relationship, index: number) => (
                   <StyledRadioButton key={index} value={relationship.description.toLowerCase()}>
                     {relationship.description}
                   </StyledRadioButton>
@@ -223,17 +243,14 @@ function StepFour() {
                 size="large"
                 placeholder="Code"
                 options={countryOptions}
-                onChange={setCountryCode}
+                onChange={(value) => setCountryCode(value)}
+                value={countryCode}
                 style={{ width: "30%", zIndex: 10 }}
-                value={countryCode || undefined}
               />
               <StyledInput
                 ref={contactInputRef}
-                value={contact}
-                onChange={handleContactChange}
                 onClick={handleContactClick}
-                onFocus={() => console.log("Contact input focused")}
-                onBlur={() => console.log("Contact input blurred")}
+                onKeyPress={handleContactKeyPress}
                 type="tel"
                 inputMode="numeric"
                 placeholder="Enter Emergency Contact"

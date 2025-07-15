@@ -29,8 +29,8 @@ function Appointment() {
 
   return (
     <div className="">
-      <Card bordered={false} className="w-[355px] h-[426px]  px-2">
-        <div className="flex justify-between items-center mb-4 flex-wrap p-[10px] gap-[5px]">
+      <Card bordered={false} className="w-[355px] h-[426px]">
+        <div className="flex justify-between items-center mb-4 flex-wrap px-4 gap-[5px]">
           <div className="text-neutral-400 text-2xl font-normal leading-loose">
             Appointments
           </div>
@@ -50,7 +50,7 @@ function Appointment() {
           appointments.slice(0, 2).map((appointment: any, index: any) => (
             <Card
               key={index}
-              className="w-full px-2 py-2 border border-solid border-gray-300 rounded-md bg-[#FAFAFA] mb-3 "
+              className=" mx-4 px-3 py-2 border border-solid border-gray-300 rounded-md bg-[#FAFAFA] mb-3"
             >
               <div className="flex flex-col sm:flex-row">
                 <div className="flex sm:flex-col items-center justify-center sm:items-start sm:justify-start sm:pr-6 border-b sm:border-b-0 sm:border-r border-gray-300 sm:mr-3 mb-2 sm:mb-0">
@@ -93,7 +93,7 @@ function Appointment() {
             className="w-full h-[46px] cursor-pointer pt-3 text-center mt-4 rounded-b-lg"
             onClick={() => navigate("/health/admin-schedule-appointments")}
           >
-            <div className="absolute w-[335px]  max-lg:w-full h-[46px] pt-3 text-center bottom-0 bg-[#E6F7FF] rounded-b-lg">
+            <div className="absolute w-full max-lg:w-full h-[46px] pt-3 text-center bottom-0 bg-[#E6F7FF] rounded-b-lg">
               See All
             </div>
           </div>

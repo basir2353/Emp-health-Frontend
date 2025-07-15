@@ -26,7 +26,7 @@ const AddIncomeDrawer: React.FC<AddIncomeDrawerProps> = ({ visible, onClose, onA
         <Form.Item name="amount" label="Amount" rules={[{ required: true }]}>
           <Input />
         </Form.Item>
-        <Button type="primary" onClick={handleSubmit}>
+        <Button type="primary" style={{backgroundColor:'#000000'}} onClick={handleSubmit}>
           Add
         </Button>
       </Form>
