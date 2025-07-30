@@ -23,7 +23,7 @@ const CallTest = () => {
   }, [currentUser]);
 
   const testApiEndpoints = async () => {
-    const baseUrl = 'http://localhost:5000/api';
+    const baseUrl = 'https://empolyee-backedn.onrender.com/api';
     const token = localStorage.getItem('token_real') || localStorage.getItem('token');
     
     try {
@@ -39,7 +39,7 @@ const CallTest = () => {
       
       // Test online-doctors endpoint
       console.log('Testing /auth/online-doctors...');
-      const doctorsResponse = await axios.get(`http://localhost:5000/api/auth/online-doctors`, {
+      const doctorsResponse = await axios.get(`https://empolyee-backedn.onrender.com/api/auth/online-doctors`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setApiStatus(prev => ({ ...prev, onlineDoctors: 'Success', doctorsData: doctorsResponse.data }));
@@ -73,7 +73,7 @@ const CallTest = () => {
   };
 
   const discoverEndpoints = async () => {
-    const baseUrl = 'http://localhost:5000/api';
+    const baseUrl = 'https://empolyee-backedn.onrender.com/api';
     const token = localStorage.getItem('token_real') || localStorage.getItem('token');
     
     const endpointsToTest = [

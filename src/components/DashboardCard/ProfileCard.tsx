@@ -80,7 +80,7 @@ const ProfileCard = () => {
 
     try {
       const response = await axios.post(
-        'http://localhost:5000/api/auth/forget-password',
+        'https://empolyee-backedn.onrender.com/api/auth/forget-password',
         {
           email,
           currentPassword,
