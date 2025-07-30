@@ -1,17 +1,23 @@
 import { MessageOutlined } from "@ant-design/icons";
 import { Avatar, Button, Card, Spin } from "antd";
 import { useNavigate } from "react-router-dom";
-import { useSelector } from "react-redux";
-import { RootState } from "../../../redux/store";
-import { format } from "date-fns";
+import { format, parse } from "date-fns";
 import { useEffect, useState } from "react";
-import axios from "axios";
+import { RootState } from "../../../redux/store";
+import { useSelector } from "react-redux";
 
 const AddIcon = (
   <svg width="28" height="30" viewBox="0 0 28 30" fill="none" xmlns="http://www.w3.org/2000/svg">
     {/* Add your icon SVG content here */}
   </svg>
 );
+
+interface User {
+  _id: string;
+  name: string;
+  email: string;
+  role: string;
+}
 
 interface Appointment {
   _id: string;
@@ -20,29 +26,52 @@ interface Appointment {
   date: string;
   time: string;
   type: string;
+  day: string;
+  user: User;
+  createdAt: string;
+  __v: number;
 }
 
 // Real-time polling hook
-const useAppointments = (userId?: string) => {
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
+const useLatestAppointment = (userId: string) => {
+  const [appointment, setAppointment] = useState<Appointment | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let isMounted = true;
     const fetchAppointments = async () => {
+      if (!userId) {
+        setAppointment(null);
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       try {
-        const params = userId ? { userId } : {};
-        const res = await axios.get("https://empolyee-backedn.onrender.com/api/appointments", { params });
+        const response = await fetch(
+          `http://localhost:5000/api/appointments?userId=${userId}`
+        );
+        const data = await response.json();
+
         if (isMounted) {
-          setAppointments(res.data.appointments || []);
+          const appointments: Appointment[] = data.appointments && Array.isArray(data.appointments) ? data.appointments : [];
+          console.log("Fetched appointments:", appointments);
+
+          // Set the first appointment (index [0]) or null if none
+          const extractLatestAppointment = appointments[appointments.length - 1]
+          setAppointment(extractLatestAppointment || null);
+          console.log("Selected appointment:", extractLatestAppointment || null);
         }
-      } catch {
-        if (isMounted) setAppointments([]);
+      } catch (error) {
+        if (isMounted) {
+          console.error("Error fetching appointments:", error);
+          setAppointment(null);
+        }
       } finally {
         if (isMounted) setLoading(false);
       }
     };
+
     fetchAppointments();
 
     return () => {
@@ -50,15 +79,16 @@ const useAppointments = (userId?: string) => {
     };
   }, [userId]);
 
-  return { appointments, loading };
+  return { appointment, loading };
 };
 
 const ProfileBox = () => {
   const navigate = useNavigate();
-  const { appointments, loading } = useAppointments();
-
-  // Get the closest upcoming appointment
-  const upcoming = appointments.length > 0 ? appointments[0] : null;
+  const userData = localStorage.getItem("user");
+  let userParsed = JSON.parse(userData || "{}");
+  // Assuming userId comes from parsed user data
+  const userId = userParsed.id; // Adjust based on your user data structure
+  const { appointment, loading } = useLatestAppointment(userId);
 
   if (loading) {
     return (
@@ -68,7 +98,7 @@ const ProfileBox = () => {
     );
   }
 
-  if (!upcoming) {
+  if (!appointment) {
     return (
       <Card className="w-[390px] max-lg:w-auto h-[310px] mx-auto p-4 bg-black">
         <h3 className="text-white font-semibold text-xl">Upcoming Appointment</h3>
@@ -83,11 +113,11 @@ const ProfileBox = () => {
         <h3 className="text-white font-semibold text-xl">Upcoming Appointment</h3>
 
         <div className="flex items-center gap-1 mt-10">
-          <Avatar size={64} src={upcoming.avatarSrc} className="rounded-full" />
+          <Avatar size={64} src={appointment.avatarSrc} className="rounded-full" />
           <div>
             <span className="text-white font-medium text-sm">Doctor</span>
             <br />
-            <span className="text-white font-semibold text-lg">{upcoming.doctorName}</span>
+            <span className="text-white font-semibold text-lg">{appointment.doctorName}</span>
           </div>
           <div className="ml-32 max-lg:ml-5">{AddIcon}</div>
         </div>
@@ -97,22 +127,28 @@ const ProfileBox = () => {
             <div className="flex flex-col">
               <span className="text-white">Date</span>
               <span className="text-white font-semibold text-xl">
-                {format(new Date(upcoming.date), "MMM dd")}
+                {format(
+                  parse(appointment.date, "MMM d", new Date()),
+                  "MMM d"
+                )}
               </span>
             </div>
-            {/* <div className="flex flex-col">
+            <div className="flex flex-col">
               <span className="text-white">Timing</span>
               <span className="text-white font-semibold text-xl">
-                {format(new Date(`${upcoming.date}T${upcoming.time}`), "h:mm a")}
+                {format(
+                  parse(`${appointment.date} ${appointment.time}`, "MMM d h:mm a", new Date()),
+                  "h:mm a"
+                )}
               </span>
-            </div> */}
+            </div>
           </div>
 
           <div className="flex items-start gap-20 max-lg:gap-0">
             <div className="flex flex-col">
               <div className="flex items-start bg-[#313131] shadow-lg rounded-sm w-[102px] max-lg:w-auto h-[40px] px-1 py-2">
                 <span className="text-white font-satoshi font-normal text-base mr-1">Type:</span>
-                <span className="text-white font-satoshi font-medium text-sm">{upcoming.type}</span>
+                <span className="text-white font-satoshi font-medium text-sm">{appointment.type}</span>
               </div>
             </div>
             <div className="flex flex-col">

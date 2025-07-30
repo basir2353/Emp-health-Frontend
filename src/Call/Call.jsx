@@ -1,10 +1,14 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useContext } from 'react';
 import io from 'socket.io-client';
-import { Button, Input, Card, Typography, message } from 'antd';
+import { Button, Input, Card, Typography, message, List, Avatar, Badge } from 'antd';
+import { UserOutlined, VideoCameraOutlined, PhoneOutlined } from '@ant-design/icons';
+import { AuthContext } from '../components/context/AuthContext';
+import { storeSocketId, getOnlineUsers, getOnlineDoctors, leaveCall } from '../api/callApi';
 
 const { Title, Paragraph } = Typography;
 
 const Call = () => {
+  const { currentUser } = useContext(AuthContext);
   const [socket, setSocket] = useState(null);
   const [localStream, setLocalStream] = useState(null);
   const [remoteStream, setRemoteStream] = useState(null);
@@ -21,6 +25,10 @@ const Call = () => {
   const [pendingCandidates, setPendingCandidates] = useState([]);
   const [remoteDescriptionSet, setRemoteDescriptionSet] = useState(false);
   const [mediaError, setMediaError] = useState(null);
+  const [onlineUsers, setOnlineUsers] = useState([]);
+  const [onlineDoctors, setOnlineDoctors] = useState([]);
+  const [isUserOnline, setIsUserOnline] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
@@ -33,6 +41,80 @@ const Call = () => {
     ],
   };
 
+  // Store socket ID in backend when user joins
+  const handleStoreSocketId = async (socketId) => {
+    if (!currentUser?.id) {
+      console.warn('No current user found');
+      return;
+    }
+
+    try {
+      const response = await storeSocketId(currentUser.id, socketId);
+      if (response.success) {
+        console.log('Socket ID stored successfully:', response);
+        setIsUserOnline(true);
+        message.success('Successfully connected to call service');
+      }
+    } catch (error) {
+      console.error('Error storing socket ID:', error);
+      message.error('Failed to connect to call service');
+    }
+  };
+
+  // Handle user disconnection
+  const handleLeaveCall = async () => {
+    if (!currentUser?.id) {
+      console.warn('No current user found');
+      return;
+    }
+
+    try {
+      const response = await leaveCall(currentUser.id);
+      if (response.success) {
+        console.log('User disconnected successfully:', response);
+        setIsUserOnline(false);
+        message.success('Successfully disconnected from call service');
+      }
+    } catch (error) {
+      console.error('Error disconnecting user:', error);
+      message.error('Failed to disconnect from call service');
+    }
+  };
+
+  // Fetch online users based on current user role
+  const fetchOnlineUsers = async () => {
+    if (!currentUser?.id) {
+      console.log('No current user found, cannot fetch online users');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      console.log('Fetching online users for role:', currentUser.role);
+      
+      if (currentUser.role === 'doctor') {
+        const response = await getOnlineUsers();
+        console.log('Online users response:', response);
+        if (response.success) {
+          setOnlineUsers(response.data);
+          console.log('Set online users:', response.data);
+        }
+      } else if (currentUser.role === 'employee') {
+        const response = await getOnlineDoctors();
+        console.log('Online doctors response:', response);
+        if (response.success) {
+          setOnlineDoctors(response.data);
+          console.log('Set online doctors:', response.data);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching online users:', error);
+      message.error('Failed to fetch online users: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Initialize Socket.IO connection
   useEffect(() => {
     const newSocket = io('https://empolyee-backedn.onrender.com', {
@@ -42,9 +124,11 @@ const Call = () => {
     console.log('Socket initialized:', newSocket.id);
     setSocket(newSocket);
 
-    newSocket.on('connect', () => {
+    newSocket.on('connect', async () => {
       console.log('Socket connected:', newSocket.id);
       setCallStatus('Socket connected');
+      await handleStoreSocketId(newSocket.id);
+      await fetchOnlineUsers();
     });
 
     newSocket.on('connect_error', (error) => {
@@ -55,12 +139,13 @@ const Call = () => {
 
     return () => {
       console.log('Cleaning up socket');
+      handleLeaveCall();
       newSocket.close();
       if (localStream) {
         localStream.getTracks().forEach(track => track.stop());
       }
     };
-  }, []);
+  }, [currentUser]);
 
   // Handle ICE candidates safely
   const addIceCandidateSafely = async (candidate) => {
@@ -314,6 +399,7 @@ const Call = () => {
 
       socket.emit('join-room', { roomId: roomId.toLowerCase(), userId: socket.id });
       setCallStatus('Connected to room');
+      await handleStoreSocketId(socket.id); // Store socket ID when joining room
     } catch (error) {
       console.error('Error joining room:', error);
       if (error.name === 'NotAllowedError') {
@@ -326,6 +412,30 @@ const Call = () => {
         setMediaError('Failed to access camera/microphone: ' + error.message);
         message.error('Failed to access camera/microphone: ' + error.message);
       }
+    }
+  };
+
+  // Call user directly by socket ID (for doctors)
+  const callUserBySocketId = async (targetSocketId, targetUserId) => {
+    if (!peerConnection || !socket || !targetSocketId) {
+      message.error('Cannot make call: Missing peer connection or target user');
+      return;
+    }
+    try {
+      const offer = await peerConnection.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
+      await peerConnection.setLocalDescription(offer);
+      console.log('Making call with offer:', offer);
+      
+      socket.emit('initiate-call', {
+        callerId: currentUser.id,
+        calleeId: targetUserId,
+        callerName: currentUser.name || currentUser.email,
+      });
+      
+      setCallStatus('Calling...');
+    } catch (error) {
+      console.error('Error making call:', error);
+      message.error('Failed to initiate call');
     }
   };
 
@@ -385,7 +495,7 @@ const Call = () => {
   };
 
   // End the call
-  const endCall = () => {
+  const endCall = async () => {
     console.log('Ending call');
     if (socket && callerData) socket.emit('end-call', { to: callerData.from });
     if (peerConnection) {
@@ -405,6 +515,7 @@ const Call = () => {
     setPendingCandidates([]);
     if (localVideoRef.current) localVideoRef.current.srcObject = null;
     if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+    await handleLeaveCall(); // Update backend on call end
   };
 
   // Toggle audio
@@ -439,12 +550,18 @@ const Call = () => {
     }
   };
 
+  // Refresh online users
+  const refreshOnlineUsers = () => {
+    fetchOnlineUsers();
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col font-sans">
       <header className="p-4 flex justify-between items-center">
         <Title level={3}>Video Call</Title>
         <div className="flex items-center space-x-4">
           <span className="text-sm">User ID: {socket?.id || 'Not connected'}</span>
+          <Badge status={isUserOnline ? 'success' : 'error'} text={isUserOnline ? 'Online' : 'Offline'} />
           <Button type="primary" danger onClick={endCall}>
             Leave Call
           </Button>
@@ -460,6 +577,11 @@ const Call = () => {
               <strong>Room ID:</strong> {roomId}
             </Paragraph>
           )}
+          {currentUser && (
+            <Paragraph>
+              <strong>Logged in as:</strong> {currentUser.name || currentUser.email} ({currentUser.role})
+            </Paragraph>
+          )}
         </Card>
 
         {mediaError && (
@@ -469,6 +591,89 @@ const Call = () => {
             <Button type="primary" onClick={joinRoom}>
               Retry
             </Button>
+          </Card>
+        )}
+
+        {/* Online Users Section */}
+        {currentUser && !isCallActive && !isIncomingCall && (
+          <Card className="mb-4 border-green-500 border-2">
+            <div className="flex justify-between items-center mb-4">
+              <Title level={4}>
+                {currentUser?.role === 'doctor' ? 'Online Employees' : 'Online Doctors'}
+              </Title>
+              <div className="flex space-x-2">
+                <Button onClick={fetchOnlineUsers} loading={loading}>
+                  Fetch Online Users
+                </Button>
+                <Button onClick={refreshOnlineUsers} loading={loading}>
+                  Refresh
+                </Button>
+              </div>
+            </div>
+            
+            {currentUser?.role === 'doctor' && onlineUsers.length > 0 && (
+              <List
+                dataSource={onlineUsers}
+                renderItem={(user) => (
+                  <List.Item
+                    actions={[
+                      <Button 
+                        type="primary" 
+                        icon={<PhoneOutlined />}
+                        onClick={() => callUserBySocketId(user.socketId, user._id)}
+                        className="bg-green-600"
+                      >
+                        Call
+                      </Button>
+                    ]}
+                  >
+                    <List.Item.Meta
+                      avatar={<Avatar icon={<UserOutlined />} />}
+                      title={`Employee ${user._id}`}
+                      description={`Socket ID: ${user.socketId}`}
+                    />
+                  </List.Item>
+                )}
+              />
+            )}
+            
+            {currentUser?.role === 'employee' && onlineDoctors.length > 0 && (
+              <List
+                dataSource={onlineDoctors}
+                renderItem={(doctor) => (
+                  <List.Item
+                    actions={[
+                      <Button 
+                        type="primary" 
+                        icon={<PhoneOutlined />}
+                        onClick={() => callUserBySocketId(doctor.socketId, doctor._id)}
+                        className="bg-green-600"
+                      >
+                        Call
+                      </Button>
+                    ]}
+                  >
+                    <List.Item.Meta
+                      avatar={<Avatar icon={<UserOutlined />} />}
+                      title={`Doctor ${doctor._id}`}
+                      description={`Socket ID: ${doctor.socketId}`}
+                    />
+                  </List.Item>
+                )}
+              />
+            )}
+            
+            {((currentUser?.role === 'doctor' && onlineUsers.length === 0) || 
+              (currentUser?.role === 'employee' && onlineDoctors.length === 0)) && (
+              <div>
+                <Paragraph className="text-gray-500">
+                  No {currentUser?.role === 'doctor' ? 'employees' : 'doctors'} online at the moment.
+                </Paragraph>
+                <Paragraph className="text-sm text-gray-400">
+                  Make sure doctors/employees are logged in and have connected to the call service.
+                </Paragraph>
+              </div>
+            )}
           </Card>
         )}
 
@@ -497,7 +702,7 @@ const Call = () => {
 
         {localStream && !isCallActive && !isIncomingCall && connectedUsers.length > 0 && (
           <Card className="mb-4 border-green-500 border-2">
-            <Title level={4}>Available Users</Title>
+            <Title level={4}>Available Users in Room</Title>
             {connectedUsers.map(user => (
               <div key={user} className="flex justify-between items-center p-2 bg-gray-50 rounded mb-2">
                 <span className="font-medium">{user}</span>
@@ -577,7 +782,7 @@ const Call = () => {
           </div>
           <div className="relative">
             <Title level={4} className="text-center">
-              Doctor
+              {currentUser?.role === 'doctor' ? 'Patient' : 'Doctor'}
             </Title>
             <video
               ref={remoteVideoRef}

@@ -27,7 +27,7 @@ const LoginForm = () => {
       if (response?.token && response?.user) {
         const { user, token } = response;
 
-        localStorage.setItem("token", token);
+        localStorage.setItem("token_real", token);
         localStorage.setItem("loggedInUser", JSON.stringify(user));
         localStorage.setItem("user", JSON.stringify(user));
         message.success("Login successfully!");

@@ -89,7 +89,7 @@ const SafetyBox: React.FC = () => {
   const fetchReports = useCallback(async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("token_real");
       if (!token) {
         message.error("Authentication token missing. Please log in.");
         return;
@@ -124,7 +124,7 @@ const SafetyBox: React.FC = () => {
       onOk: async () => {
         setUpdatingStatus(reportId);
         try {
-          const token = localStorage.getItem("token");
+          const token = localStorage.getItem("token_real");
           if (!token) {
             message.error("Authentication token missing");
             return;
@@ -169,7 +169,7 @@ const SafetyBox: React.FC = () => {
       onOk: async () => {
         setDeleting(reportId);
         try {
-          const token = localStorage.getItem("token");
+          const token = localStorage.getItem("token_real");
           if (!token) {
             message.error("Authentication token missing");
             return;
@@ -200,7 +200,7 @@ const SafetyBox: React.FC = () => {
 
   const handleIdentityResponse = async (reportId: string, approve: boolean) => {
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("token_real");
       if (!token) {
         message.error("Authentication token missing");
         return;

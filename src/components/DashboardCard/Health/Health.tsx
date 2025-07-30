@@ -83,7 +83,7 @@ const Health: React.FC = () => {
                 borderColor: "black",
               }}
             >
-              Upload Schedule
+              Upload Schedule11
             </Button>
           </Flex>
         </Col>
@@ -180,7 +180,12 @@ const Health: React.FC = () => {
       </Row>
 
       {/* Popups and Sidebars */}
-      {isPopupOpen && <UploadSchedulePopup closePopup={() => setIsPopupOpen(false)} />}
+      {isPopupOpen && (
+        <UploadSchedulePopup 
+          closePopup={() => setIsPopupOpen(false)}
+          onSubmit={async () => setIsPopupOpen(false)}
+        />
+      )}
       {isPricingPopupOpen && <PricingPopup onClose={() => setIsPricingPopupOpen(false)} />}
       {isFamilySidebarOpen && (
         <FamilySidebar isOpen={isFamilySidebarOpen} onClose={() => setIsFamilySidebarOpen(false)} />

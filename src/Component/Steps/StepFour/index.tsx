@@ -10,7 +10,7 @@ import {
   RadioChangeEvent,
 } from "antd";
 import { useNavigate } from "react-router-dom";
-import { useRef, useEffect, useCallback, useState } from "react";
+import { useEffect, useCallback, useState, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import styled from "styled-components";
 import { setEmployeeContact } from "../../../features/onboardSlice";
@@ -41,69 +41,65 @@ interface RootState {
   };
 }
 
+// Styled components defined outside the component to ensure stability
+const StyledRadioButton = styled(Radio.Button)`
+  &:not(:first-child)::before {
+    width: 0px;
+  }
+  margin: 4px 6px;
+  border-radius: 20px;
+  padding: 0 15px;
+`;
+
+const ResponsiveCol = styled(Col)`
+  text-align: center;
+  max-width: 50%;
+  position: relative;
+  z-index: 10;
+  @media (max-width: 768px) {
+    flex: 0 0 100%;
+    max-width: 100%;
+  }
+`;
+
+const StyledInput = styled.input`
+  width: 100%;
+  height: 40px;
+  padding: 8px 12px;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  font-size: 16px;
+  outline: none;
+  transition: border-color 0.3s;
+  &:focus {
+    border-color: #1890ff;
+    box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+  }
+  &:hover {
+    border-color: #40a9ff;
+  }
+  &::placeholder {
+    color: #bfbfbf;
+  }
+`;
+
 function StepFour() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { Title, Text } = Typography;
 
-  // Type refs explicitly
-  const nameInputRef = useRef<HTMLInputElement>(null);
-  const contactInputRef = useRef<HTMLInputElement>(null);
-  const placementRef = useRef<HTMLDivElement>(null);
-
-  // State for controlled components
+  // State for controlled inputs
   const [countryCode, setCountryCode] = useState<string | undefined>(undefined);
   const [placement, setPlacement] = useState<string | undefined>(undefined);
+  const [contactName, setContactName] = useState<string>("");
+  const [contactNumber, setContactNumber] = useState<string>("");
 
   const { onboarding_master_data } = useSelector((state: RootState) => state.onboard || {});
 
-  const StyledRadioButton = styled(Radio.Button)`
-    &:not(:first-child)::before {
-      width: 0px;
-    }
-    margin: 4px 6px;
-    border-radius: 20px;
-    padding: 0 15px;
-  `;
+  // Memoize Redux data to prevent unnecessary re-renders
+  const masterData = useMemo(() => onboarding_master_data, [onboarding_master_data]);
 
-  const ResponsiveCol = styled(Col)`
-    text-align: center;
-    max-width: 50%;
-    position: relative;
-    z-index: 10;
-    @media (max-width: 768px) {
-      flex: 0 0 100%;
-      max-width: 100%;
-    }
-  `;
-
-  const StyledInput = styled.input`
-    width: 100%;
-    height: 40px;
-    padding: 8px 12px;
-    border: 1px solid #d9d9d9;
-    border-radius: 6px;
-    font-size: 16px;
-    outline: none;
-    transition: border-color 0.3s;
-    &:focus {
-      border-color: #1890ff;
-      box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
-    }
-    &:hover {
-      border-color: #40a9ff;
-    }
-    &::placeholder {
-      color: #bfbfbf;
-    }
-  `;
-
-  const handleContactClick = useCallback((e: React.MouseEvent<HTMLInputElement>) => {
-    e.preventDefault();
-    contactInputRef.current?.focus();
-    setTimeout(() => contactInputRef.current?.focus(), 100);
-  }, []);
-
+  // Memoize event handlers
   const handleContactKeyPress = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     const charCode = e.charCode;
     if (charCode < 48 || charCode > 57) {
@@ -111,15 +107,12 @@ function StepFour() {
     }
   }, []);
 
-  const handlePlacementChange = useCallback((e: RadioChangeEvent) => {
+  const selctedPlacement = useCallback((e: RadioChangeEvent) => {
     setPlacement(e.target.value);
   }, []);
 
   const validateInputs = useCallback(() => {
-    const name = nameInputRef.current?.value;
-    const contact = contactInputRef.current?.value;
-
-    if (!name?.trim()) {
+    if (!contactName.trim()) {
       message.error("Please enter the emergency contact name.");
       return false;
     }
@@ -134,13 +127,13 @@ function StepFour() {
       return false;
     }
 
-    if (!contact?.trim() || !/^\d+$/.test(contact)) {
+    if (!contactNumber.trim() || !/^\d+$/.test(contactNumber)) {
       message.error("Please enter a valid emergency contact number.");
       return false;
     }
 
-    return { name, placement, countryCode, contact };
-  }, [countryCode, placement]);
+    return { name: contactName, placement, countryCode, contact: contactNumber };
+  }, [contactName, placement, countryCode, contactNumber]);
 
   const handleClick = useCallback(() => {
     const validatedData = validateInputs();
@@ -159,21 +152,28 @@ function StepFour() {
     navigate("/step-5");
   }, [dispatch, navigate, validateInputs]);
 
-  const countryFlagMap: Record<string, string> = {
-    "+92": "🇵🇰",
-    "+91": "🇮🇳",
-    "+1": "🇺🇸",
-  };
+  // Memoize country and relationship options
+  const countryFlagMap: Record<string, string> = useMemo(
+    () => ({
+      "+92": "🇵🇰",
+      "+91": "🇮🇳",
+      "+1": "🇺🇸",
+    }),
+    []
+  );
 
-  const fallbackCountryCodes = [
-    { label: <><span style={{ marginRight: 8 }}>{countryFlagMap["+92"]}</span>+92 (Pakistan)</>, value: "+92" },
-    { label: <><span style={{ marginRight: 8 }}>{countryFlagMap["+91"]}</span>+91 (India)</>, value: "+91" },
-    { label: <><span style={{ marginRight: 8 }}>{countryFlagMap["+1"]}</span>+1 (USA)</>, value: "+1" },
-  ];
+  const fallbackCountryCodes = useMemo(
+    () => [
+      { label: <><span style={{ marginRight: 8 }}>{countryFlagMap["+92"]}</span>+92 (Pakistan)</>, value: "+92" },
+      { label: <><span style={{ marginRight: 8 }}>{countryFlagMap["+91"]}</span>+91 (India)</>, value: "+91" },
+      { label: <><span style={{ marginRight: 8 }}>{countryFlagMap["+1"]}</span>+1 (USA)</>, value: "+1" },
+    ],
+    [countryFlagMap]
+  );
 
-  const countryOptions =
-    onboarding_master_data?.applicationMasterData?.countryCodes?.masterData?.map(
-      (country: Country) => ({
+  const countryOptions = useMemo(
+    () =>
+      masterData?.applicationMasterData?.countryCodes?.masterData?.map((country: Country) => ({
         label: (
           <>
             <span style={{ marginRight: 8 }}>
@@ -183,24 +183,34 @@ function StepFour() {
           </>
         ),
         value: country.code,
-      })
-    ) || fallbackCountryCodes;
+      })) || fallbackCountryCodes,
+    [masterData, countryFlagMap, fallbackCountryCodes]
+  );
 
-  const relationshipOptions =
-    onboarding_master_data?.applicationMasterData?.relationShips?.masterData || [
-      { description: "Parent" },
-      { description: "Sibling" },
-      { description: "Spouse" },
-      { description: "Relative" },
-      { description: "Friend" },
-      { description: "Others" },
-    ];
+  const relationshipOptions = useMemo(
+    () =>
+      masterData?.applicationMasterData?.relationShips?.masterData || [
+        { description: "Parent" },
+        { description: "Sibling" },
+        { description: "Spouse" },
+        { description: "Relative" },
+        { description: "Friend" },
+        { description: "Others" },
+      ],
+    [masterData]
+  );
 
+  // Set default placement
   useEffect(() => {
     if (relationshipOptions.length && !placement) {
       setPlacement(relationshipOptions[0].description.toLowerCase());
     }
   }, [relationshipOptions, placement]);
+
+  // Debug re-renders
+  useEffect(() => {
+    console.log("StepFour rendered");
+  });
 
   return (
     <Row style={{ height: "calc(100vh - 81px)", backgroundColor: "#f5f5f5" }} justify="center" align="middle">
@@ -215,7 +225,11 @@ function StepFour() {
             </Text>
 
             <StyledInput
-              ref={nameInputRef}
+              value={contactName}
+              onChange={(e) => {
+                console.log("contactName changed:", e.target.value); // Debug input
+                setContactName(e.target.value);
+              }}
               placeholder="Emergency Contact Name..."
               style={{ margin: "20px 0px 5px 0px" }}
             />
@@ -224,18 +238,18 @@ function StepFour() {
               <Text type="secondary">Relationship with emergency contact</Text>
             </div>
             <Radio.Group
-              ref={placementRef}
               value={placement}
-              onChange={handlePlacementChange}
+              onChange={selctedPlacement}
               style={{ margin: "5px 0px", flexWrap: "wrap" }}
             >
-              {relationshipOptions.map(
-                (relationship: Relationship, index: number) => (
-                  <StyledRadioButton key={index} value={relationship.description.toLowerCase()}>
-                    {relationship.description}
-                  </StyledRadioButton>
-                )
-              )}
+              {relationshipOptions.map((relationship: Relationship) => (
+                <StyledRadioButton
+                  key={relationship.description} // Stable key
+                  value={relationship.description.toLowerCase()}
+                >
+                  {relationship.description}
+                </StyledRadioButton>
+              ))}
             </Radio.Group>
 
             <Flex gap="5px" style={{ margin: "20px 0px" }}>
@@ -243,13 +257,19 @@ function StepFour() {
                 size="large"
                 placeholder="Code"
                 options={countryOptions}
-                onChange={(value) => setCountryCode(value)}
+                onChange={(value) => {
+                  console.log("countryCode changed:", value); // Debug select
+                  setCountryCode(value);
+                }}
                 value={countryCode}
                 style={{ width: "30%", zIndex: 10 }}
               />
               <StyledInput
-                ref={contactInputRef}
-                onClick={handleContactClick}
+                value={contactNumber}
+                onChange={(e) => {
+                  console.log("contactNumber changed:", e.target.value); // Debug input
+                  setContactNumber(e.target.value);
+                }}
                 onKeyPress={handleContactKeyPress}
                 type="tel"
                 inputMode="numeric"

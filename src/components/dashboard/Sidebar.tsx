@@ -12,17 +12,20 @@ import {
   Image,
   Typography,
   message,
+  Calendar,
 } from "antd";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useDispatch } from "react-redux";
 import { addAppointment } from "../../redux/appointments/appointmentSlice";
 import axios from "axios";
+import dayjs, { Dayjs } from "dayjs";
 
 interface SidebarProps {
   isedit: boolean;
   isOpen: boolean;
   onClose: () => void;
   selectedDoctor: Doctor | null;
+  selectedDate: string | null; // Expected format: YYYY-MM-DD
 }
 
 interface Doctor {
@@ -34,22 +37,6 @@ interface Doctor {
   experience: string;
 }
 
-const datesAndMonths = [
-  { date: "1", month: "Jan" },
-  { date: "2", month: "Feb" },
-  { date: "3", month: "Mar" },
-  { date: "4", month: "Apr" },
-  { date: "5", month: "May" },
-  { date: "6", month: "Jun" },
-  { date: "7", month: "Jul" },
-  { date: "8", month: "Aug" },
-  { date: "9", month: "Sep" },
-  { date: "10", month: "Oct" },
-  { date: "11", month: "Nov" },
-  { date: "12", month: "Dec" },
-];
-
-const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const timeSlots = [
   "9:00 AM",
   "10:00 AM",
@@ -64,28 +51,47 @@ const Sidebar: React.FC<SidebarProps> = ({
   isOpen,
   onClose,
   selectedDoctor,
+  selectedDate,
 }) => {
   const dispatch = useDispatch();
-  const [startIndex, setStartIndex] = useState(0);
   const [selectedCard, setSelectedCard] = useState<number | null>(null);
   const [selectedAppointmentType, setSelectedAppointmentType] =
     useState("Walk in");
-  const [selectedDateIndex, setSelectedDateIndex] = useState<number | null>(
-    null
+  const [selectedDateValue, setSelectedDateValue] = useState<Dayjs | undefined>(
+    selectedDate && dayjs(selectedDate, "YYYY-MM-DD").isValid()
+      ? dayjs(selectedDate, "YYYY-MM-DD")
+      : undefined
   );
   const [Isedit, setIsedit] = useState(isedit);
   const [isCancelClicked, setIsCancelClicked] = useState(false);
   const [selectedOption, setSelectedOption] = useState("");
 
+  // Update selectedDateValue when selectedDate prop changes
+  useEffect(() => {
+    if (selectedDate && dayjs(selectedDate, "YYYY-MM-DD").isValid()) {
+      setSelectedDateValue(dayjs(selectedDate, "YYYY-MM-DD"));
+    } else {
+      setSelectedDateValue(undefined);
+    }
+  }, [selectedDate]);
+
+  // Get the day of the week for the selected date
   const getCurrentDay = () => {
-    if (selectedDateIndex === null) return "";
-    // In a real app, we would calculate the actual day of the week
-    // For this example, we're just returning Wednesday
-    return days[3]; // Wednesday
+    if (!selectedDateValue) return "";
+    return selectedDateValue.format("ddd"); // e.g., "Wed"
   };
 
-  const handleDateClick = (index: number) => {
-    setSelectedDateIndex(index);
+  // Handle date selection in the calendar
+  const handleDateSelect = (date: Dayjs) => {
+    setSelectedDateValue(date);
+  };
+
+  // Disable all dates except the selectedDate
+  const disabledDate = (current: Dayjs) => {
+    if (!selectedDate || !dayjs(selectedDate, "YYYY-MM-DD").isValid()) {
+      return true; // Disable all dates if selectedDate is invalid
+    }
+    return !current.isSame(dayjs(selectedDate, "YYYY-MM-DD"), "day");
   };
 
   const handelcancel = () => {
@@ -95,16 +101,6 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const handleCardClick = (index: number) => {
     setSelectedCard(index);
-  };
-
-  const handleClickNext = () => {
-    const newIndex = Math.min(startIndex + 5, datesAndMonths.length - 5);
-    setStartIndex(newIndex);
-  };
-
-  const handleClickPrev = () => {
-    const newIndex = Math.max(startIndex - 5, 0);
-    setStartIndex(newIndex);
   };
 
   const handleAppointmentTypeChange = (type: string) => {
@@ -117,24 +113,30 @@ const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const handleConfirm = () => {
-    if (
-      selectedDateIndex === null ||
-      selectedCard === null ||
-      !selectedDoctor
-    ) {
-      message.error("Please select date, time and doctor for the appointment");
+    if (!selectedDateValue || selectedCard === null || !selectedDoctor) {
+      message.error("Please select date, time, and doctor for the appointment");
       return;
     }
 
-    // Create appointment data object
-    // Get userId from localStorage user object
     const user = JSON.parse(localStorage.getItem("user") || "{}");
-    const userId = user?.id || null;
+    const userId = user?.id || user?._id || null;
+    const token = localStorage.getItem("token_real");
+
+    if (!userId) {
+      message.error("User ID not found. Please log in again.");
+      return;
+    }
+
+    if (!token) {
+      message.error("No authentication token found. Please log in again.");
+      return;
+    }
 
     const appointmentData = {
       userId,
       day: getCurrentDay(),
-      date: `${datesAndMonths[selectedDateIndex].month} ${datesAndMonths[selectedDateIndex].date}`,
+      date: selectedDateValue.format("MMM D"), // e.g., "Jan 1"
+      fullDate: selectedDateValue.format("YYYY-MM-DD"), // Full date for backend
       time: timeSlots[selectedCard],
       type: selectedAppointmentType,
       doctorName: selectedDoctor.name,
@@ -142,29 +144,25 @@ const Sidebar: React.FC<SidebarProps> = ({
     };
 
     dispatch(addAppointment(appointmentData));
-    // Post appointment to backend
- const token = localStorage.getItem("token");
 
-axios.post("https://empolyee-backedn.onrender.com/api/appointments", appointmentData, {
-  headers: {
-    Authorization: `Bearer ${token}`,
-    "Content-Type": "application/json",
-  },
-})
-
-      .then(() => {
-      // Optionally handle success
+    axios
+      .post("https://empolyee-backedn.onrender.com/api/appointments", appointmentData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      })
+      .then((response) => {
+        const existingAppointments = JSON.parse(localStorage.getItem("appointmentData") || "[]");
+        const apData = [...existingAppointments, appointmentData];
+        localStorage.setItem("appointmentData", JSON.stringify(apData));
+        message.success("Appointment confirmed successfully");
+        onClose();
       })
       .catch((error) => {
-      message.error("Failed to create appointment on server");
+        console.error("Error details:", error.response?.data || error.message);
+        message.error("Failed to create appointment on server. Please check your authentication or try again.");
       });
-    const existingAppointments = JSON.parse(localStorage.getItem("appointmentData") || "[]");
-    const apData = [...existingAppointments, appointmentData];
-    localStorage.setItem("appointmentData", JSON.stringify(apData));
-
-    message.success("Appointment confirmed successfully");
-
-    onClose();
   };
 
   React.useEffect(() => {
@@ -207,72 +205,69 @@ axios.post("https://empolyee-backedn.onrender.com/api/appointments", appointment
         </div>
       </div>
 
-      <div className="flex flex-col items-start ">
-        <div className="flex flex-col items-start ">
-          <div className="flex flex-col items-start  ">
-            {selectedDoctor && (
-              <div className="flex flex-col items-start py-2">
-                <div className="flex">
-                  <Avatar
-                    src={
-                      <Image
-                        src={selectedDoctor?.image}
-                        alt={selectedDoctor?.name}
-                        className="w-full h-full border-2 rounded-full"
-                      />
-                    }
-                    style={{
-                      width: "60px",
-                      height: "60px",
-                      marginRight: "1rem",
-                    }}
-                  />
-                  <div>
-                    <h3 className="text-lg font-bold text-black mt-2">
-                      {selectedDoctor?.name}
-                      <span className="font-normal text-base">
-                        ({selectedDoctor?.profession})
-                      </span>
-                    </h3>
-                    <div className="flex flex-col items-start">
-                      <p className="font-normal text-base leading-9 text-gray-500">
-                        {selectedDoctor?.education}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <button className="flex items-center justify-center ml-2 mt-2 gap-10 w-[95px] h-[24px] bg-white border border-gray-300 rounded shadow">
-                  View Profile
-                </button>
-                <div className="flex items-start gap-24 mt-5">
+      <div className="flex flex-col items-start p-4">
+        <div className="flex flex-col items-start w-full">
+          {selectedDoctor && (
+            <div className="flex flex-col items-start py-2">
+              <div className="flex">
+                <Avatar
+                  src={
+                    <Image
+                      src={selectedDoctor?.image}
+                      alt={selectedDoctor?.name}
+                      className="w-full h-full border-2 rounded-full"
+                    />
+                  }
+                  style={{
+                    width: "60px",
+                    height: "60px",
+                    marginRight: "1rem",
+                  }}
+                />
+                <div>
+                  <h3 className="text-lg font-bold text-black mt-2">
+                    {selectedDoctor?.name}
+                    <span className="font-normal text-base">
+                      ({selectedDoctor?.profession})
+                    </span>
+                  </h3>
                   <div className="flex flex-col items-start">
-                    <p className="text-base leading-6 text-gray-500">
-                      Available Hours
+                    <p className="font-normal text-base leading-9 text-gray-500">
+                      {selectedDoctor?.education}
                     </p>
-                    <div className="flex items-center">
-                      <p className="font-medium text-xl leading-2">
-                        {selectedDoctor?.available_hours}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col items-start">
-                    <p className="text-base text-gray-500">Experience</p>
-                    <div className="flex items-center">
-                      <p className="font-medium text-xl">
-                        {selectedDoctor?.experience}
-                      </p>
-                    </div>
                   </div>
                 </div>
               </div>
-            )}
-          </div>
-          <div className="flex flex-col items-start w-452 h-126">
-            <p className="font-normal text-base leading-6 text-gray-400 mb-2 mt-2">
+              <button className="flex items-center justify-center ml-2 mt-2 gap-10 w-[95px] h-[24px] bg-white border border-gray-300 rounded shadow">
+                View Profile
+              </button>
+              <div className="flex items-start gap-24 mt-5">
+                <div className="flex flex-col items-start">
+                  <p className="text-base leading-6 text-gray-500">
+                    Available Hours
+                  </p>
+                  <div className="flex items-center">
+                    <p className="font-medium text-xl leading-2">
+                      {selectedDoctor?.available_hours}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-col items-start">
+                  <p className="text-base text-gray-500">Experience</p>
+                  <div className="flex items-center">
+                    <p className="font-medium text-xl">
+                      {selectedDoctor?.experience}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          <div className="flex flex-col items-start w-full mt-4">
+            <p className="font-normal text-base leading-6 text-gray-400 mb-2">
               Appointment Type
             </p>
-            <div className="flex items-start gap-2 w-[452px] h-[126px]">
+            <div className="flex items-start gap-2 w-full">
               <div
                 className={`flex flex-col items-start gap-2 w-[215px] h-[96px] p-3 border ${
                   selectedAppointmentType === "Walk in"
@@ -322,123 +317,98 @@ axios.post("https://empolyee-backedn.onrender.com/api/appointments", appointment
             </div>
           </div>
         </div>
-        {isedit && (
-          <>
+        {Isedit && (
+          <div
+            style={{
+              marginLeft: "2px",
+              borderBottom: "2px solid black",
+              paddingBottom: "6px",
+              marginBottom: "5px",
+            }}
+          >
+            <div
+              style={{ display: "flex", alignItems: "center" }}
+              className="mb-5"
+            >
+              <Checkbox id="option1" style={{ marginRight: "8px" }} />
+              <Typography.Text strong className="text-xl">
+                Mark as Checked in
+              </Typography.Text>
+            </div>
             <div
               style={{
-                marginLeft: "2px",
-                borderBottom: "2px solid black",
-                paddingBottom: "6px",
-                marginBottom: "5px",
+                marginTop: "3px",
+                width: "452px",
+                display: "flex",
+                justifyContent: "space-between",
               }}
             >
               <div
-                style={{ display: "flex", alignItems: "center" }}
-                className="mb-5"
-              >
-                <Checkbox id="option1" style={{ marginRight: "8px" }} />
-                <Typography.Text strong className="text-xl">
-                  Mark as Checked in
-                </Typography.Text>
-              </div>
-              <div
                 style={{
-                  marginTop: "3px",
-                  width: "452px",
                   display: "flex",
-                  justifyContent: "space-between",
+                  alignItems: "flex-start",
+                  margin: "0 auto",
                 }}
               >
                 <div
-                  style={{
-                    display: "flex",
-                    alignItems: "flex-start",
-                    margin: "0 auto",
-                  }}
+                  style={{ marginRight: "10px" }}
+                  className="flex flex-col"
                 >
-                  <div
-                    style={{ marginRight: "10px" }}
-                    className="flex flex-col"
-                  >
-                    <Typography.Text>Time</Typography.Text>
-                    <Typography.Text strong style={{ fontSize: "1.25rem" }}>
-                      2:00 PM
-                    </Typography.Text>
-                  </div>
-                  <div className="flex flex-col">
-                    <Typography.Text>Date</Typography.Text>
-                    <Typography.Text strong style={{ fontSize: "1.25rem" }}>
-                      Feb 5, 2023
-                    </Typography.Text>
-                  </div>
+                  <Typography.Text>Time</Typography.Text>
+                  <Typography.Text strong style={{ fontSize: "1.25rem" }}>
+                    2:00 PM
+                  </Typography.Text>
                 </div>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    margin: "0 auto",
-                    gap: "8px",
-                  }}
-                >
-                  <Button onClick={handelcancel} type="default">
-                    Cancel
-                  </Button>
-                  <Button
-                    type="primary"
-                    style={{ background: "black" }}
-                    onClick={handleReschedule}
-                  >
-                    Reschedule
-                  </Button>
+                <div className="flex flex-col">
+                  <Typography.Text>Date</Typography.Text>
+                  <Typography.Text strong style={{ fontSize: "1.25rem" }}>
+                    Feb 5, 2023
+                  </Typography.Text>
                 </div>
               </div>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  margin: "0 auto",
+                  gap: "8px",
+                }}
+              >
+                <Button onClick={handelcancel} type="default">
+                  Cancel
+                </Button>
+                <Button
+                  type="primary"
+                  style={{ background: "black" }}
+                  onClick={handleReschedule}
+                >
+                  Reschedule
+                </Button>
+              </div>
             </div>
-          </>
+          </div>
         )}
         {!Isedit && (
-          <div className="flex flex-row items-center justify-between gap-4 w-[452px] h-[46px] ">
-            <div
-              className="text-black flex justify-center items-center w-6 h-6 rounded-full bg-transparent border border-black cursor-pointer"
-              onClick={handleClickPrev}
-            >
-              <ArrowLeftOutlined />
-            </div>
-
-            <div className="flex flex-row items-center gap-8">
-              {datesAndMonths
-                .slice(startIndex, startIndex + 5)
-                .map((item, index) => (
-                  <div
-                    key={index}
-                    className={`w-[36px] h-auto flex gap-1 cursor-pointer ${
-                      selectedDateIndex === startIndex + index
-                        ? "border-b-2 border-black"
-                        : ""
-                    }`}
-                    onClick={() => handleDateClick(startIndex + index)}
-                  >
-                    <p className="font-medium text-base text-black mb-1">
-                      {item?.month}
-                    </p>
-                    <p className="font-medium text-base text-gray-500">
-                      {item?.date}
-                    </p>
-                  </div>
-                ))}
-            </div>
-
-            <div
-              className="text-black flex justify-center items-center w-6 h-6 rounded-full bg-transparent border border-black cursor-pointer"
-              onClick={handleClickNext}
-            >
-              <ArrowRightOutlined />
-            </div>
+          <div className="flex flex-col items-start w-full mt-4">
+            <p className="font-normal text-base leading-6 text-gray-400 mb-2">
+              Select Date
+            </p>
+            <Calendar
+              fullscreen={false}
+              disabledDate={disabledDate}
+              value={selectedDateValue}
+              onSelect={handleDateSelect}
+              style={{ width: "100%", border: "1px solid #d9d9d9", borderRadius: "4px" }}
+            />
           </div>
         )}
       </div>
 
       {!Isedit && (
         <div className="p-4 w-full">
+          <p className="font-normal text-base leading-6 text-gray-400 mb-2">
+            Select Time
+          </p>
           <div className="grid grid-cols-3 gap-4">
             {timeSlots.map((slot, index) => (
               <div
@@ -455,15 +425,15 @@ axios.post("https://empolyee-backedn.onrender.com/api/appointments", appointment
         </div>
       )}
 
-      {!Isedit && selectedDateIndex !== null && selectedCard !== null && (
-        <Card className="w-[436px] py-2 border border-solid border-gray-300 rounded-md bg-[#FAFAFA]">
+      {!Isedit && selectedDateValue && selectedCard !== null && (
+        <Card className="w-[436px] py-2 border border-solid border-gray-300 rounded-md bg-[#FAFAFA] mx-4">
           <div className="flex">
             <div className="flex flex-col justify-center text-center px-4">
               <div className="text-base">
-                {datesAndMonths[selectedDateIndex]?.month}
+                {selectedDateValue?.format("MMM")}
               </div>
-              <div className="text-3xl text-[#F05454] ">
-                {datesAndMonths[selectedDateIndex]?.date}
+              <div className="text-3xl text-[#F05454]">
+                {selectedDateValue?.format("D")}
               </div>
               <div className="text-sm">{getCurrentDay()}</div>
             </div>
@@ -511,7 +481,7 @@ axios.post("https://empolyee-backedn.onrender.com/api/appointments", appointment
         </Card>
       )}
       {isCancelClicked && (
-        <div className="flex flex-col items-start gap-4">
+        <div className="flex flex-col items-start gap-4 p-4">
           <h3 className="text-lg font-medium">Cancellation Reason</h3>
           <div>
             <input

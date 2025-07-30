@@ -133,7 +133,7 @@ const renderMenu = (index: number) => (
               onClick={() => navigate("/health/schedule")}
               style={{ width: "170px" }}
             >
-              Upload Schedule
+              Upload Schedule!
             </Button>
           </Flex>
         </Col>

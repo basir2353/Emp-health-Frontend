@@ -34,7 +34,7 @@ function SafteyBox() {
         setApiReports(response.data.reports)
       } catch (error) {
         console.error('Failed to fetch reports:', error)
-        message.error('Failed to fetch reports')
+        // message.error('Failed to fetch reports!')
       } finally {
         setLoading(false)
       }

@@ -102,7 +102,7 @@ export const Doctors = () => {
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
   const [selectedSpecialty, setSelectedSpecialty] = useState<string | null>(null);
   const [selectedGender, setSelectedGender] = useState<string | null>("other");
-  
+    const [selectedDate, setSelectedDate] = useState<string | null>(null);
   // Add state for all doctors (API + static)
   const [allDoctors, setAllDoctors] = useState<Doctor[]>(available_doctors);
   const [isLoading, setIsLoading] = useState(true);
@@ -144,10 +144,12 @@ export const Doctors = () => {
   };
 
   const openSidebar = () => {
+    setSelectedDate(Date);
     setIsSidebarOpen(true);
   };
 
   const closeSidebar = () => {
+    setSelectedDate(Date);
     setIsSidebarOpen(false);
   };
 
@@ -231,7 +233,7 @@ export const Doctors = () => {
 
       <div className="w-full inline-flex justify-between items-start pt-7">
         <div className="text-black text-3xl font-medium leading-10 ml-7">
-          Available Doctors ({filteredDoctors.length})
+          Available Doctors!! ({filteredDoctors.length})
         </div>
         <div className="flex gap-2 mr-3">
           <Search placeholder="Search Location..." style={{ width: 200 }} />
@@ -292,10 +294,11 @@ export const Doctors = () => {
       </div>
 
       <Sidebar
-        isedit={false}
-        isOpen={isSidebarOpen}
-        onClose={closeSidebar}
-        selectedDoctor={selectedDoctor}
+         isedit={false}
+          isOpen={isSidebarOpen}
+          onClose={closeSidebar}
+          selectedDoctor={selectedDoctor}
+          selectedDate={selectedDate}
       />
       <FilterSidebar
         isOpen={isFilterSidebarOpen}

@@ -21,7 +21,7 @@ const NotifictionSaftey: React.FC<{ canModify: boolean }> = ({ canModify }) => {
   useEffect(() => {
     const fetchReports = async () => {
       try {
-        const token = localStorage.getItem("token");
+        const token = localStorage.getItem("token_real");
         if (!token) {
           setError("No authentication token found.");
           return;
@@ -53,7 +53,7 @@ const NotifictionSaftey: React.FC<{ canModify: boolean }> = ({ canModify }) => {
       } catch (err: any) {
         if (err.response?.status === 403 && canModify) {
           try {
-            const token = localStorage.getItem("token");
+            const token = localStorage.getItem("token_real");
             const fallbackResponse = await axios.get("https://empolyee-backedn.onrender.com/api/reports", {
               headers: { "x-auth-token": token || "" },
             });

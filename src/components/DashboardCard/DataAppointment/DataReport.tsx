@@ -23,7 +23,7 @@ const DataReport = () => {
   const fetchReports = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("token_real");
       const isAdminOrDoctor = user?.role === "admin" || user?.role === "doctor";
 
       const endpoint = isAdminOrDoctor
@@ -39,7 +39,7 @@ const DataReport = () => {
       setApiReports(response.data.reports || []);
     } catch (error) {
       console.error("Failed to fetch reports:", error);
-      message.error("Failed to fetch reports");
+      // message.error("Failed to fetch reports1");
     } finally {
       setLoading(false);
     }
@@ -62,7 +62,7 @@ const DataReport = () => {
   };
 
   return (
-    <div className="h-[426px] max-w-xl mx-auto bg-white rounded-xl shadow-md overflow-hidden">
+    <div className="h-[426px] w-[22vw] mx-auto bg-white rounded-xl shadow-md overflow-hidden">
       <div>
         {/* Header */}
         <div className="flex justify-between items-center mb-2">
@@ -86,9 +86,18 @@ const DataReport = () => {
         {/* Reports List */}
         <div className="max-h-96 overflow-y-auto divide-y">
           {apiReports.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
-              No reports yet. Create your first report!
-            </div>
+          <div className="flex flex-col items-center justify-center h-full">
+                        <img src="/report.png" alt="No appointments" className="w-[15rem] h-[15rem] mb-4" />
+                        <p className="text-center text-gray-500 mb-4">No reports yet. Create your first report!</p>
+                        <Button
+                          type="default"
+                          style={{ backgroundColor: "black", color: "white" }}
+                          className="text-sm font-normal text-white bg-black rounded-lg mt-2 sm:mt-0"
+                          onClick={() => navigate("/safety")}
+                        >
+                          Report an Issue
+                        </Button>
+                      </div>
           ) : (
             apiReports.slice(0, 4).map((report: any, index) => (
               <Card

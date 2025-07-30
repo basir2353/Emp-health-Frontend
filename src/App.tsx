@@ -39,6 +39,7 @@ import Login from "./Component/Login/Login"; // You'll need to create this compo
 import ProtectedRoute from "./Component/ProtectedRoute/ProtectedRoute";
 import RegisterForm from "./Component/RegisterForm/RegisterForm";
 import Call from "./Call/Call";
+import CallTest from "./Call/CallTest";
 const App: React.FC = () => (
   <div className="App mx-auto">
     <div>
@@ -117,7 +118,8 @@ const App: React.FC = () => (
                     <Route path="/" element={<UserMassage />} />
                     <Route path="/messages" element={<MessagingSection />} />
                     <Route path="/call2" element={<Callchat />} />
-          <Route path="/call" element={<Call />}/>
+                    <Route path="/call" element={<Call />}/>
+                    <Route path="/call-test" element={<CallTest />}/>
 
                   </Routes>
                 </ChatBoxLayout>

@@ -104,7 +104,7 @@ const CreateAppointments: React.FC = () => {
     };
 
     fetchAppointments();
-  }, [userParsed._id]);
+  }, [userParsed.id]);
   const menu = (
     <Menu onClick={handleMenuClick}>
       <Menu.Item key="reschedule" icon={<SendOutlined />}>
@@ -151,15 +151,17 @@ const CreateAppointments: React.FC = () => {
             style={{ marginLeft: "auto" }}
           >
             <Flex gap="small" wrap="wrap" className="flex max-lg:flex-col">
-              <Button
+              {userParsed.role !== 'employee' ? 
+            <Button
                 className="w-[144px] "
                 type="default"
                 block
                 onClick={() => navigate("/health/schedule")}
                 style={{ width: "170px" }}
               >
-                Upload Schedule
+                Upload Schedule2
               </Button>
+              : ''}
               <Link to="/health/doctors">
               {userParsed.role === 'admin' ?
               ''  
@@ -191,7 +193,7 @@ const CreateAppointments: React.FC = () => {
 
           <Col className="ml-10 max-lg:ml-0">
             <Row>
-              <div className="text-2xl ">Appointments</div>
+              <div className="text-2xl ">Appointments!</div>
             </Row>
             <div>
               {appointmentsList.map((appointment: Appointment, index: number) => (

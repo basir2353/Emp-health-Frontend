@@ -14,18 +14,16 @@ const OTPVerification = ({ email, userId, onVerified }) => {
   const [countdown, setCountdown] = useState(60);
   const inputRefs = useRef([]);
   const navigate = useNavigate();
+  const timerRef = useRef(null);
 
   useEffect(() => {
     if (inputRefs.current[0]) inputRefs.current[0].focus();
     startCountdown();
 
     return () => {
-      // Cleanup countdown timer on component unmount
-      clearInterval(timerRef.current);
+      if (timerRef.current) clearInterval(timerRef.current);
     };
   }, []);
-
-  const timerRef = useRef(null);
 
   const startCountdown = () => {
     setResendDisabled(true);
@@ -34,7 +32,7 @@ const OTPVerification = ({ email, userId, onVerified }) => {
     timerRef.current = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
-          clearInterval(timerRef.current);
+          if (timerRef.current) clearInterval(timerRef.current);
           setResendDisabled(false);
           return 0;
         }
@@ -44,13 +42,12 @@ const OTPVerification = ({ email, userId, onVerified }) => {
   };
 
   const handleInputChange = (index, value) => {
-    if (!/^\d?$/.test(value)) return; // Only digits
+    if (!/^\d?$/.test(value)) return;
 
     const updatedOtp = [...otp];
     updatedOtp[index] = value;
     setOtp(updatedOtp);
 
-    // Move to next field
     if (value && index < 5) {
       inputRefs.current[index + 1]?.focus();
     }
@@ -59,6 +56,16 @@ const OTPVerification = ({ email, userId, onVerified }) => {
   const handleKeyDown = (index, e) => {
     if (e.key === "Backspace" && !otp[index] && index > 0) {
       inputRefs.current[index - 1]?.focus();
+    }
+  };
+
+  const handlePaste = (e) => {
+    e.preventDefault();
+    const pastedData = e.clipboardData.getData("text").trim();
+    if (/^\d{6}$/.test(pastedData)) {
+      const newOtp = pastedData.split("").slice(0, 6);
+      setOtp(newOtp);
+      inputRefs.current[5]?.focus();
     }
   };
 
@@ -125,80 +132,91 @@ const OTPVerification = ({ email, userId, onVerified }) => {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-xl p-8">
-      <div className="text-center mb-8">
-        <div className="flex justify-center mb-4">
-          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
-            <FiMail className="text-blue-600 text-2xl" />
+    <div className="flex min-h-screen items-center justify-center bg-gray-100 p-4 sm:p-6">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="w-full max-w-md rounded-xl bg-white p-6 sm:p-8 shadow-2xl"
+      >
+        <div className="mb-8 text-center">
+          <div className="mb-4 flex justify-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-100">
+              <FiMail className="text-2xl text-blue-600" />
+            </div>
+          </div>
+          <h2 className="text-2xl font-bold text-blue-600">Verify Your Email</h2>
+          <p className="mt-2 text-gray-600 text-sm sm:text-base">
+            We've sent a verification code to:
+          </p>
+          <p className="font-medium text-gray-800 break-all">{email}</p>
+        </div>
+
+        <div className="mb-6">
+          <div className="flex justify-center space-x-2 sm:space-x-3">
+            {otp.map((digit, index) => (
+              <input
+                key={index}
+                ref={(el) => (inputRefs.current[index] = el)}
+                type="text"
+                maxLength={1}
+                value={digit}
+                onChange={(e) => handleInputChange(index, e.target.value)}
+                onKeyDown={(e) => handleKeyDown(index, e)}
+                onPaste={handlePaste}
+                className="h-12 w-12 rounded-lg border-2 border-gray-300 text-center text-xl focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:h-14 sm:w-14"
+                aria-label={`OTP digit ${index + 1}`}
+              />
+            ))}
           </div>
         </div>
-        <h2 className="text-2xl font-bold text-blue-600">Verify Your Email</h2>
-        <p className="text-gray-600 mt-2">We've sent a verification code to:</p>
-        <p className="font-medium text-gray-800">{email}</p>
-      </div>
 
-      <div className="mb-6">
-        <div className="flex justify-center space-x-2">
-          {otp.map((digit, index) => (
-            <input
-              key={index}
-              ref={(el) => (inputRefs.current[index] = el)}
-              type="text"
-              maxLength="1"
-              value={digit}
-              onChange={(e) => handleInputChange(index, e.target.value)}
-              onKeyDown={(e) => handleKeyDown(index, e)}
-              className="w-12 h-12 text-xl text-center border-2 border-gray-300 rounded-lg 
-                        focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-            />
-          ))}
-        </div>
-      </div>
-
-      {error && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-center gap-2 text-red-500 bg-red-50 p-3 rounded-lg mb-6"
-        >
-          <FiAlertCircle />
-          <span className="text-sm">{error}</span>
-        </motion.div>
-      )}
-
-      <motion.button
-        onClick={handleVerify}
-        disabled={isLoading}
-        whileHover={{ scale: 1.01 }}
-        whileTap={{ scale: 0.99 }}
-        className={`w-full py-3 px-4 bg-blue-600 text-white rounded-lg font-medium mb-4
-          ${isLoading ? "opacity-70 cursor-not-allowed" : "hover:bg-blue-700"} 
-          transition-colors duration-200 flex items-center justify-center`}
-      >
-        {isLoading ? (
+        {error && (
           <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-            className="w-5 h-5 border-2 border-white border-t-transparent rounded-full"
-          />
-        ) : (
-          <>
-            <FiCheck className="mr-2" /> Verify Email
-          </>
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 flex items-center gap-2 rounded-lg bg-red-50 p-3 text-red-500"
+          >
+            <FiAlertCircle />
+            <span className="text-sm">{error}</span>
+          </motion.div>
         )}
-      </motion.button>
 
-      <div className="text-center">
-        <p className="text-gray-600 text-sm mb-2">Didn't receive the code?</p>
-        <button
-          onClick={handleResendOTP}
-          disabled={resendDisabled || isLoading}
-          className={`text-blue-600 text-sm font-medium 
-            ${resendDisabled || isLoading ? "opacity-60 cursor-not-allowed" : "hover:text-blue-800"}`}
+        <motion.button
+          onClick={handleVerify}
+          disabled={isLoading}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          className={`flex w-full items-center justify-center rounded-lg py-3 px-4 font-medium text-white transition-colors duration-200 ${
+            isLoading ? "cursor-not-allowed bg-blue-400" : "bg-blue-600 hover:bg-blue-700"
+          }`}
         >
-          {resendDisabled ? `Resend in ${countdown}s` : "Resend Code"}
-        </button>
-      </div>
+          {isLoading ? (
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+              className="h-5 w-5 rounded-full border-2 border-white border-t-transparent"
+            />
+          ) : (
+            <>
+              <FiCheck className="mr-2" /> Verify Email
+            </>
+          )}
+        </motion.button>
+
+        <div className="mt-4 text-center">
+          <p className="mb-2 text-sm text-gray-600">Didn't receive the code?</p>
+          <button
+            onClick={handleResendOTP}
+            disabled={resendDisabled || isLoading}
+            className={`text-sm font-medium text-blue-600 ${
+              resendDisabled || isLoading ? "cursor-not-allowed opacity-60" : "hover:text-blue-800"
+            }`}
+          >
+            {resendDisabled ? `Resend in ${countdown}s` : "Resend Code"}
+          </button>
+        </div>
+      </motion.div>
     </div>
   );
 };

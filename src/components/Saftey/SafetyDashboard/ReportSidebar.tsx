@@ -54,7 +54,7 @@ const apiClient = axios.create({
 });
 
 apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('token_real');
   if (token) config.headers['x-auth-token'] = token;
   return config;
 });
@@ -92,12 +92,12 @@ const ReportSidebar: React.FC<ReportSidebarProps> = ({ visible, onClose }) => {
       const response: AxiosResponse<ApiResponse<any>> = await apiClient.post('/report', report);
       hideLoading();
 
-      if (response.data.success) {
+      if (response.data.success || response.data) {
         message.success("Report generated and saved successfully");
         return { success: true, data: response.data.data };
       } else {
-        message.error(response.data.message || "Failed to save report");
-        return { success: false, error: response.data.message };
+        message.error("Failed to save report");
+        return { success: false};
       }
     } catch (error: any) {
       const err = error as AxiosErrorWithResponse;

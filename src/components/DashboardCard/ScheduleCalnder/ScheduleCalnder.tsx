@@ -16,11 +16,13 @@ import {
   Typography,
   Spin,
   Alert,
+  message,
 } from "antd";
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import UploadSchedulePopup from "../../../Component/CreateAppointemts/UploadSchedulePopup";
 import Calendar from "./Calnder";
+import UploadManualPopUp from "./UploadManualPopUp";
+import dayjs from "dayjs";
 
 const { Text } = Typography;
 
@@ -38,21 +40,38 @@ interface Appointment {
   status?: string;
 }
 
+interface ScheduleData {
+  date: dayjs.Dayjs | null;
+  startTime: dayjs.Dayjs | null;
+  endTime: dayjs.Dayjs | null;
+  breaks: Array<{
+    id: string;
+    startTime: dayjs.Dayjs | null;
+    endTime: dayjs.Dayjs | null;
+  }>;
+}
+
 const ScheduleCalnder: React.FC = () => {
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [userId, setUserId] = useState<string | null>(null);
 
-  const openPopup = () => {
-    setIsPopupOpen(true);
-  };
+  useEffect(() => {
+    const userStr = localStorage.getItem("user");
+    try {
+      if (userStr) {
+        const userObj = JSON.parse(userStr);
+        setUserId(userObj?.id || userObj?._id || null);
+      } else {
+        setUserId(null);
+      }
+    } catch (e) {
+      setUserId(null);
+    }
+  }, []);
 
-  const closePopup = () => {
-    setIsPopupOpen(false);
-  };
-
-  // Fetch appointments on mount
   useEffect(() => {
     setLoading(true);
     setError("");
@@ -63,7 +82,6 @@ const ScheduleCalnder: React.FC = () => {
         return res.json();
       })
       .then((data) => {
-        // Sort by date/time if needed
         const sorted = (data.appointments || []).sort((a: Appointment, b: Appointment) => {
           const dateA = new Date(`${a.date} ${a.time}`);
           const dateB = new Date(`${b.date} ${b.time}`);
@@ -74,6 +92,49 @@ const ScheduleCalnder: React.FC = () => {
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, []);
+
+  const openPopup = () => {
+    setIsPopupOpen(true);
+  };
+
+  const closePopup = () => {
+    setIsPopupOpen(false);
+  };
+
+  const handleScheduleSubmit = async (scheduleData: ScheduleData) => {
+    if (!userId) {
+      setError("User ID not found");
+      return;
+    }
+
+    try {
+      const formattedData = {
+        date: scheduleData.date?.format("YYYY-MM-DD"),
+        startTime: scheduleData.startTime?.format("HH:mm"),
+        endTime: scheduleData.endTime?.format("HH:mm"),
+        breaks: scheduleData.breaks
+          .map((breakItem) => ({
+            startTime: breakItem.startTime?.format("HH:mm"),
+            endTime: breakItem.endTime?.format("HH:mm"),
+          }))
+          .filter((breakItem) => breakItem.startTime && breakItem.endTime),
+      };
+
+      const response = await fetch(`http://localhost:5000/${userId}/schedule`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formattedData), // Send directly without 'schedule' wrapper
+      });
+
+      if (!response.ok) throw new Error("Failed to update schedule");
+      message.success("Schedule updated successfully");
+      closePopup(); // Close popup on success
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
 
   return (
     <div className="mt-4 h-5 justify-start items-center pl-3 bg-white ml-10">
@@ -87,44 +148,42 @@ const ScheduleCalnder: React.FC = () => {
 
       <Row>
         <Col className="gutter-row flex justify-between right-0 mb-6">
-          <div className="text-black text-3xl ml-1 font-medium ">Schedule</div>
+          <div className="text-black text-3xl ml-1 font-medium">Schedule</div>
         </Col>
 
-        <Col
-          className="gutter-row right-8 flex max-lg:ml-32"
-          style={{ marginLeft: "auto" }}
-        >
-          <Flex gap="small" wrap="wrap" className="flex">
+        <Col className="gutter-row right-8 flex max-lg:ml-32" style={{ marginLeft: "auto" }}>
+          <Flex gap="small" align="center">
             <Button
               type="default"
-              block
               onClick={openPopup}
               style={{
                 width: "165px",
                 height: "36px",
                 display: "flex",
                 alignItems: "center",
+                justifyContent: "center",
               }}
             >
               <UploadOutlined style={{ marginRight: "5px" }} />
               Upload Schedule
             </Button>
-            <Link to="/health/doctors">
-              <Button
-                type="primary"
-                block
-                style={{
-                  backgroundColor: "black",
-                  borderColor: "black",
-                  color: "white",
-                  display: "flex",
-                  alignItems: "center",
-                }}
-              >
-                <PlusOutlined style={{ marginRight: "5px" }} />
-                Manual Upload
-              </Button>
-            </Link>
+            <Button
+              type="primary"
+              onClick={openPopup}
+              style={{
+                width: "165px",
+                height: "36px",
+                backgroundColor: "black",
+                borderColor: "black",
+                color: "white",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <PlusOutlined style={{ marginRight: "5px" }} />
+              Manual Upload
+            </Button>
           </Flex>
         </Col>
       </Row>
@@ -133,7 +192,7 @@ const ScheduleCalnder: React.FC = () => {
         <Col>
           <Space>
             <div className="flex flex-col items-start">
-              <div className="flex flex-col items-start  rounded-md px-2 py-2">
+              <div className="flex flex-col items-start rounded-md px-2 py-2">
                 {loading && <Spin tip="Loading appointments..." />}
                 {error && <Alert message={error} type="error" showIcon />}
                 {!loading && appointments.length === 0 && (
@@ -166,9 +225,7 @@ const ScheduleCalnder: React.FC = () => {
                           Patient: {appt.user?.name} <br />
                           Date: {appt.date} | Time: {appt.time}
                         </p>
-                        <p className="text-gray-500 mt-1">
-                          Status: {appt.status || "N/A"}
-                        </p>
+                        <p className="text-gray-500 mt-1">Status: {appt.status || "N/A"}</p>
                       </div>
                     </div>
                   ))}
@@ -181,7 +238,7 @@ const ScheduleCalnder: React.FC = () => {
           <Row justify="space-between" align="middle">
             <div className="flex items-center">
               <div>
-                <div className="bg-white shadow-md px-2 py-1 justify-center mr-2 border-2 border-gray-200 rounded-lg ">
+                <div className="bg-white shadow-md px-2 py-1 justify-center mr-2 border-2 border-gray-200 rounded-lg">
                   <LeftOutlined />
                 </div>
               </div>
@@ -201,7 +258,12 @@ const ScheduleCalnder: React.FC = () => {
 
       <Calendar />
 
-      {isPopupOpen && <UploadSchedulePopup closePopup={closePopup} />}
+      {isPopupOpen && (
+        <UploadManualPopUp
+          closePopup={closePopup}
+          onSubmit={handleScheduleSubmit}
+        />
+      )}
     </div>
   );
 };

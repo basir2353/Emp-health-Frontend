@@ -22,7 +22,7 @@ const NotificationCard: React.FC = () => {
   useEffect(() => {
     const fetchLatestAppointment = async () => {
       try {
-        const token = localStorage.getItem("token");
+        const token = localStorage.getItem("token_real");
         const response = await axios.get<{ appointments: Appointment[] }>(
           "https://empolyee-backedn.onrender.com/api/appointments/",
           {
