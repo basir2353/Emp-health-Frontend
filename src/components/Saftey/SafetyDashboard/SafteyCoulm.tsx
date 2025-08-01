@@ -779,7 +779,7 @@ const SafetyBox: React.FC = () => {
         }}
         onClick={handleAskForIdentity}
       >
-        {selectedIncident?.identityStatus === "provided"
+        {selectedIncident?.identityStatus && selectedIncident.identityStatus === "provided"
           ? `Ask For Identity - ${selectedIncident.reportedBy?.name || "Unknown User"}`
           : "Ask For Identity"}
       </Button>
