@@ -764,7 +764,7 @@ const SafetyBox: React.FC = () => {
         icon={<BellOutlined />}
         onClick={handleViewNotification}
       >
-        {selectedIncident?.identityStatus === "provided"
+        {selectedIncident?.identityStatus && selectedIncident.identityStatus === "provided"
           ? `View Notification - ${userName || "Unknown User"}`
           : "View Notification"}
       </Button>
