@@ -40,6 +40,7 @@ import ProtectedRoute from "./Component/ProtectedRoute/ProtectedRoute";
 import RegisterForm from "./Component/RegisterForm/RegisterForm";
 import Call from "./Call/Call";
 import CallTest from "./Call/CallTest";
+// import ForgotPassword from "./Component/Login/ForgetPassword";
 const App: React.FC = () => (
   <div className="App mx-auto">
     <div>
@@ -48,7 +49,7 @@ const App: React.FC = () => (
           {/* Auth Routes */}
           {/* Register */}
           <Route path="/register" element={<RegisterForm />} />
-
+          {/* <Route path='/forget-password' element={<ForgotPassword/>}/> */}
           <Route path="/login" element={<Login />} />
           <Route
             path="/*"

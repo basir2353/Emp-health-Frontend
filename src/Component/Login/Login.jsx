@@ -2,7 +2,7 @@ import { useState, useContext } from "react";
 import { motion } from "framer-motion";
 import { FiMail, FiLock, FiAlertCircle } from "react-icons/fi";
 import { AuthContext } from "../../components/context/AuthContext";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { loginUser } from "../../api/auth";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -134,9 +134,9 @@ const LoginForm = () => {
                 />
                 <span className="ml-2 text-sm text-gray-600">Remember me</span>
               </label>
-              <a href="#" className="text-sm text-blue-600 hover:text-blue-800">
+              <Link to="/forget-password" className="text-sm text-blue-600 hover:text-blue-800">
                 Forgot password?
-              </a>
+              </Link>
             </div>
 
             <motion.button

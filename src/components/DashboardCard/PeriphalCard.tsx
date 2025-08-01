@@ -20,27 +20,27 @@ const PeripheralCard: React.FC = () => {
     setIsModalOpen(false);
   };
 
-  const handleBluetoothConnect = async () => {
-    try {
-      setLoading(true);
-      const device = await navigator.bluetooth.requestDevice({
-        acceptAllDevices: true,
-        optionalServices: ['battery_service'],
-      });
+  // const handleBluetoothConnect = async () => {
+  //   try {
+  //     setLoading(true);
+  //     const device = await 'requestDevice'({
+  //       acceptAllDevices: true,
+  //       optionalServices: ['battery_service'],
+  //     });
 
-      if (!device.gatt) {
-        throw new Error('GATT server is not available on this device.');
-      }
-      await device.gatt.connect();
-      setConnectedDevice({ name: device.name || 'Unknown Device', id: device.id || 'Unknown ID' });
-      message.success(`Connected to ${device.name}`, 2);
-      setIsModalOpen(false);
-    } catch (error) {
-      message.error('Failed to connect to Bluetooth device');
-    } finally {
-      setLoading(false);
-    }
-  };
+  //     if (!device.gatt) {
+  //       throw new Error('GATT server is not available on this device.');
+  //     }
+  //     await device.gatt.connect();
+  //     setConnectedDevice({ name: device.name || 'Unknown Device', id: device.id || 'Unknown ID' });
+  //     message.success(`Connected to ${device.name}`, 2);
+  //     setIsModalOpen(false);
+  //   } catch (error) {
+  //     message.error('Failed to connect to Bluetooth device');
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
   return (
   <div className="w-full max-w-xl mx-auto mr-8">
@@ -110,7 +110,7 @@ const PeripheralCard: React.FC = () => {
 
   <Modal title="Connect Your Device" open={isModalOpen} onCancel={handleCloseModal} footer={null}>
     <p>Ensure your Bluetooth is enabled and select your device below.</p>
-    <Button type="primary" onClick={handleBluetoothConnect} loading={loading} style={{ width: '100%' }}>
+    <Button type="primary" loading={loading} style={{ width: '100%' }}>
       Connect via Bluetooth
     </Button>
   </Modal>

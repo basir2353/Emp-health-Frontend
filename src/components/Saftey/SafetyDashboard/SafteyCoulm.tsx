@@ -9,12 +9,21 @@ import {
   EyeOutlined,
   RedoOutlined,
   DeleteOutlined,
+  BellOutlined,
 } from "@ant-design/icons";
 import DrAkhtar from "../../../public/images/Akhtar.svg";
 import axios from "axios";
 
+interface User {
+  _id: string;
+  name: string;
+  email: string;
+  role: "admin" | "doctor" | "user";
+}
+
 interface Incident {
   key: string;
+  name: string;
   incidentID: string;
   status: string;
   location: string;
@@ -30,7 +39,15 @@ interface Incident {
     email: string;
   };
   _id?: string;
+  user: string;
   identityStatus?: "provided" | "declined" | null;
+}
+
+interface Notification {
+  _id: string;
+  message: string;
+  timestamp: string;
+  read: boolean;
 }
 
 const { Column } = Table;
@@ -82,9 +99,33 @@ const SafetyBox: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+  const [identityPopupVisible, setIdentityPopupVisible] = useState<boolean>(false);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notificationMessage, setNotificationMessage] = useState<string>("");
 
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
-  const canModify = user?.role === "admin" || user?.role === "doctor";
+  const user = useMemo((): User => {
+    try {
+      const storedUser = localStorage.getItem("user");
+      return storedUser ? (JSON.parse(storedUser) as User) : {
+        _id: "",
+        name: "",
+        email: "",
+        role: "user"
+      };
+    } catch (error) {
+      console.error("Failed to parse user from localStorage:", error);
+      return {
+        _id: "",
+        name: "",
+        email: "",
+        role: "user"
+      };
+    }
+  }, []);
+
+  const canModify = user.role === "admin" || user.role === "doctor";
+  const isAdmin = user.role === "admin";
+  const userEmail = user.email;
 
   const fetchReports = useCallback(async () => {
     setLoading(true);
@@ -102,7 +143,6 @@ const SafetyBox: React.FC = () => {
       const response = await axios.get(endpoint, {
         headers: { "x-auth-token": token },
       });
-
       setApiReports(response.data.reports || response.data);
       message.success("Reports fetched successfully");
     } catch (error: any) {
@@ -112,6 +152,53 @@ const SafetyBox: React.FC = () => {
       setLoading(false);
     }
   }, [canModify]);
+
+  const fetchNotifications = useCallback(async () => {
+    try {
+      const token = localStorage.getItem("token_real");
+      if (!token || !userEmail) {
+        return;
+      }
+
+      const response = await axios.get(`https://empolyee-backedn.onrender.com/api/${userEmail}/notifications`, {
+        headers: { "x-auth-token": token },
+      });
+      const newNotifications: Notification[] = response.data.notifications || [];
+      setNotifications(newNotifications);
+
+      const unreadNotification = newNotifications.find((notif) => !notif.read);
+      const notificationToShow = unreadNotification || newNotifications[0];
+      setNotificationMessage(notificationToShow?.message || "");
+      setIdentityPopupVisible(!!notificationToShow);
+    } catch (error: any) {
+      console.error("Failed to fetch notifications:", error);
+      message.error(error.response?.data?.message || "Failed to fetch notifications");
+    }
+  }, [userEmail]);
+
+  const fetchNotificationsForAdmin = useCallback(async (daata:any) => {
+    try {
+     const NAme =  daata?.reportedBy?.name
+      const token = localStorage.getItem("token_real");
+      if (!token || !userEmail) {
+        return;
+      }
+
+      const response = await axios.get(`https://empolyee-backedn.onrender.com/api/${NAme}/notifications_admin`, {
+        headers: { "x-auth-token": token },
+      });
+      const newNotifications: Notification[] = response.data.notifications || [];
+      setNotifications(newNotifications);
+
+      const unreadNotification = newNotifications.find((notif) => !notif.read);
+      const notificationToShow = unreadNotification || newNotifications[0];
+      setNotificationMessage(notificationToShow?.message || "");
+      setIdentityPopupVisible(!!notificationToShow);
+    } catch (error: any) {
+      console.error("Failed to fetch notifications:", error);
+      message.error(error.response?.data?.message || "Failed to fetch notifications");
+    }
+  }, [userEmail]);
 
   useEffect(() => {
     fetchReports();
@@ -198,7 +285,7 @@ const SafetyBox: React.FC = () => {
     });
   };
 
-  const handleIdentityResponse = async (reportId: string, approve: boolean) => {
+  const handleIdentityResponse = async (approve: boolean) => {
     try {
       const token = localStorage.getItem("token_real");
       if (!token) {
@@ -206,16 +293,51 @@ const SafetyBox: React.FC = () => {
         return;
       }
 
+      const userId = selectedIncident?.reportedBy?.email;
+      if (!userId) {
+        message.error("User email not found");
+        return;
+      }
+
+      await axios.patch(
+        `https://empolyee-backedn.onrender.com/api/${userId}/identity`,
+        { identityApproved: approve },
+        {
+          headers: {
+            "x-auth-token": token,
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
       message.success(`Identity ${approve ? "provided" : "declined"} successfully`);
       await fetchReports();
 
-      if (selectedIncident?._id === reportId) {
+      if (selectedIncident?.user === userId && selectedIncident) {
         setSelectedIncident({
           ...selectedIncident,
           identityStatus: approve ? "provided" : "declined",
         });
       }
+
+      const notificationId = notifications.find((n) =>
+        n.message === notificationMessage
+      )?._id;
+      if (notificationId) {
+        await axios.patch(
+          `https://empolyee-backedn.onrender.com/api/notifications/${notificationId}`,
+          { read: true },
+          { headers: { "x-auth-token": token } }
+        );
+        setNotifications((prev) =>
+          prev.map((notif) =>
+            notif._id === notificationId ? { ...notif, read: true } : notif
+          )
+        );
+      }
+
+      setIdentityPopupVisible(false);
+      setNotificationMessage("");
     } catch (error: any) {
       console.error("Failed to update identity status:", error);
       message.error(
@@ -224,9 +346,103 @@ const SafetyBox: React.FC = () => {
     }
   };
 
-  const toggleSidebar = (incident: Incident) => {
+  const handleAskForIdentity = async () => {
+    try {
+      const token = localStorage.getItem("token_real");
+      if (!token) {
+        message.error("Authentication token missing");
+        return;
+      }
+
+      const userId = selectedIncident?.reportedBy?.email;
+      if (!userId) {
+        message.error("User email not found");
+        return;
+      }
+
+      await axios.post(
+        `https://empolyee-backedn.onrender.com/api/${userId}/notify`,
+        {
+          message: `${user.name || "Admin"} has pinged you to provide your identity for incident ${selectedIncident?.incidentID}.`,
+          timestamp: new Date().toISOString(),
+        },
+        {
+          headers: {
+            "x-auth-token": token,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      message.success("Notification sent to user");
+    } catch (error: any) {
+      console.error("Failed to send identity request:", error);
+      message.error(error.response?.data?.message || "Failed to send identity request");
+    }
+  };
+
+  const handleSend = async (selectedIncident: Incident | null) => {
+    console.log(selectedIncident, 'this is data');
+
+    try {
+      const token = localStorage.getItem("token_real");
+      if (!token) {
+        message.error("Authentication token missing");
+        return;
+      }
+
+      const userEmail = selectedIncident?.reportedBy?.email;
+      const userName = selectedIncident?.reportedBy?.name;
+      
+      if (!userEmail) {
+        message.error("User email not found");
+        return;
+      }
+
+      await axios.post(
+        `https://empolyee-backedn.onrender.com/api/${encodeURIComponent(userEmail)}/notify_admin`,
+        {
+          message: `${user.name || "Admin"} has pinged you to provide your identity for incident ${selectedIncident?.incidentID}.`,
+          timestamp: new Date().toISOString(),
+          userName: userName
+        },
+        {
+          headers: {
+            "x-auth-token": token,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      message.success("Notification sent to Admin");
+    } catch (error: any) {
+      console.error("Failed to send identity request:", error);
+      message.error(error.response?.data?.message || "Failed to send identity request");
+    }
+  };
+
+  const handleNotSend = (data: any) => {
+    message.success('Okay admin notify');
+  };
+
+  const [userName, setUserName] = useState<string>('');
+
+  const handleViewNotification = () => {
+    // Handle view notification logic here
+    message.info(`${userName} Viewing notification...`);
+  }; 
+
+  const handleEyeClick = async (incident: Incident) => {
+    console.log(incident,'this is ')
     setSelectedIncident(incident);
-    setSidebarVisible(!sidebarVisible);
+    // Fix: Handle undefined name by providing fallback
+    setUserName(incident?.reportedBy?.name || '');
+    setSidebarVisible(true);
+    if (isAdmin) {
+      await fetchNotificationsForAdmin(incident);
+    } else {
+      await fetchNotifications();
+    }
   };
 
   const transformReports = useMemo(() => {
@@ -235,6 +451,7 @@ const SafetyBox: React.FC = () => {
 
       return reports.map((report, index) => ({
         key: report._id || report.id || `r-${index}`,
+        name: report.name || "Unknown",
         incidentID: report._id ? `#${report._id.slice(0, 6)}` : report.id ? `#${report.id.slice(0, 6)}` : `#R${index + 1000}`,
         status: report.status || "Pending",
         location: report.location || "N/A",
@@ -258,6 +475,7 @@ const SafetyBox: React.FC = () => {
               }
             : undefined,
         _id: report._id || report.id,
+        user: report.user?.id || "",
         identityStatus: report.identityStatus || null,
       }));
     };
@@ -285,7 +503,6 @@ const SafetyBox: React.FC = () => {
         <Table
           dataSource={sortedReports}
           rowKey="key"
-          // scroll={{ x hunting: true }}
           pagination={{ pageSize: 10 }}
         >
           <Column title="Incident ID" dataIndex="incidentID" key="incidentID" />
@@ -320,9 +537,9 @@ const SafetyBox: React.FC = () => {
             title="Location"
             dataIndex="location"
             key="location"
-            render={(location) => (
+            render={(location: string) => (
               <span title={location}>
-                {location.length > 15 ? location.slice(0, 15) + "..." : location}
+                {location && location.length > 15 ? location.slice(0, 15) + "..." : location}
               </span>
             )}
           />
@@ -330,7 +547,7 @@ const SafetyBox: React.FC = () => {
             title="Type"
             dataIndex="type"
             key="type"
-            render={(type) => (
+            render={(type: string) => (
               <Tag color={type === "Hazard" ? "gold" : "red"} style={{ color: "black" }}>
                 {type}
               </Tag>
@@ -341,7 +558,7 @@ const SafetyBox: React.FC = () => {
             title="Action"
             key="action"
             render={(_, record: Incident) => (
-              <Button onClick={() => toggleSidebar(record)} icon={<EyeOutlined />} />
+              <Button onClick={() => handleEyeClick(record)} icon={<EyeOutlined />} />
             )}
           />
           {canModify && (
@@ -375,7 +592,7 @@ const SafetyBox: React.FC = () => {
                 onClick={() => setSidebarVisible(false)}
                 icon={<CloseCircleOutlined />}
               />
-              <span>Incident # {selectedIncident?.incidentID}</span>
+              <span>Incident {selectedIncident?.incidentID}</span>
             </div>
             <Button type="default" onClick={() => setSidebarVisible(false)}>
               Close
@@ -483,55 +700,100 @@ const SafetyBox: React.FC = () => {
                           </span>
                         </Card>
                       ) : (
-                        <Card
-                          style={{
-                            width: 280,
-                            padding: "10px 16px",
-                            backgroundColor: "#FFFFFF",
-                            boxShadow: "0px 2px 8px rgba(0, 0, 0, 0.15)",
-                            borderRadius: 8,
-                            display: "flex",
-                            alignItems: "center",
-                          }}
-                        >
-                          <ExclamationCircleOutlined
-                            style={{ color: "#FFA500", fontSize: 20, marginRight: 5 }}
-                          />
-                          <span style={{ flexGrow: 1, fontSize: 14 }}>
-                            {user.name || "Admin"} is asking for your identity
-                          </span>
-                          <div style={{ display: "flex", gap: "8px", marginTop: "10px" }}>
-                            <Button
-                              type="primary"
-                              style={{
-                                backgroundColor: "#000000",
-                                borderColor: "#000000",
-                                borderRadius: 8,
-                              }}
-                              onClick={() => handleIdentityResponse(selectedIncident._id!, true)}
-                            >
-                              Approve
-                            </Button>
-                            <Button
-                              type="default"
-                              style={{
-                                backgroundColor: "#FFFFFF",
-                                borderColor: "#D9D9D9",
-                                borderRadius: 8,
-                              }}
-                              onClick={() => handleIdentityResponse(selectedIncident._id!, false)}
-                            >
-                              Deny
-                            </Button>
-                          </div>
-                        </Card>
+                      <>
+  {!isAdmin ? (
+    notificationMessage ? (
+      <Card
+        style={{
+          width: 280,
+          padding: "10px 16px",
+          backgroundColor: "#FFFFFF",
+          boxShadow: "0px 2px 8px rgba(0, 0, 0, 0.15)",
+          borderRadius: 8,
+          display: "flex",
+          alignItems: "center",
+          flexDirection: "column",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", width: "100%" }}>
+          <ExclamationCircleOutlined
+            style={{ color: "#FFA500", fontSize: 20, marginRight: 5 }}
+          />
+          <span style={{ flexGrow: 1, fontSize: 14 }}>
+            {notificationMessage}
+          </span>
+        </div>
+        <div style={{ display: "flex", gap: "8px", marginTop: "10px" }}>
+          <Button
+            type="primary"
+            style={{
+              backgroundColor: "#000000",
+              borderColor: "#000000",
+              borderRadius: 8,
+            }}
+            onClick={() => handleSend(selectedIncident)}
+          >
+            Approve!
+          </Button>
+          <Button
+            type="default"
+            style={{
+              backgroundColor: "#FFFFFF",
+              borderColor: "#D9D9D9",
+              borderRadius: 8,
+            }}
+            onClick={() => handleNotSend(false)}
+          >
+            Deny
+          </Button>
+        </div>
+      </Card>
+    ) : (
+      <span>No notifications available.</span>
+    )
+  ) : (
+    notifications.length > 0 ? (
+      <Button
+        type="primary"
+        style={{
+          borderColor: "#1890FF",
+          borderRadius: 8,
+          backgroundColor: "transparent",
+          color: "#1890FF",
+        }}
+        icon={<BellOutlined />}
+        onClick={handleViewNotification}
+      >
+        {selectedIncident?.identityStatus === "provided"
+          ? `View Notification - ${userName || "Unknown User"}`
+          : "View Notification"}
+      </Button>
+    ) : (
+      <Button
+        type="primary"
+        style={{
+          borderColor: "#FF0000",
+          borderRadius: 8,
+          backgroundColor: "transparent",
+          color: "red",
+        }}
+        onClick={handleAskForIdentity}
+      >
+        {selectedIncident?.identityStatus === "provided"
+          ? `Ask For Identity - ${selectedIncident.reportedBy?.name || "Unknown User"}`
+          : "Ask For Identity"}
+      </Button>
+    )
+  )}
+</>
                       )}
                     </>
                   )}
                 </div>
-                {selectedIncident?.reportToHR && <h2>Reported to HR</h2>}
-                {!selectedIncident?.reportToHR && selectedIncident?.key.startsWith("r-") && (
-                  <h2>Reported to Manager</h2>
+                {selectedIncident?.reportToHR ? (
+                  <h2>Reported to HR</h2>
+                ) : (
+                  selectedIncident?.key?.startsWith("r-") && <h2>Reported to Manager</h2>
                 )}
               </div>
               <div className="flex justify-between">
