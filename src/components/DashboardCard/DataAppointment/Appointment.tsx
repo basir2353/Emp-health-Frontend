@@ -17,7 +17,7 @@ function Appointment() {
       setLoading(true);
       setError(null);
       try {
-        const res = await axios.get("https://empolyee-backedn.onrender.com//api/appointments", {
+        const res = await axios.get("/api/appointments", {
           params: { userId }
         });
         setAppointments(res.data.appointments || []);

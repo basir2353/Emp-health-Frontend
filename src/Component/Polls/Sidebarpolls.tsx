@@ -48,7 +48,7 @@ const CreatePollSidebar: React.FC<CreatePollSidebarProps> = ({ visible, onClose 
 
     setLoading(true);
     try {
-      const response = await fetch("https://empolyee-backedn.onrender.com//api/add_poll", {
+      const response = await fetch("https://empolyee-backedn.onrender.com/api/add_poll", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

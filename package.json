@@ -53,7 +53,7 @@
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
-  "proxy": "https://empolyee-backedn.onrender.com//",
+  "proxy": "https://empolyee-backedn.onrender.com/",
   "eslintConfig": {
     "extends": [
       "react-app",

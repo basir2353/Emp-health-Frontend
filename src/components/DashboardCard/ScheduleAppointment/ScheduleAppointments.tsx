@@ -48,7 +48,7 @@ const ScheduleAppointments: React.FC = () => {
       setLoading(true);
       try {
         const response = await axios.get(
-          "https://empolyee-backedn.onrender.com//api/appointments"
+          "https://empolyee-backedn.onrender.com/api/appointments"
         );
         const fetchedAppointments = response?.data?.appointments;
         if (Array.isArray(fetchedAppointments)) {

@@ -2,7 +2,7 @@
 
 import axios from 'axios';
 
-const API_URL = 'https://empolyee-backedn.onrender.com//api';
+const API_URL = 'https://empolyee-backedn.onrender.com/api';
 
 // Axios instance with token injection
 const authAxios = axios.create({

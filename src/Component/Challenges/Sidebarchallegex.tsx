@@ -37,7 +37,7 @@ const Sidebarchallegex: React.FC<ReportSidebarProps> = ({ visible, onClose }) =>
 
       // Save to backend
       const response = await axios.post(
-        "https://empolyee-backedn.onrender.com//api/createChallenge",
+        "https://empolyee-backedn.onrender.com/api/createChallenge",
         {
           title,
           description,

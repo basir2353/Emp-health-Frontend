@@ -27,8 +27,8 @@ const NotifictionSaftey: React.FC<{ canModify: boolean }> = ({ canModify }) => {
           return;
         }
 
-        const allEndpoint = "https://empolyee-backedn.onrender.com//api/reports/all";
-        const userEndpoint = "https://empolyee-backedn.onrender.com//api/reports";
+        const allEndpoint = "https://empolyee-backedn.onrender.com/api/reports/all";
+        const userEndpoint = "https://empolyee-backedn.onrender.com/api/reports";
 
         const endpoint = canModify ? allEndpoint : userEndpoint;
 
@@ -54,7 +54,7 @@ const NotifictionSaftey: React.FC<{ canModify: boolean }> = ({ canModify }) => {
         if (err.response?.status === 403 && canModify) {
           try {
             const token = localStorage.getItem("token_real");
-            const fallbackResponse = await axios.get("https://empolyee-backedn.onrender.com//api/reports", {
+            const fallbackResponse = await axios.get("https://empolyee-backedn.onrender.com/api/reports", {
               headers: { "x-auth-token": token || "" },
             });
 

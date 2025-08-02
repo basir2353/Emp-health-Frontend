@@ -86,7 +86,7 @@ const CreateAppointments: React.FC = () => {
       setLoading(true);
       try {
         const response = await fetch(
-          `https://empolyee-backedn.onrender.com//api/appointments?userId=${userParsed.id}`
+          `https://empolyee-backedn.onrender.com/api/appointments?userId=${userParsed.id}`
         );
         const data = await response.json();
         if (data && Array.isArray(data.appointments)) {
@@ -159,7 +159,7 @@ const CreateAppointments: React.FC = () => {
                 onClick={() => navigate("/health/schedule")}
                 style={{ width: "170px" }}
               >
-                Upload Schedule2
+                Upload Schedule
               </Button>
               : ''}
               <Link to="/health/doctors">

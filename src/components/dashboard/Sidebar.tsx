@@ -148,7 +148,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     dispatch(addAppointment(appointmentData));
 
     axios
-      .post("https://empolyee-backedn.onrender.com//api/appointments", appointmentData, {
+      .post("https://empolyee-backedn.onrender.com/api/appointments", appointmentData, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
