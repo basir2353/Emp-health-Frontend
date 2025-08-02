@@ -16,7 +16,7 @@ const WallnessBox3: React.FC = () => {
   const fetchPolls = async () => {
     setLoading(true);
     try {
-      const response = await axios.get("http://localhost:5000/api/polls");
+      const response = await axios.get("https://empolyee-backedn.onrender.com//api/polls");
       setPollData(response.data.polls || []);
     } catch (error) {
       console.error("Error fetching polls:", error);

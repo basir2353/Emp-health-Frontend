@@ -117,7 +117,7 @@ const Call = () => {
 
   // Initialize Socket.IO connection
   useEffect(() => {
-    const newSocket = io('http://localhost:5000', {
+    const newSocket = io('https://empolyee-backedn.onrender.com/', {
       transports: ['websocket', 'polling'],
       withCredentials: true,
     });

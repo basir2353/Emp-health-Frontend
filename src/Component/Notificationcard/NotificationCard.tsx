@@ -24,7 +24,7 @@ const NotificationCard: React.FC = () => {
       try {
         const token = localStorage.getItem("token_real");
         const response = await axios.get<{ appointments: Appointment[] }>(
-          "http://localhost:5000/api/appointments/",
+          "https://empolyee-backedn.onrender.com//api/appointments/",
           {
             headers: {
               "x-auth-token": token || "",

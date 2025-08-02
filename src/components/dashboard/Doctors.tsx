@@ -9,6 +9,7 @@ import DrMaria from "../../public/images/Maria.svg";
 import DrAkhtar from "../../public/images/Akhtar.svg";
 import DrAndrew from "../../public/images/Andrew.svg";
 import axios from "axios";
+import dayjs from "dayjs";
 
 interface Doctor {
   name: string;
@@ -18,6 +19,7 @@ interface Doctor {
   available_hours: string;
   image: string;
   gender: string;
+  date: string;
 }
 
 export const available_doctors: Doctor[] = [
@@ -29,6 +31,7 @@ export const available_doctors: Doctor[] = [
     available_hours: "5:00 PM - 9:00 PM",
     image: DrMaria,
     gender: "female",
+    date: "2025-08-02",
   },
   {
     name: "Dr. Akhtar Javed",
@@ -38,6 +41,7 @@ export const available_doctors: Doctor[] = [
     available_hours: "1:00 PM - 6:00 PM",
     image: DrAkhtar,
     gender: "male",
+    date: "2025-08-02",
   },
   {
     name: "Dr. Andrew Smith",
@@ -48,6 +52,7 @@ export const available_doctors: Doctor[] = [
     available_hours: "3:00 PM - 7:00 PM",
     image: DrAndrew,
     gender: "male",
+    date: "2025-08-02",
   },
   {
     name: "Dr. Alisha Kane",
@@ -58,6 +63,7 @@ export const available_doctors: Doctor[] = [
     available_hours: "1:00 PM - 7:00 PM",
     image: DrAlishaKane,
     gender: "female",
+    date: "2025-08-02",
   },
 ];
 
@@ -69,10 +75,10 @@ interface ApiDoctor {
   experience?: string;
   workingHours?: { start: string; end: string };
   gender?: string;
+  date?: string;
 }
 
 const mapApiDoctorToDoctor = (apiDoctor: ApiDoctor): Doctor => {
-  // Default image assignment based on gender or department
   let defaultImage = DrMaria;
   if (apiDoctor.gender === "male") {
     defaultImage = DrAkhtar;
@@ -92,6 +98,7 @@ const mapApiDoctorToDoctor = (apiDoctor: ApiDoctor): Doctor => {
       : "N/A",
     image: defaultImage,
     gender: apiDoctor.gender || "other",
+    date: apiDoctor.date || "2025-08-02",
   };
 };
 
@@ -102,25 +109,21 @@ export const Doctors = () => {
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
   const [selectedSpecialty, setSelectedSpecialty] = useState<string | null>(null);
   const [selectedGender, setSelectedGender] = useState<string | null>("other");
-    const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  // Add state for all doctors (API + static)
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [allDoctors, setAllDoctors] = useState<Doctor[]>(available_doctors);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch doctors from API
   useEffect(() => {
     const fetchDoctors = async () => {
       try {
-        const response = await axios.get("http://localhost:5000/api/all-doctors");
+        const response = await axios.get("https://empolyee-backedn.onrender.com//api/all-doctors");
         if (response.data && Array.isArray(response.data.doctors)) {
           const apiDoctors: ApiDoctor[] = response.data.doctors;
           const mappedDoctors = apiDoctors.map(mapApiDoctorToDoctor);
-          
           setAllDoctors([...mappedDoctors, ...available_doctors]);
         }
       } catch (error) {
         console.error("Error fetching doctors:", error);
-        // Fallback to static doctors only
         setAllDoctors(available_doctors);
       } finally {
         setIsLoading(false);
@@ -144,12 +147,12 @@ export const Doctors = () => {
   };
 
   const openSidebar = () => {
-    setSelectedDate(Date);
+    setSelectedDate(dayjs().format("YYYY-MM-DD"));
     setIsSidebarOpen(true);
   };
 
   const closeSidebar = () => {
-    setSelectedDate(Date);
+    setSelectedDate(dayjs().format("YYYY-MM-DD"));
     setIsSidebarOpen(false);
   };
 
@@ -161,7 +164,6 @@ export const Doctors = () => {
     setSelectedSpecialty(specialty);
   };
 
-  // Filter from allDoctors instead of available_doctors
   const filteredDoctors = allDoctors.filter((doctor) => {
     if (selectedSpecialty && doctor.profession !== selectedSpecialty) {
       return false;
@@ -294,11 +296,11 @@ export const Doctors = () => {
       </div>
 
       <Sidebar
-         isedit={false}
-          isOpen={isSidebarOpen}
-          onClose={closeSidebar}
-          selectedDoctor={selectedDoctor}
-          selectedDate={selectedDate}
+        isedit={false}
+        isOpen={isSidebarOpen}
+        onClose={closeSidebar}
+        selectedDoctor={selectedDoctor}
+        selectedDate={selectedDate}
       />
       <FilterSidebar
         isOpen={isFilterSidebarOpen}

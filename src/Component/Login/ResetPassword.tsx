@@ -5,6 +5,14 @@ import { Link, useParams, useNavigate } from "react-router-dom";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { message } from "antd";
+import type { FC } from "react";
+
+// Type assertions for react-icons
+const FiLockIcon = FiLock as FC<{ className?: string }>;
+const FiAlertCircleIcon = FiAlertCircle as FC<{ className?: string }>;
+const FiCheckCircleIcon = FiCheckCircle as FC<{ className?: string }>;
+const FiEyeIcon = FiEye as FC<{ className?: string }>;
+const FiEyeOffIcon = FiEyeOff as FC<{ className?: string }>;
 
 const ResetPassword = () => {
   const [newPassword, setNewPassword] = useState("");
@@ -27,9 +35,17 @@ const ResetPassword = () => {
   }, [token]);
 
   // Password strength checker
-  const checkPasswordStrength = (password) => {
+  interface PasswordChecks {
+    length: boolean;
+    lowercase: boolean;
+    uppercase: boolean;
+    number: boolean;
+    special: boolean;
+  }
+
+  const checkPasswordStrength = (password: string): void => {
     let strength = 0;
-    const checks = {
+    const checks: PasswordChecks = {
       length: password.length >= 8,
       lowercase: /[a-z]/.test(password),
       uppercase: /[A-Z]/.test(password),
@@ -53,7 +69,12 @@ const ResetPassword = () => {
     return "Strong";
   };
 
-  const handleSubmit = async (e) => {
+  interface ResetPasswordResponse {
+    success: boolean;
+    message: string;
+  }
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     setIsLoading(true);
     setError("");
@@ -71,7 +92,7 @@ const ResetPassword = () => {
     }
 
     try {
-      const response = await fetch(`https://empolyee-backedn.onrender.com/api/auth/reset-password/${token}`, {
+      const response: Response = await fetch(`https://empolyee-backedn.onrender.com/api/auth/reset-password/${token}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -79,7 +100,7 @@ const ResetPassword = () => {
         body: JSON.stringify({ newPassword, confirmPassword }),
       });
 
-      const data = await response.json();
+      const data: ResetPasswordResponse = await response.json();
 
       if (response.ok && data.success) {
         setSuccess(true);
@@ -105,7 +126,7 @@ const ResetPassword = () => {
           setTokenValid(false);
         }
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Reset password error:", err);
       const errorMessage = "Something went wrong. Please try again.";
       setError(errorMessage);
@@ -138,7 +159,7 @@ const ResetPassword = () => {
         >
           <div className="bg-white rounded-xl shadow-xl p-8 text-center">
             <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <FiAlertCircle className="w-8 h-8 text-red-600" />
+              <FiAlertCircleIcon className="w-8 h-8 text-red-600" />
             </div>
             
             <h2 className="text-2xl font-bold text-gray-800 mb-2">Invalid Link</h2>
@@ -184,7 +205,7 @@ const ResetPassword = () => {
               transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
               className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4"
             >
-              <FiCheckCircle className="w-8 h-8 text-green-600" />
+              <FiCheckCircleIcon className="w-8 h-8 text-green-600" />
             </motion.div>
             
             <h2 className="text-2xl font-bold text-gray-800 mb-2">Password Reset Successfully!</h2>
@@ -227,7 +248,7 @@ const ResetPassword = () => {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-4">
               <div className="relative">
-                <FiLock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <FiLockIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   type={showPassword ? "text" : "password"}
                   value={newPassword}
@@ -244,7 +265,7 @@ const ResetPassword = () => {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
-                  {showPassword ? <FiEyeOff /> : <FiEye />}
+                  {showPassword ? <FiEyeOffIcon /> : <FiEyeIcon />}
                 </button>
               </div>
 
@@ -269,7 +290,7 @@ const ResetPassword = () => {
               )}
 
               <div className="relative">
-                <FiLock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <FiLockIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   type={showConfirmPassword ? "text" : "password"}
                   value={confirmPassword}
@@ -283,14 +304,14 @@ const ResetPassword = () => {
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
-                  {showConfirmPassword ? <FiEyeOff /> : <FiEye />}
+                  {showConfirmPassword ? <FiEyeOffIcon /> : <FiEyeIcon />}
                 </button>
               </div>
             </div>
 
             {confirmPassword && newPassword !== confirmPassword && (
               <div className="flex items-center gap-2 text-red-500 bg-red-50 p-3 rounded-lg">
-                <FiAlertCircle />
+                <FiAlertCircleIcon />
                 <span className="text-sm">Passwords do not match</span>
               </div>
             )}
@@ -301,7 +322,7 @@ const ResetPassword = () => {
                 animate={{ opacity: 1, y: 0 }}
                 className="flex items-center gap-2 text-red-500 bg-red-50 p-3 rounded-lg"
               >
-                <FiAlertCircle />
+                <FiAlertCircleIcon />
                 <span className="text-sm">{error}</span>
               </motion.div>
             )}

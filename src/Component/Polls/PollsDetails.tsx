@@ -21,7 +21,7 @@ function PollsDetails() {
   useEffect(() => {
     const fetchPolls = async () => {
       try {
-        const response = await axios.get("http://localhost:5000/api/polls");
+        const response = await axios.get("https://empolyee-backedn.onrender.com//api/polls");
         setPolls(response.data.polls);
       } catch (error) {
         console.error("Failed to fetch polls:", error);

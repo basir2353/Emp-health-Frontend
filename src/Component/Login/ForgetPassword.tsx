@@ -1,10 +1,17 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { FiMail, FiAlertCircle, FiCheckCircle, FiArrowLeft } from "react-icons/fi";
+import { FiMail, FiAlertCircle, FiArrowLeft, FiCheckCircle } from "react-icons/fi";
 import { Link } from "react-router-dom";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { message } from "antd";
+import type { FC } from "react";
+
+// Type assertions for react-icons
+const FiMailIcon = FiMail as FC<{ className?: string }>;
+const FiAlertCircleIcon = FiAlertCircle as FC<{ className?: string }>;
+const FiArrowLeftIcon = FiArrowLeft as FC<{ className?: string }>;
+const FiCheckCircleIcon = FiCheckCircle as FC<{ className?: string }>;
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState("");
@@ -12,13 +19,18 @@ const ForgotPassword = () => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
-  const handleSubmit = async (e) => {
+  interface ForgotPasswordResponse {
+    success: boolean;
+    message: string;
+  }
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     setIsLoading(true);
     setError("");
 
     try {
-      const response = await fetch("https://empolyee-backedn.onrender.com/api/auth/forgot-password", {
+      const response: Response = await fetch("https://empolyee-backedn.onrender.com/api/auth/forgot-password", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -26,7 +38,7 @@ const ForgotPassword = () => {
         body: JSON.stringify({ email }),
       });
 
-      const data = await response.json();
+      const data: ForgotPasswordResponse = await response.json();
 
       if (data.success) {
         setSuccess(true);
@@ -43,7 +55,7 @@ const ForgotPassword = () => {
           autoClose: 3000,
         });
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Forgot password error:", err);
       const errorMessage = "Something went wrong. Please try again.";
       setError(errorMessage);
@@ -82,7 +94,7 @@ const ForgotPassword = () => {
               transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
               className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4"
             >
-              <FiCheckCircle className="w-8 h-8 text-green-600" />
+              <FiCheckCircleIcon className="w-8 h-8 text-green-600" />
             </motion.div>
             
             <h2 className="text-2xl font-bold text-gray-800 mb-2">Check Your Email</h2>
@@ -136,7 +148,7 @@ const ForgotPassword = () => {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="relative">
-              <FiMail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <FiMailIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
                 type="email"
                 value={email}
@@ -153,7 +165,7 @@ const ForgotPassword = () => {
                 animate={{ opacity: 1, y: 0 }}
                 className="flex items-center gap-2 text-red-500 bg-red-50 p-3 rounded-lg"
               >
-                <FiAlertCircle />
+                <FiAlertCircleIcon />
                 <span className="text-sm">{error}</span>
               </motion.div>
             )}
@@ -186,7 +198,7 @@ const ForgotPassword = () => {
                 to="/login"
                 className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium transition-colors"
               >
-                <FiArrowLeft className="w-4 h-4" />
+                <FiArrowLeftIcon className="w-4 h-4" />
                 Back to Login
               </Link>
             </div>

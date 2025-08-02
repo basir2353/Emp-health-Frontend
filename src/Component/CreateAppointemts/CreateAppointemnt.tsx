@@ -86,7 +86,7 @@ const CreateAppointments: React.FC = () => {
       setLoading(true);
       try {
         const response = await fetch(
-          `http://localhost:5000/api/appointments?userId=${userParsed.id}`
+          `https://empolyee-backedn.onrender.com//api/appointments?userId=${userParsed.id}`
         );
         const data = await response.json();
         if (data && Array.isArray(data.appointments)) {

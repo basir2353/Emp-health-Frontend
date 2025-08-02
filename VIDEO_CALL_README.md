@@ -45,7 +45,7 @@ npm install
 npm start
 ```
 
-The server will run on `http://http://localhost:5000`
+The server will run on `http://https://empolyee-backedn.onrender.com/`
 
 #### Option B: Update your existing backend
 
@@ -69,7 +69,7 @@ Update the socket connection URL in `src/Call/Call.jsx`:
 
 ```javascript
 // Line 47 - Update this URL to match your server
-const newSocket = io('http://http://localhost:5000', {
+const newSocket = io('http://https://empolyee-backedn.onrender.com/', {
   transports: ['websocket', 'polling'],
   withCredentials: true,
   timeout: 20000,
