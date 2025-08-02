@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Button, message } from "antd";
 import axios from "axios";
 
-const BASE_URL = "https://empolyee-backedn.onrender.com/"; // Fixed trailing space
+const BASE_URL = "https://empolyee-backedn.onrender.com"; // Fixed trailing space
 
 const Banner = () => {
   const [bannerData, setBannerData] = useState([]);

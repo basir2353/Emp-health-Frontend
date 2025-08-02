@@ -11,19 +11,19 @@ const LeftMenu = (props: any) => {
   const navigate = useNavigate();
   const [userRole, setUserRole] = useState("");
   const [current, setCurrent] = useState("mail");
-useEffect(() => {
-  let roleStr: any = JSON.parse(localStorage.getItem("user") || "{}");
-  console.log(roleStr);
 
-  
-  let extractRole: any;
-  try {
-    extractRole = roleStr ? roleStr.role : "";    
-  } catch {
-    extractRole = "";
-  }
-  console.log(extractRole, 'extractRole');
-   
+  useEffect(() => {
+    let roleStr: any = JSON.parse(localStorage.getItem("user") || "{}");
+    console.log(roleStr);
+
+    let extractRole: any;
+    try {
+      extractRole = roleStr ? roleStr.role : "";
+    } catch {
+      extractRole = "";
+    }
+    console.log(extractRole, 'extractRole');
+     
     setUserRole(extractRole);
   }, []);
 
@@ -31,180 +31,180 @@ useEffect(() => {
     setCurrent(e.key);
   };
 
-const healthMenuItems: MenuProps["items"] = [
-  ...(userRole !== "admin" && userRole !== "doctor"
-    ? [
-        {
-          key: "dashboard",
-          label: (
-            <div className=" h-auto mt-4" onClick={() => navigate("/health")}>
-              <div className="font-medium text-sm leading-3">Dashboard</div>
-              <div className="font-normal text-sm leading-5 mt-2 w-full h-full text-wrap text-[#64748B]">
-                View all of your appointments basic stats and other stuff here.
+  const healthMenuItems: MenuProps["items"] = [
+    ...(userRole !== "admin" && userRole !== "doctor"
+      ? [
+          {
+            key: "dashboard",
+            label: (
+              <div className=" h-auto mt-4" onClick={() => navigate("/health")}>
+                <div className="font-medium text-sm leading-3">Dashboard</div>
+                <div className="font-normal text-sm leading-5 mt-2 w-full h-full text-wrap text-[#64748B]">
+                  View all of your appointments basic stats and other stuff here.
+                </div>
               </div>
-            </div>
-          ),
-        },
-        {
-    key: "appointments",
-    label: (
-      <div
-        className=" h-auto mt-4"
-        onClick={() => navigate("/health/admin-schedule-appointments")}
-      >
-        <div className="font-medium text-sm leading-3">Appointments</div>
-        <div className="font-normal text-sm leading-5 mt-2  w-full h-full text-wrap text-[#64748B]">
-          See upcoming appointments and book appointments here.
-        </div>
-      </div>
-    ),
-  },
-  {
-    key: "insurance",
-    label: (
-      <div
-        className=" h-auto mt-4"
-        onClick={() => navigate("/health/insurance")}
-      >
-        <div className="font-medium text-sm leading-3">Insurance</div>
-        <div className="font-normal text-sm leading-5 mt-2  w-full h-full text-wrap text-[#64748B]">
-          View your insurance details and request to upgrade our insurance
-          details here.
-        </div>
-      </div>
-    ),
-  },
-      ]
-    : []),
-  
-];
-
-  // if (userRole === "doctor" || userRole === "admin") {
-  //   healthMenuItems.push({
-  //     key: "my_schedule_appointments",
-  //     label: (
-  //       <div
-  //         className="h-auto mt-4"
-  //         onClick={() => navigate("/health/doctor-schedule-appointments")}
-  //       >
-  //         <div className="font-medium text-sm leading-3">
-  //           My Schedule Appointments (Doctor)
-  //         </div>
-  //         <div className="font-normal text-sm leading-5 mt-2 text-[#64748B]">
-  //           Upload schedule or view your schedule here.
-  //         </div>
-  //       </div>
-  //     ),
-  //   });
-  // }
-
-  if (userRole === "admin") {
-    healthMenuItems.push({
-      key: "schedule_appointment",
-      label: (
-            <div
-              className=" h-auto mt-4"
-              onClick={() => navigate("/health/admin-schedule-appointments")}
-            >
-              <div className="font-medium text-sm leading-3">
-                Schedule Appoinment (Only Admin)
+            ),
+          },
+          {
+            key: "appointments",
+            label: (
+              <div
+                className=" h-auto mt-4"
+                onClick={() => navigate("/health/admin-schedule-appointments")}
+              >
+                <div className="font-medium text-sm leading-3">Appointments</div>
+                <div className="font-normal text-sm leading-5 mt-2  w-full h-full text-wrap text-[#64748B]">
+                  See upcoming appointments and book appointments here.
+                </div>
               </div>
-              <div className="font-normal text-sm leading-5 mt-2  w-full h-full text-wrap text-[#64748B]">
-                Upload schedule or view your schedule here.
+            ),
+          },
+          {
+            key: "insurance",
+            label: (
+              <div
+                className=" h-auto mt-4"
+                onClick={() => navigate("/health/insurance")}
+              >
+                <div className="font-medium text-sm leading-3">Insurance</div>
+                <div className="font-normal text-sm leading-5 mt-2  w-full h-full text-wrap text-[#64748B]">
+                  View your insurance details and request to upgrade our insurance
+                  details here.
+                </div>
               </div>
-            </div>
-          ),
-    });
-  }
+            ),
+          },
+        ]
+      : []),
+    ...(userRole === "admin" || userRole === "doctor"
+      ? [
+          {
+            key: "my_schedule_appointments",
+            label: (
+              <div
+                className="h-auto mt-4"
+                onClick={() => navigate("/health/doctor-schedule-appointments")}
+              >
+                <div className="font-medium text-sm leading-3">
+                  My Schedule Appointments {userRole === "admin" ? "(Admin)" : "(Doctor)"}
+                </div>
+                <div className="font-normal text-sm leading-5 mt-2 text-[#64748B]">
+                  Upload schedule or view your schedule here.
+                </div>
+              </div>
+            ),
+          },
+        ]
+      : []),
+    ...(userRole === "admin"
+      ? [
+          {
+            key: "schedule_appointment",
+            label: (
+              <div
+                className=" h-auto mt-4"
+                onClick={() => navigate("/health/admin-schedule-appointments")}
+              >
+                <div className="font-medium text-sm leading-3">
+                  Schedule Appointment (Only Admin)
+                </div>
+                <div className="font-normal text-sm leading-5 mt-2  w-full h-full text-wrap text-[#64748B]">
+                  Upload schedule or view your schedule here.
+                </div>
+              </div>
+            ),
+          },
+        ]
+      : []),
+  ];
 
   const safetyMenuItems: MenuProps["items"] = [
-  {
+    {
       key: "Saftey",
       label: (
-            <div className=" h-auto mt-4" onClick={() => navigate("/safety")}>
-              <div className="font-medium text-sm leading-3">Dashboard</div>
-              <div className="font-normal text-sm leading-5 mt-2 w-full h-full text-wrap text-[#64748B]">
-                View all of your safety basic stats and other stuff here.
-              </div>
-            </div>
-          ),
-    },
-  ];
-
- let wellnessMenuItems: MenuProps["items"] = [];
-
-if (userRole === "employee") {
-  wellnessMenuItems = [
-    {
-      key: "wellness_dashboard",
-      label: (
-        <div className="h-auto mt-4" onClick={() => navigate("/wellness")}>
+        <div className=" h-auto mt-4" onClick={() => navigate("/safety")}>
           <div className="font-medium text-sm leading-3">Dashboard</div>
           <div className="font-normal text-sm leading-5 mt-2 w-full h-full text-wrap text-[#64748B]">
-            View all of your KPIs and many more here...
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: "courses",
-      label: (
-        <div className="h-auto mt-4" onClick={() => navigate("/wellness/course")}>
-          <div className="font-medium text-sm leading-3">Courses</div>
-          <div className="font-normal text-sm leading-5 mt-2 w-full h-full text-wrap text-[#64748B]">
-            View new courses and enrolled courses here.
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: "health_forum",
-      label: (
-        <div className="h-auto mt-4" onClick={() => navigate("/wellness/forum")}>
-          <div className="font-medium text-sm leading-3">Health Forum</div>
-          <div className="font-normal text-sm leading-5 mt-2 w-full h-full text-wrap text-[#64748B]">
-            Post your health related experiences and stories here.
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: "document_repository",
-      label: (
-        <div className="h-auto mt-4" onClick={() => navigate("/wellness/document")}>
-          <div className="font-medium text-sm leading-3">Document Repository</div>
-          <div className="font-normal text-sm leading-5 mt-2 w-full h-full text-wrap text-[#64748B]">
-            View all downloadable documents related to your health.
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: "budget_planner",
-      label: (
-        <div className="h-auto mt-4" onClick={() => navigate("/wellness/expense")}>
-          <div className="font-medium text-sm leading-3">Budget Planner</div>
-          <div className="font-normal text-sm leading-5 mt-2 w-full h-full text-wrap text-[#64748B]">
-            Plan your budget here with this budget planner.
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: "my_board",
-      label: (
-        <div className="h-auto mt-4" onClick={() => navigate("/wellness/board")}>
-          <div className="font-medium text-sm leading-3">My Board</div>
-          <div className="font-normal text-sm leading-5 mt-2 text-[#64748B]">
-            View all of your created challenges and their engagement.
+            View all of your safety basic stats and other stuff here.
           </div>
         </div>
       ),
     },
   ];
-}
-else if(userRole === 'admin'){
-  wellnessMenuItems.push(
+
+  let wellnessMenuItems: MenuProps["items"] = [];
+
+  if (userRole === "employee") {
+    wellnessMenuItems = [
+      {
+        key: "wellness_dashboard",
+        label: (
+          <div className="h-auto mt-4" onClick={() => navigate("/wellness")}>
+            <div className="font-medium text-sm leading-3">Dashboard</div>
+            <div className="font-normal text-sm leading-5 mt-2 w-full h-full text-wrap text-[#64748B]">
+              View all of your KPIs and many more here...
+            </div>
+          </div>
+        ),
+      },
+      {
+        key: "courses",
+        label: (
+          <div className="h-auto mt-4" onClick={() => navigate("/wellness/course")}>
+            <div className="font-medium text-sm leading-3">Courses</div>
+            <div className="font-normal text-sm leading-5 mt-2 w-full h-full text-wrap text-[#64748B]">
+              View new courses and enrolled courses here.
+            </div>
+          </div>
+        ),
+      },
+      {
+        key: "health_forum",
+        label: (
+          <div className="h-auto mt-4" onClick={() => navigate("/wellness/forum")}>
+            <div className="font-medium text-sm leading-3">Health Forum</div>
+            <div className="font-normal text-sm leading-5 mt-2 w-full h-full text-wrap text-[#64748B]">
+              Post your health related experiences and stories here.
+            </div>
+          </div>
+        ),
+      },
+      {
+        key: "document_repository",
+        label: (
+          <div className="h-auto mt-4" onClick={() => navigate("/wellness/document")}>
+            <div className="font-medium text-sm leading-3">Document Repository</div>
+            <div className="font-normal text-sm leading-5 mt-2 w-full h-full text-wrap text-[#64748B]">
+              View all downloadable documents related to your health.
+            </div>
+          </div>
+        ),
+      },
+      {
+        key: "budget_planner",
+        label: (
+          <div className="h-auto mt-4" onClick={() => navigate("/wellness/expense")}>
+            <div className="font-medium text-sm leading-3">Budget Planner</div>
+            <div className="font-normal text-sm leading-5 mt-2 w-full h-full text-wrap text-[#64748B]">
+              Plan your budget here with this budget planner.
+            </div>
+          </div>
+        ),
+      },
+      {
+        key: "my_board",
+        label: (
+          <div className="h-auto mt-4" onClick={() => navigate("/wellness/board")}>
+            <div className="font-medium text-sm leading-3">My Board</div>
+            <div className="font-normal text-sm leading-5 mt-2 text-[#64748B]">
+              View all of your created challenges and their engagement.
+            </div>
+          </div>
+        ),
+      },
+    ];
+  } else if (userRole === 'admin') {
+    wellnessMenuItems.push(
       {
         key: "challenges_admin",
         label: (
@@ -229,8 +229,6 @@ else if(userRole === 'admin'){
       }
     );
   }
-  
-
 
   const items: MenuProps["items"] = [
     {
@@ -257,7 +255,7 @@ else if(userRole === 'admin'){
   ];
 
   return (
-    <Space  size="large" direction="horizontal" align="baseline">
+    <Space size="large" direction="horizontal" align="baseline">
       <Menu
         onClick={onClick}
         selectedKeys={[current]}

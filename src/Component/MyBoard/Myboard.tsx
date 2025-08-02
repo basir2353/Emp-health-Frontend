@@ -18,7 +18,7 @@ const MyBoard: React.FC = () => {
   const fetchPoints = () => {
     setLoading(true);
     axios
-      .get("/api/challenges")
+      .get("https://empolyee-backedn.onrender.com/api/challenges")
       .then((res) => {
         setPoints(res.data || 0);
         // Calculate total points for a dynamic user (replace with actual user id)

@@ -19,13 +19,14 @@ import {
   LeftOutlined,
   RightOutlined,
   EllipsisOutlined,
-  PhoneOutlined ,
+  PhoneOutlined,
 } from "@ant-design/icons";
 import ProfileCardschedule from "./ProfileCardschedule";
 
 const { Text } = Typography;
 
 interface Appointment {
+  _id: string;
   day: string;
   date: string;
   time: string;
@@ -33,6 +34,9 @@ interface Appointment {
   doctorName: string;
   patient: string;
   status: string;
+  user?: {
+    name: string;
+  };
 }
 
 const ScheduleAppointments: React.FC = () => {
@@ -42,22 +46,87 @@ const ScheduleAppointments: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [activeDropdown, setActiveDropdown] = useState<number | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string | null>(null);
 
   useEffect(() => {
+    const userData = localStorage.getItem("user") || localStorage.getItem("loggedInUser");
+    const token = localStorage.getItem("token");
+
+    let role = null;
+    let name = null;
+
+    if (userData) {
+      try {
+        const parsedUser = JSON.parse(userData);
+        role = parsedUser.role;
+        name = parsedUser.name;
+      } catch (e) {
+        console.error("Error parsing user data from local storage:", e);
+        setError("Failed to parse user data. Please log in again.");
+      }
+    }
+
+    console.log("Local Storage - Role:", role, "Name:", name, "Token:", token);
+
+    setUserRole(role);
+    setUserName(name);
+
     const fetchAppointments = async () => {
+      if (!token) {
+        setError("No authentication token found. Please log in.");
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       try {
         const response = await axios.get(
-          "https://empolyee-backedn.onrender.com/api/appointments"
+          "https://empolyee-backedn.onrender.com/api/appointments",
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
         );
+
+        console.log("API Response:", response.data);
+
         const fetchedAppointments = response?.data?.appointments;
         if (Array.isArray(fetchedAppointments)) {
-          setAppointments(fetchedAppointments);
+          const mappedAppointments = fetchedAppointments.map((appt: any) => ({
+            _id: appt._id,
+            day: appt.day,
+            date: appt.date,
+            time: appt.time,
+            type: appt.type,
+            doctorName: appt.doctorName,
+            patient: appt.user?.name || "-",
+            status: appt.status || "Scheduled",
+          }));
+
+          console.log("Mapped Appointments:", mappedAppointments);
+
+          if (role === "admin") {
+            console.log("Admin role detected: Displaying all appointments.");
+            setAppointments(mappedAppointments);
+          } else if (role === "doctor" && name) {
+            const filteredAppointments = mappedAppointments.filter((appt: Appointment) =>
+              appt.doctorName.toLowerCase().includes(name.toLowerCase())
+            );
+            console.log("Doctor role detected - Filtered Appointments:", filteredAppointments);
+            setAppointments(filteredAppointments);
+          } else {
+            setAppointments([]);
+            setError("Invalid role or user name not found.");
+          }
         } else {
           setAppointments([]);
+          setError("No appointments found in the response.");
         }
       } catch (err: any) {
-        setError(err?.message || "Failed to fetch appointments");
+        console.error("API Error:", err);
+        setError(err?.response?.data?.message || err?.message || "Failed to fetch appointments");
       } finally {
         setLoading(false);
       }
@@ -66,50 +135,49 @@ const ScheduleAppointments: React.FC = () => {
     fetchAppointments();
   }, []);
 
- const handleMenuClick = (key: string, index: number) => {
-  setActiveDropdown(null);
-  switch (key) {
-    case "call":
-      // Navigate to call page (replace '/call' with your actual route)
-      navigate("/inbox/call");
-      break;
-    case "edit":
-      setIsSidebarOpen(!isSidebarOpen);
-      break;
-    case "cancel":
-      // handle cancel logic
-      break;
-    default:
-      break;
-  }
-};
+  const handleMenuClick = (key: string, index: number) => {
+    setActiveDropdown(null);
+    switch (key) {
+      case "call":
+        navigate("/inbox/call");
+        break;
+      case "edit":
+        setIsSidebarOpen(!isSidebarOpen);
+        break;
+      case "cancel":
+        console.log("Cancel appointment:", appointments[index]);
+        break;
+      default:
+        break;
+    }
+  };
 
-const renderMenu = (index: number) => (
-  <Menu
-    onClick={({ key }) => handleMenuClick(key, index)}
-    items={[
-      {
-        key: "call",
-        label: "Call",
-        icon: <PhoneOutlined />,  // Changed icon to a phone icon for clarity
-      },
-      {
-        key: "edit",
-        label: "Edit",
-        icon: <EditOutlined />,
-      },
-      {
-        key: "cancel",
-        label: "Cancel",
-        icon: <CloseCircleOutlined />,
-        danger: true,
-      },
-    ]}
-  />
-);
+  const renderMenu = (index: number) => (
+    <Menu
+      onClick={({ key }) => handleMenuClick(key, index)}
+      items={[
+        {
+          key: "call",
+          label: "Call",
+          icon: <PhoneOutlined />,
+        },
+        {
+          key: "edit",
+          label: "Edit",
+          icon: <EditOutlined />,
+        },
+        {
+          key: "cancel",
+          label: "Cancel",
+          icon: <CloseCircleOutlined />,
+          danger: true,
+        },
+      ]}
+    />
+  );
 
   return (
-    <div className="mt-4 h-5 justify-start items-center pl-3 bg-white ml-10 max-lg:ml-0">
+    <div className="mt-4 px-4 bg-white w-full">
       <Breadcrumb
         items={[
           { title: "Home" },
@@ -118,20 +186,18 @@ const renderMenu = (index: number) => (
         ]}
       />
 
-      <Row>
-        <Col className="gutter-row flex justify-between right-0 mb-6">
-          <div className="text-black text-3xl ml-1 font-medium">
+      <Row className="w-full mb-6" justify="space-between" align="middle">
+        <Col xs={24} lg={12}>
+          <div className="text-black text-2xl font-medium">
             Scheduled Appointments
           </div>
         </Col>
-
-        <Col className="gutter-row right-8 flex max-lg:ml-0" style={{ marginLeft: "auto" }}>
+        <Col xs={24} lg={12} className="flex justify-end">
           <Flex gap="small" wrap="wrap">
             <Button
               type="default"
-              block
               onClick={() => navigate("/health/schedule")}
-              style={{ width: "170px" }}
+              className="w-full lg:w-44"
             >
               Upload Schedule!
             </Button>
@@ -139,22 +205,22 @@ const renderMenu = (index: number) => (
         </Col>
       </Row>
 
-      <Row>
-        <Col>
-          <Space direction="vertical">
+      <Row className="w-full" gutter={[16, 16]}>
+        <Col xs={24} lg={6}>
+          <Space direction="vertical" className="w-full">
             <ProfileCardschedule />
           </Space>
         </Col>
 
-        <Col className="ml-10 max-lg:ml-0">
-          <Row justify="space-between" align="middle">
+        <Col xs={24} lg={18}>
+          <Row justify="space-between" align="middle" className="mb-4">
             <div className="text-2xl">Scheduled Appointments</div>
             <div className="flex items-center">
-              <div className="bg-white shadow-md px-2 py-1 justify-center mr-2 border-2 border-gray-200 rounded-lg">
+              <div className="bg-white shadow-md p-2 border-2 border-gray-200 rounded-lg mr-2">
                 <LeftOutlined />
               </div>
               <div className="text-lg font-medium">Feb 8, 2023</div>
-              <div className="bg-white shadow-md px-2 py-1 justify-center ml-2 border-2 border-gray-200 rounded-lg">
+              <div className="bg-white shadow-md p-2 border-2 border-gray-200 rounded-lg ml-2">
                 <RightOutlined />
               </div>
             </div>
@@ -163,69 +229,60 @@ const renderMenu = (index: number) => (
           {loading && <Text>Loading appointments...</Text>}
           {error && <Text type="danger">{error}</Text>}
 
-          <div>
+          {!loading && !error && appointments.length === 0 && (
+            <Text>No appointments available.</Text>
+          )}
+
+          <div className="space-y-4">
             {appointments.map((appointment, index) => (
               <div
-                key={index}
-                className="w-[1002px] max-lg:w-auto max-lg:h-auto h-[72px] p-[20px] mt-5 border border-solid border-gray-200 rounded-md flex justify-between"
+                key={appointment._id}
+                className="w-full p-4 border border-gray-200 rounded-md flex flex-col lg:flex-row justify-between items-start lg:items-center"
               >
-                <div className="flex max-lg:flex-col items-center space-x-12 max-lg:space-x-0 gap-10">
-                  <div className="flex max-lg:flex-col space-x-10 max-lg:space-x-0">
-                    <div className="flex-col">
-                      <Text className="text-xs">{appointment.day || "-"}</Text>
-                      <br />
-                      <Text className="text-2xl text-[#096DD9] font-medium">
-                        {appointment.date || "-"}
-                      </Text>
-                    </div>
-                    <div className="h-[60px] top-0 right-0 rounded-full">
-                      <div className="h-full bg-[#D9D9D9] w-[3px] rounded-full"></div>
-                    </div>
+                <div className="flex flex-col lg:flex-row items-start lg:items-center w-full lg:w-3/4 space-y-4 lg:space-y-0 lg:space-x-8">
+                  <div className="flex flex-col">
+                    <Text className="text-xs">{appointment.day || "-"}</Text>
+                    <Text className="text-xl text-blue-600 font-medium">
+                      {appointment.date || "-"}
+                    </Text>
                   </div>
-
-                  <div className="flex-col">
+                  <div className="h-10 w-0.5 bg-gray-200 rounded-full lg:h-12 max-lg:hidden"></div>
+                  <div className="flex flex-col">
                     <div className="flex items-center space-x-2 mb-2">
                       <ClockCircleOutlined />
-                      <Text className="text-base text-[#262626]">
+                      <Text className="text-base text-gray-800">
                         {appointment.time || "-"}
                       </Text>
                     </div>
-                    <Text className="text-base w-[53px] h-[30px] bg-[#F0F0F0] rounded p-1 gap-2">
+                    <Text className="text-base bg-gray-100 rounded px-2 py-1">
                       {appointment.type || "-"}
                     </Text>
                   </div>
-
-                  <div className="flex-col">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <Text className="text-base text-[#262626]">Doctor</Text>
-                    </div>
+                  <div className="flex flex-col">
+                    <Text className="text-base text-gray-800 mb-2">Doctor</Text>
                     <Text className="text-lg">{appointment.doctorName || "-"}</Text>
                   </div>
-
-                  <div className="flex-col">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <Text className="text-base text-[#262626]">Patient Name</Text>
-                    </div>
+                  <div className="flex flex-col">
+                    <Text className="text-base text-gray-800 mb-2">Patient Name</Text>
                     <Text className="text-lg">{appointment.patient || "-"}</Text>
                   </div>
                 </div>
 
-                <div className="flex items-center space-x-2">
-                  <div className="w-[6px] h-[6px] bg-green-500 rounded-full"></div>
-                  <Text className="text-base text-[#262626]">
+                <div className="flex items-center space-x-2 mt-4 lg:mt-0">
+                  <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
+                  <Text className="text-base text-gray-800">
                     {appointment.status || "-"}
                   </Text>
+                  <Dropdown
+                    overlay={renderMenu(index)}
+                    placement="bottomRight"
+                    trigger={["click"]}
+                  >
+                    <div className="shadow-md border border-gray-700 p-1 rounded-md cursor-pointer">
+                      <EllipsisOutlined className="text-2xl" />
+                    </div>
+                  </Dropdown>
                 </div>
-
-                <Dropdown
-                  overlay={renderMenu(index)}
-                  placement="bottomRight"
-                  trigger={["click"]}
-                >
-                  <div className="flex shadow-md border border-gray-700 px-1 py-1 rounded-md cursor-pointer">
-                    <EllipsisOutlined style={{ fontSize: "24px" }} />
-                  </div>
-                </Dropdown>
               </div>
             ))}
           </div>

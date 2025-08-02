@@ -1,30 +1,105 @@
 import React, { useEffect, useState } from "react";
 import { Image } from "antd";
 import { useNavigate } from "react-router-dom";
-import Maria from "../../../public/images/Maria.svg"; // fallback image
 import axios from "axios";
+import Maria from "../../../public/images/Maria.svg"; // Fallback image
 
 interface Appointment {
+  _id: string;
   doctorName: string;
   avatarSrc?: string;
-  id: string;
 }
 
-function ProfileCardschedule() {
+const ProfileCardschedule: React.FC = () => {
   const navigate = useNavigate();
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [doctors, setDoctors] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string | null>(null);
 
   useEffect(() => {
+    // Fetch user data from local storage (try 'user' or 'loggedInUser')
+    const userData = localStorage.getItem("user") || localStorage.getItem("loggedInUser");
+    const token = localStorage.getItem("token");
+
+    let role: string | null = null;
+    let name: string | null = null;
+
+    if (userData) {
+      try {
+        const parsedUser = JSON.parse(userData);
+        role = parsedUser.role;
+        name = parsedUser.name;
+      } catch (e) {
+        console.error("Error parsing user data from local storage:", e);
+        setError("Failed to parse user data. Please log in again.");
+      }
+    }
+
+    console.log("Local Storage - Role:", role, "Name:", name, "Token:", token);
+
+    setUserRole(role);
+    setUserName(name);
+
     const fetchAppointments = async () => {
+      if (!token) {
+        setError("No authentication token found. Please log in.");
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       try {
-        const response = await axios.get("https://empolyee-backedn.onrender.com/api/appointments");
+        const response = await axios.get(
+          "https://empolyee-backedn.onrender.com/api/appointments",
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        console.log("API Response:", response.data);
+
         const fetchedAppointments = response?.data?.appointments;
-        setAppointments(Array.isArray(fetchedAppointments) ? fetchedAppointments : []);
+        if (Array.isArray(fetchedAppointments)) {
+          // Extract unique doctors
+          const doctorMap = new Map<string, Appointment>();
+          fetchedAppointments.forEach((appt: any) => {
+            if (!doctorMap.has(appt.doctorName)) {
+              doctorMap.set(appt.doctorName, {
+                _id: appt._id,
+                doctorName: appt.doctorName,
+                avatarSrc: appt.avatarSrc,
+              });
+            }
+          });
+
+          const uniqueDoctors = Array.from(doctorMap.values());
+          console.log("Unique Doctors:", uniqueDoctors);
+
+          // Filter doctors based on user role
+          if (role === "admin") {
+            console.log("Admin role detected: Displaying all doctors.");
+            setDoctors(uniqueDoctors);
+          } else if (role === "doctor" && name !== null) {
+            const filteredDoctors = uniqueDoctors.filter((doctor) =>
+              doctor.doctorName.toLowerCase().includes(name.toLowerCase())
+            );
+            console.log("Doctor role detected - Filtered Doctors:", filteredDoctors);
+            setDoctors(filteredDoctors);
+          } else {
+            setDoctors([]);
+            setError("Invalid role or user name not found.");
+          }
+        } else {
+          setDoctors([]);
+          setError("No appointments found in the response.");
+        }
       } catch (err: any) {
-        setError(err.message || "Failed to fetch appointments");
+        console.error("API Error:", err);
+        setError(err?.response?.data?.message || err?.message || "Failed to fetch appointments");
       } finally {
         setLoading(false);
       }
@@ -34,54 +109,53 @@ function ProfileCardschedule() {
   }, []);
 
   return (
-    <div className="flex flex-col items-start">
-      <div className="text-xl ml-1 font-medium">Doctors</div>
+    <div className="flex flex-col items-start p-4 max-w-md w-full">
+      <h2 className="text-2xl font-semibold text-gray-800 mb-4">Doctors</h2>
 
-      {loading && <div className="mt-5 text-blue-500">Loading...</div>}
-      {error && <div className="mt-5 text-red-500">{error}</div>}
+      {loading && <div className="mt-4 text-blue-600">Loading doctors...</div>}
+      {error && <div className="mt-4 text-red-600">{error}</div>}
 
-      {!loading && !error && (appointments?.length ?? 0) === 0 && (
-        <div className="mt-5 text-gray-500">No doctors scheduled.</div>
+      {!loading && !error && doctors.length === 0 && (
+        <div className="mt-4 text-gray-500">No doctors scheduled.</div>
       )}
 
-      {!loading &&
-        !error &&
-        appointments.map((appointment) => (
-          <div
-            key={appointment.id}
-            className="flex flex-col items-start bg-white shadow-lg rounded-md px-2 py-2 mt-5 w-full"
-          >
-            <div className="flex items-center p-5">
-              <div className="w-[60px] h-[60px] rounded-full overflow-hidden mr-3 border-2">
-                <Image
-                  src={appointment.avatarSrc || Maria}
-                  alt={`Dr. ${appointment.doctorName}`}
-                  className="object-cover w-full h-full"
-                  fallback={Maria}
-                  preview={false}
-                />
-              </div>
-              <div className="flex flex-col items-start">
-                <h3 className="text-lg font-bold text-black">
-                  Dr. {appointment.doctorName}
-                  <span className="font-normal text-base text-gray-600"> Doctor</span>
-                </h3>
-                <p className="font-normal text-base leading-9 text-gray-500">
-                  M.B.B.S., F.C.P.S.
-                </p>
-              </div>
-            </div>
-
-            <button
-              onClick={() => navigate(`/health/schedule/${appointment.id}`)}
-              className="flex items-center justify-center ml-5 gap-2 px-4 py-1 text-sm text-gray-700 bg-white border border-gray-300 rounded shadow hover:bg-gray-50 transition"
+      {!loading && !error && (
+        <div className="space-y-4 w-full">
+          {doctors.map((doctor) => (
+            <div
+              key={doctor._id}
+              className="flex flex-col items-start bg-white shadow-lg rounded-xl p-4 border-l-4 border-blue-500 hover:shadow-xl hover:scale-105 transition-transform duration-200"
             >
-              View Schedule
-            </button>
-          </div>
-        ))}
+              <div className="flex items-center w-full max-lg:flex-col">
+                <div className="w-16 h-16 rounded-full overflow-hidden mr-4 border-2 border-blue-200 ring-2 ring-blue-300">
+                  <Image
+                    src={doctor.avatarSrc || Maria}
+                    alt={`Dr. ${doctor.doctorName}`}
+                    className="object-cover w-full h-full"
+                    fallback={Maria}
+                    preview={false}
+                  />
+                </div>
+                <div className="flex flex-col flex-grow">
+                  <h3 className="text-lg font-bold text-gray-800">
+                    Dr. {doctor.doctorName}
+                    <span className="font-normal text-base text-gray-500 ml-2">Doctor</span>
+                  </h3>
+                  <p className="text-sm text-gray-600">M.B.B.S., F.C.P.S.</p>
+                </div>
+              </div>
+              <button
+                onClick={() => navigate(`/health/doctor/${doctor._id}`)}
+                className="mt-3 px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-colors duration-200 shadow-md w-full text-center"
+              >
+                View Schedule
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
-}
+};
 
 export default ProfileCardschedule;

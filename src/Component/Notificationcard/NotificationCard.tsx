@@ -12,51 +12,81 @@ interface Appointment {
   doctorName: string;
   avatarSrc: string;
   createdAt: string;
+  userId?: string; // Make userId optional in case API doesn't return it
 }
 
 const NotificationCard: React.FC = () => {
   const [appointment, setAppointment] = useState<Appointment | null>(null);
   const [closed, setClosed] = useState(false);
+  const [error, setError] = useState<string | null>(null); // Added for error tracking
   const navigate = useNavigate();
+
+  // Get userId from localStorage
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const userId = user?.id;
 
   useEffect(() => {
     const fetchLatestAppointment = async () => {
+      if (!userId) {
+        console.log("No userId found in localStorage");
+        setError("No user logged in");
+        return;
+      }
+
       try {
         const token = localStorage.getItem("token_real");
+        console.log("Fetching appointments with userId:", userId, "and token:", token);
+
         const response = await axios.get<{ appointments: Appointment[] }>(
-          "https://empolyee-backedn.onrender.com/api/appointments/",
+          "https://empolyee-backedn.onrender.com/api/appointments", // Fixed typo in URL
           {
             headers: {
               "x-auth-token": token || "",
             },
+            params: { userId },
           }
         );
 
-        const allAppointments = response.data.appointments;
+        const userAppointments = response.data.appointments;
+        console.log("API response appointments:", userAppointments);
 
-        if (allAppointments.length > 0) {
-          const latest = allAppointments.reduce((a, b) =>
+        if (userAppointments.length > 0) {
+          // Find the latest appointment
+          const latest = userAppointments.reduce((a, b) =>
             new Date(a.createdAt) > new Date(b.createdAt) ? a : b
           );
+          console.log("Latest appointment:", latest);
+
+          // Temporarily skip recency check for debugging
           setAppointment(latest);
 
-          // Auto-close after 30 seconds
+          // Auto-close after 60 seconds
           setTimeout(() => {
+            console.log("Auto-closing notification");
             setClosed(true);
           }, 60000);
+        } else {
+          console.log("No appointments found for user");
+          setError("No appointments found");
         }
       } catch (err) {
         console.error("Error fetching appointments:", err);
+        setError("Failed to fetch appointments");
       }
     };
 
     fetchLatestAppointment();
-  }, []);
+  }, [userId]);
 
-  if (closed || !appointment) return null;
+  // Render nothing if closed, no appointment, or error
+  if (closed || !appointment) {
+    console.log("Not rendering - closed:", closed, "appointment:", appointment, "error:", error);
+    return null;
+  }
 
   return (
     <div className="w-[360px] p-5 fixed top-20 right-6 bg-white border border-gray-200 rounded-2xl shadow-xl z-50 transition-all">
+      {error && <div className="text-red-500 mb-2">{error}</div>}
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-semibold text-gray-900">
           📅 New Appointment Booked
