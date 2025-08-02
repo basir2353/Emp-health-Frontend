@@ -14,16 +14,15 @@ const LeftMenu = (props: any) => {
 
   useEffect(() => {
     let roleStr: any = JSON.parse(localStorage.getItem("user") || "{}");
-    console.log(roleStr);
+    console.log(roleStr, "roleStr");
 
-    let extractRole: any;
+    let extractRole: string;
     try {
-      extractRole = roleStr ? roleStr.role : "";
+      extractRole = roleStr?.role || "user";
     } catch {
-      extractRole = "";
+      extractRole = "user";
     }
-    console.log(extractRole, 'extractRole');
-     
+    console.log(extractRole, "extractRole");
     setUserRole(extractRole);
   }, []);
 
@@ -32,12 +31,12 @@ const LeftMenu = (props: any) => {
   };
 
   const healthMenuItems: MenuProps["items"] = [
-    ...(userRole !== "admin" && userRole !== "doctor"
+    ...(userRole === "user"
       ? [
           {
             key: "dashboard",
             label: (
-              <div className=" h-auto mt-4" onClick={() => navigate("/health")}>
+              <div className="h-auto mt-4" onClick={() => navigate("/health")}>
                 <div className="font-medium text-sm leading-3">Dashboard</div>
                 <div className="font-normal text-sm leading-5 mt-2 w-full h-full text-wrap text-[#64748B]">
                   View all of your appointments basic stats and other stuff here.
@@ -49,11 +48,11 @@ const LeftMenu = (props: any) => {
             key: "appointments",
             label: (
               <div
-                className=" h-auto mt-4"
-                onClick={() => navigate("/health/admin-schedule-appointments")}
+                className="h-auto mt-4"
+                onClick={() => navigate("/health/schedule-appointments")}
               >
                 <div className="font-medium text-sm leading-3">Appointments</div>
-                <div className="font-normal text-sm leading-5 mt-2  w-full h-full text-wrap text-[#64748B]">
+                <div className="font-normal text-sm leading-5 mt-2 w-full h-full text-wrap text-[#64748B]">
                   See upcoming appointments and book appointments here.
                 </div>
               </div>
@@ -63,11 +62,11 @@ const LeftMenu = (props: any) => {
             key: "insurance",
             label: (
               <div
-                className=" h-auto mt-4"
+                className="h-auto mt-4"
                 onClick={() => navigate("/health/insurance")}
               >
                 <div className="font-medium text-sm leading-3">Insurance</div>
-                <div className="font-normal text-sm leading-5 mt-2  w-full h-full text-wrap text-[#64748B]">
+                <div className="font-normal text-sm leading-5 mt-2 w-full h-full text-wrap text-[#64748B]">
                   View your insurance details and request to upgrade our insurance
                   details here.
                 </div>
@@ -102,13 +101,13 @@ const LeftMenu = (props: any) => {
             key: "schedule_appointment",
             label: (
               <div
-                className=" h-auto mt-4"
+                className="h-auto mt-4"
                 onClick={() => navigate("/health/admin-schedule-appointments")}
               >
                 <div className="font-medium text-sm leading-3">
                   Schedule Appointment (Only Admin)
                 </div>
-                <div className="font-normal text-sm leading-5 mt-2  w-full h-full text-wrap text-[#64748B]">
+                <div className="font-normal text-sm leading-5 mt-2 w-full h-full text-wrap text-[#64748B]">
                   Upload schedule or view your schedule here.
                 </div>
               </div>
@@ -120,9 +119,9 @@ const LeftMenu = (props: any) => {
 
   const safetyMenuItems: MenuProps["items"] = [
     {
-      key: "Saftey",
+      key: "Saftey", // Typo: Should be "Safety"
       label: (
-        <div className=" h-auto mt-4" onClick={() => navigate("/safety")}>
+        <div className="h-auto mt-4" onClick={() => navigate("/safety")}>
           <div className="font-medium text-sm leading-3">Dashboard</div>
           <div className="font-normal text-sm leading-5 mt-2 w-full h-full text-wrap text-[#64748B]">
             View all of your safety basic stats and other stuff here.
@@ -203,7 +202,7 @@ const LeftMenu = (props: any) => {
         ),
       },
     ];
-  } else if (userRole === 'admin') {
+  } else if (userRole === "admin") {
     wellnessMenuItems.push(
       {
         key: "challenges_admin",
@@ -253,6 +252,8 @@ const LeftMenu = (props: any) => {
       children: wellnessMenuItems,
     },
   ];
+
+  console.log({ healthMenuItems, items }); // Debug: Verify menu items
 
   return (
     <Space size="large" direction="horizontal" align="baseline">

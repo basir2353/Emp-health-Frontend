@@ -53,14 +53,14 @@ const ScheduleAppointments: React.FC = () => {
     const userData = localStorage.getItem("user") || localStorage.getItem("loggedInUser");
     const token = localStorage.getItem("token");
 
-    let role = null;
-    let name = null;
+    let role: string | null = null;
+    let name: string | null = null;
 
     if (userData) {
       try {
         const parsedUser = JSON.parse(userData);
-        role = parsedUser.role;
-        name = parsedUser.name;
+        role = parsedUser.role || null;
+        name = parsedUser.name || null;
       } catch (e) {
         console.error("Error parsing user data from local storage:", e);
         setError("Failed to parse user data. Please log in again.");
@@ -110,12 +110,17 @@ const ScheduleAppointments: React.FC = () => {
           if (role === "admin") {
             console.log("Admin role detected: Displaying all appointments.");
             setAppointments(mappedAppointments);
-          } else if (role === "doctor" && name) {
-            const filteredAppointments = mappedAppointments.filter((appt: Appointment) =>
-              appt.doctorName.toLowerCase().includes(name.toLowerCase())
-            );
-            console.log("Doctor role detected - Filtered Appointments:", filteredAppointments);
-            setAppointments(filteredAppointments);
+          } else if (role === "doctor") {
+            if (name) {
+              const filteredAppointments = mappedAppointments.filter((appt: Appointment) =>
+                appt.doctorName.toLowerCase().includes(name!.toLowerCase() || "")
+              );
+              console.log("Doctor role detected - Filtered Appointments:", filteredAppointments);
+              setAppointments(filteredAppointments);
+            } else {
+              setAppointments([]);
+              setError("User name not found for doctor role.");
+            }
           } else {
             setAppointments([]);
             setError("Invalid role or user name not found.");

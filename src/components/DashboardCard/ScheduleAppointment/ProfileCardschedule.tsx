@@ -29,8 +29,8 @@ const ProfileCardschedule: React.FC = () => {
     if (userData) {
       try {
         const parsedUser = JSON.parse(userData);
-        role = parsedUser.role;
-        name = parsedUser.name;
+        role = parsedUser.role || null;
+        name = parsedUser.name || null;
       } catch (e) {
         console.error("Error parsing user data from local storage:", e);
         setError("Failed to parse user data. Please log in again.");
@@ -83,12 +83,17 @@ const ProfileCardschedule: React.FC = () => {
           if (role === "admin") {
             console.log("Admin role detected: Displaying all doctors.");
             setDoctors(uniqueDoctors);
-          } else if (role === "doctor" && name !== null) {
-            const filteredDoctors = uniqueDoctors.filter((doctor) =>
-              doctor.doctorName.toLowerCase().includes(name.toLowerCase())
-            );
-            console.log("Doctor role detected - Filtered Doctors:", filteredDoctors);
-            setDoctors(filteredDoctors);
+          } else if (role === "doctor") {
+            if (name) {
+              const filteredDoctors = uniqueDoctors.filter((doctor) =>
+                doctor.doctorName.toLowerCase().includes(name!.toLowerCase())
+              );
+              console.log("Doctor role detected - Filtered Doctors:", filteredDoctors);
+              setDoctors(filteredDoctors);
+            } else {
+              setDoctors([]);
+              setError("User name not found for doctor role.");
+            }
           } else {
             setDoctors([]);
             setError("Invalid role or user name not found.");
