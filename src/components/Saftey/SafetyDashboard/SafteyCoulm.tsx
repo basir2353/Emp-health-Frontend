@@ -137,8 +137,8 @@ const SafetyBox: React.FC = () => {
       }
 
       const endpoint = canModify
-        ? "https://empolyee-backedn.onrender.com/api/reports/all"
-        : "https://empolyee-backedn.onrender.com/api/reports";
+        ? "http://localhost:5000/api/reports/all"
+        : "http://localhost:5000/api/reports";
 
       const response = await axios.get(endpoint, {
         headers: { "x-auth-token": token },
@@ -218,7 +218,7 @@ const SafetyBox: React.FC = () => {
           }
 
           await axios.patch(
-            `https://empolyee-backedn.onrender.com/api/reports/${reportId}/status`,
+            `http://localhost:5000/api/reports/${reportId}/status`,
             { status: newStatus },
             {
               headers: {
@@ -262,7 +262,7 @@ const SafetyBox: React.FC = () => {
             return;
           }
 
-          await axios.delete(`https://empolyee-backedn.onrender.com/api/reports/${reportId}`, {
+          await axios.delete(`http://localhost:5000/api/reports/${reportId}`, {
             headers: { "x-auth-token": token },
           });
 
@@ -764,7 +764,7 @@ const SafetyBox: React.FC = () => {
         icon={<BellOutlined />}
         onClick={handleViewNotification}
       >
-        {selectedIncident?.identityStatus && selectedIncident.identityStatus === "provided"
+        {selectedIncident?.identityStatus === "provided"
           ? `View Notification - ${userName || "Unknown User"}`
           : "View Notification"}
       </Button>
@@ -779,7 +779,7 @@ const SafetyBox: React.FC = () => {
         }}
         onClick={handleAskForIdentity}
       >
-        {selectedIncident?.identityStatus && selectedIncident.identityStatus === "provided"
+        {selectedIncident?.identityStatus === "provided"
           ? `Ask For Identity - ${selectedIncident.reportedBy?.name || "Unknown User"}`
           : "Ask For Identity"}
       </Button>

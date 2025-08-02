@@ -20,7 +20,7 @@ function ProfileCardschedule() {
     const fetchAppointments = async () => {
       setLoading(true);
       try {
-        const response = await axios.get("https://empolyee-backedn.onrender.com/api/appointments");
+        const response = await axios.get("http://localhost:5000/api/appointments");
         const fetchedAppointments = response?.data?.appointments;
         setAppointments(Array.isArray(fetchedAppointments) ? fetchedAppointments : []);
       } catch (err: any) {

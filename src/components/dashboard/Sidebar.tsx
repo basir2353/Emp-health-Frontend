@@ -35,6 +35,7 @@ interface Doctor {
   image: string;
   available_hours: string;
   experience: string;
+  date:string
 }
 
 const timeSlots = [
@@ -142,11 +143,12 @@ const Sidebar: React.FC<SidebarProps> = ({
       doctorName: selectedDoctor.name,
       avatarSrc: selectedDoctor.image,
     };
-
+    console.log(selectedDoctor,'hhhh');
+    
     dispatch(addAppointment(appointmentData));
 
     axios
-      .post("https://empolyee-backedn.onrender.com/api/appointments", appointmentData, {
+      .post("http://localhost:5000/api/appointments", appointmentData, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
@@ -227,6 +229,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <div>
                   <h3 className="text-lg font-bold text-black mt-2">
                     {selectedDoctor?.name}
+                    
                     <span className="font-normal text-base">
                       ({selectedDoctor?.profession})
                     </span>
@@ -249,6 +252,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                   <div className="flex items-center">
                     <p className="font-medium text-xl leading-2">
                       {selectedDoctor?.available_hours}
+                      {/* {selectedDoctor?.date} */}
+
                     </p>
                   </div>
                 </div>
