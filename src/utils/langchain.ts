@@ -1,18 +1,19 @@
 import axios from "axios";
 import { data } from "./constants";
 
-const OPENROUTER_API_KEY: string | undefined =
-  process.env.OPENROUTER_API_KEY || "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";
-const MODEL = "deepseek/deepseek-chat-v3-0324:free";
+const GROQ_API_KEY: string | undefined =
+  process.env.GROQ_API_KEY || "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"; // Replace with your real key
+
+const MODEL = "llama3-8b-8192"; // Free and strong, other option: "mixtral-8x7b-32768"
 
 // Utility function to clean unwanted characters and markdown from response
 function cleanResponse(text: string): string {
   return text
-    .replace(/[@#_*~`>\\-]+/g, "")           // Remove special markdown/symbol chars like @ # * _ ~ ` > \ -
-    .replace(/\[(.*?)\]\((.*?)\)/g, "$1")    // Convert markdown links [text](url) => text
-    .replace(/<\/?[^>]+(>|$)/g, "")          // Remove HTML tags if any
-    .replace(/\n{2,}/g, "\n")                 // Replace multiple line breaks with single line break
-    .replace(/\s{2,}/g, " ")                   // Replace multiple spaces with single space
+    .replace(/[@#_*~`>\\-]+/g, "")
+    .replace(/\[(.*?)\]\((.*?)\)/g, "$1")
+    .replace(/<\/?[^>]+(>|$)/g, "")
+    .replace(/\n{2,}/g, "\n")
+    .replace(/\s{2,}/g, " ")
     .trim();
 }
 
@@ -22,8 +23,8 @@ export const conversationalBot = async (input: string): Promise<string> => {
       return "Please provide a valid input query.";
     }
 
-    if (!OPENROUTER_API_KEY) {
-      throw new Error("OpenRouter API key missing.");
+    if (!GROQ_API_KEY) {
+      throw new Error("GROQ API key missing.");
     }
 
     const systemMessage = `You are a highly experienced and empathetic medical doctor.
@@ -32,7 +33,7 @@ Use the following data for navigation questions:
 ${JSON.stringify(data)}`;
 
     const response = await axios.post(
-      "https://openrouter.ai/api/v1/chat/completions",
+      "https://api.groq.com/openai/v1/chat/completions",
       {
         model: MODEL,
         messages: [
@@ -43,7 +44,7 @@ ${JSON.stringify(data)}`;
       },
       {
         headers: {
-          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          Authorization: `Bearer ${GROQ_API_KEY}`,
           "Content-Type": "application/json",
         },
       }
@@ -62,7 +63,7 @@ ${JSON.stringify(data)}`;
   } catch (error: any) {
     console.error("Error in conversationalBot:", error.response?.data || error.message);
     if (error?.response?.status === 401) {
-      return "Authentication failed. Please check your OpenRouter API key.";
+      return "Authentication failed. Please check your GROQ API key.";
     }
     if (error?.response?.status === 429) {
       return "Rate limit exceeded. Please try again later.";
