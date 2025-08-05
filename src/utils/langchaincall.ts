@@ -1,11 +1,10 @@
 import axios from "axios";
 
-// Your OpenRouter API key (replace or set via env)
-const OPENROUTER_API_KEY: string | undefined =
-  process.env.OPENROUTER_API_KEY ||
-  "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";
+// Your GROQ API key (replace or set via env)
+const GROQ_API_KEY: string | undefined =
+  process.env.GROQ_API_KEY || "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";
 
-const MODEL = "deepseek/deepseek-chat-v3-0324:free";
+const MODEL = "llama3-8b-8192"; // You can also try "mixtral-8x7b-32768"
 
 // Utility function to clean unwanted characters and markdown from response
 function cleanResponse(text: string): string {
@@ -13,8 +12,8 @@ function cleanResponse(text: string): string {
     .replace(/[@#_*~`>\\-]+/g, "")           // Remove special markdown/symbol chars like @ # * _ ~ ` > \ -
     .replace(/\[(.*?)\]\((.*?)\)/g, "$1")    // Convert markdown links [text](url) => text
     .replace(/<\/?[^>]+(>|$)/g, "")          // Remove HTML tags if any
-    .replace(/\n{2,}/g, "\n")                 // Replace multiple line breaks with single line break
-    .replace(/\s{2,}/g, " ")                   // Replace multiple spaces with single space
+    .replace(/\n{2,}/g, "\n")                // Replace multiple line breaks with single line break
+    .replace(/\s{2,}/g, " ")                 // Replace multiple spaces with single space
     .trim();
 }
 
@@ -24,20 +23,19 @@ export const conversationalBotCall = async (input: string): Promise<string> => {
       return "Please provide a valid input query.";
     }
 
-    if (!OPENROUTER_API_KEY) {
-      throw new Error("OpenRouter API key missing.");
+    if (!GROQ_API_KEY) {
+      throw new Error("GROQ API key missing.");
     }
 
     // Define system prompt for the chatbot
-    const systemMessage = `<s>[INST] You are a highly experienced and empathetic medical doctor. Your primary goal is to help users navigate the services provided on a website using the provided data, and to provide accurate medical advice, diagnose symptoms, and suggest treatments while maintaining a compassionate tone.
+    const systemMessage = `You are a highly experienced and empathetic medical doctor.
+Your primary goal is to help users navigate the services provided on a website using the provided data, and to provide accurate medical advice, diagnose symptoms, and suggest treatments while maintaining a compassionate tone.
 
-Use the provided data for navigation questions and your medical knowledge for general queries.
+Add this note at the end of your answer if the user asks about connecting with a doctor via call.`;
 
-Add this note at the end of your answer if the user asks about connecting with a doctor via call`;
-
-    // Call the OpenRouter chat completions API
+    // Call the Groq Chat Completions API
     const response = await axios.post(
-      "https://openrouter.ai/api/v1/chat/completions",
+      "https://api.groq.com/openai/v1/chat/completions",
       {
         model: MODEL,
         messages: [
@@ -48,7 +46,7 @@ Add this note at the end of your answer if the user asks about connecting with a
       },
       {
         headers: {
-          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          Authorization: `Bearer ${GROQ_API_KEY}`,
           "Content-Type": "application/json",
         },
       }
@@ -65,10 +63,10 @@ Add this note at the end of your answer if the user asks about connecting with a
 
     return botMessage;
   } catch (error: any) {
-    console.error("Error in conversationalBot:", error.response?.data || error.message);
+    console.error("Error in conversationalBotCall:", error.response?.data || error.message);
 
     if (error?.response?.status === 401) {
-      return "Authentication failed. Please check your OpenRouter API key.";
+      return "Authentication failed. Please check your GROQ API key.";
     }
 
     if (error?.response?.status === 429) {
