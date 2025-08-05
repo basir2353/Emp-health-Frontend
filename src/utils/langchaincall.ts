@@ -3,7 +3,7 @@ import axios from "axios";
 // Your OpenRouter API key (replace or set via env)
 const OPENROUTER_API_KEY: string | undefined =
   process.env.OPENROUTER_API_KEY ||
-  "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";
+  "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";
 
 const MODEL = "deepseek/deepseek-chat-v3-0324:free";
 

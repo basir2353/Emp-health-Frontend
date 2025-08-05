@@ -2,7 +2,7 @@ import axios from "axios";
 import { data } from "./constants";
 
 const OPENROUTER_API_KEY: string | undefined =
-  process.env.OPENROUTER_API_KEY || "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";
+  process.env.OPENROUTER_API_KEY || "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";
 const MODEL = "deepseek/deepseek-chat-v3-0324:free";
 
 // Utility function to clean unwanted characters and markdown from response
