@@ -1,13 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { Input, Button, Image, Col, Row } from "antd";
-import { ArrowLeftOutlined, FilterOutlined } from "@ant-design/icons";
+import { Input, Button, Avatar, Col, Row } from "antd";
+import { ArrowLeftOutlined, FilterOutlined, UserOutlined } from "@ant-design/icons";
 import { BreadCrumb } from "../BreadCrumbs";
 import Sidebar from "./Sidebar";
 import FilterSidebar from "./FilterSidebar";
-import DrAlishaKane from "../../public/images/Alisha.svg";
-import DrMaria from "../../public/images/Maria.svg";
-import DrAkhtar from "../../public/images/Akhtar.svg";
-import DrAndrew from "../../public/images/Andrew.svg";
 import axios from "axios";
 import dayjs from "dayjs";
 
@@ -17,55 +13,9 @@ interface Doctor {
   education: string;
   experience: string;
   available_hours: string;
-  image: string;
   gender: string;
   date: string;
 }
-
-export const available_doctors: Doctor[] = [
-  {
-    name: "Dr. Maria Summers",
-    profession: "Neurologist",
-    education: "M.B.B.S., F.C.P.S. (Neurology)",
-    experience: "8 Years",
-    available_hours: "5:00 PM - 9:00 PM",
-    image: DrMaria,
-    gender: "female",
-    date: "2025-08-02",
-  },
-  {
-    name: "Dr. Akhtar Javed",
-    profession: "General Physician",
-    education: "MBBS, MCPS (Medicine)",
-    experience: "5 Years",
-    available_hours: "1:00 PM - 6:00 PM",
-    image: DrAkhtar,
-    gender: "male",
-    date: "2025-08-02",
-  },
-  {
-    name: "Dr. Andrew Smith",
-    profession: "Cardiology, Interventional Cardiologist",
-    education:
-      "M.B.B.S., Dip. Cardiology, M.D Cardio, MESC (Europe), MACC (USA)",
-    experience: "7 Years",
-    available_hours: "3:00 PM - 7:00 PM",
-    image: DrAndrew,
-    gender: "male",
-    date: "2025-08-02",
-  },
-  {
-    name: "Dr. Alisha Kane",
-    profession: "Dermatologist, Aesthetic Physician",
-    education:
-      "M.B.B.S., MSc Clinical Dermatology, Diploma in Aesthetic Medicine",
-    experience: "10 Years",
-    available_hours: "1:00 PM - 7:00 PM",
-    image: DrAlishaKane,
-    gender: "female",
-    date: "2025-08-02",
-  },
-];
 
 interface ApiDoctor {
   _id: string;
@@ -79,15 +29,6 @@ interface ApiDoctor {
 }
 
 const mapApiDoctorToDoctor = (apiDoctor: ApiDoctor): Doctor => {
-  let defaultImage = DrMaria;
-  if (apiDoctor.gender === "male") {
-    defaultImage = DrAkhtar;
-  } else if (apiDoctor.department?.toLowerCase().includes("dermatology")) {
-    defaultImage = DrAlishaKane;
-  } else if (apiDoctor.department?.toLowerCase().includes("cardiology")) {
-    defaultImage = DrAndrew;
-  }
-
   return {
     name: apiDoctor.name,
     profession: apiDoctor.department || "General Physician",
@@ -96,7 +37,6 @@ const mapApiDoctorToDoctor = (apiDoctor: ApiDoctor): Doctor => {
     available_hours: apiDoctor.workingHours
       ? `${apiDoctor.workingHours.start} - ${apiDoctor.workingHours.end}`
       : "N/A",
-    image: defaultImage,
     gender: apiDoctor.gender || "other",
     date: apiDoctor.date || "2025-08-02",
   };
@@ -110,7 +50,7 @@ export const Doctors = () => {
   const [selectedSpecialty, setSelectedSpecialty] = useState<string | null>(null);
   const [selectedGender, setSelectedGender] = useState<string | null>("other");
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [allDoctors, setAllDoctors] = useState<Doctor[]>(available_doctors);
+  const [allDoctors, setAllDoctors] = useState<Doctor[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -120,11 +60,13 @@ export const Doctors = () => {
         if (response.data && Array.isArray(response.data.doctors)) {
           const apiDoctors: ApiDoctor[] = response.data.doctors;
           const mappedDoctors = apiDoctors.map(mapApiDoctorToDoctor);
-          setAllDoctors([...mappedDoctors, ...available_doctors]);
+          setAllDoctors(mappedDoctors);
+        } else {
+          setAllDoctors([]);
         }
       } catch (error) {
         console.error("Error fetching doctors:", error);
-        setAllDoctors(available_doctors);
+        setAllDoctors([]);
       } finally {
         setIsLoading(false);
       }
@@ -162,6 +104,17 @@ export const Doctors = () => {
   ) => {
     setSelectedGender(gender);
     setSelectedSpecialty(specialty);
+  };
+
+  // Function to get initials from doctor's name
+  const getInitials = (name: string) => {
+    const nameParts = name.trim().split(" ");
+    if (nameParts.length === 0) return "";
+    if (nameParts.length === 1) return nameParts[0].charAt(0).toUpperCase();
+    return (
+      nameParts[0].charAt(0).toUpperCase() +
+      nameParts[nameParts.length - 1].charAt(0).toUpperCase()
+    );
   };
 
   const filteredDoctors = allDoctors.filter((doctor) => {
@@ -251,47 +204,56 @@ export const Doctors = () => {
 
       <div className="w-[1407px] flex justify-start items-start mt-3 ml-5">
         <Row gutter={[16, 16]}>
-          {filteredDoctors.map((doctor, index) => (
-            <Col key={index} span={6}>
-              <div className="w-[331px] h-[280px] border border-gray-300 rounded px-4 py-4 flex flex-col justify-between">
-                <div>
-                  <div className="flex">
-                    <Image
-                      preview={false}
-                      width={60}
-                      style={{ borderRadius: "50%" }}
-                      className="border-2 border-black"
-                      src={doctor.image}
-                    />
-                    <div className="mt-4 text-xl ml-3 font-semibold">
-                      {doctor.name}
+          {filteredDoctors.length > 0 ? (
+            filteredDoctors.map((doctor, index) => (
+              <Col key={index} span={6}>
+                <div className="w-[331px] h-[280px] border border-gray-300 rounded px-4 py-4 flex flex-col justify-between">
+                  <div>
+                    <div className="flex">
+                      <Avatar
+                        size={60}
+                        style={{ backgroundColor: "#1890ff", border: "2px solid black" }}
+                        icon={<UserOutlined />}
+                        className="border-2 border-black"
+                      >
+                        {getInitials(doctor.name)}
+                      </Avatar>
+                      <div className="mt-4 text-xl ml-3 font-semibold">
+                        {doctor.name}
+                      </div>
+                    </div>
+                    <div className="text-sm text-gray-500 mt-4">
+                      {doctor.profession}
+                    </div>
+                    <div className="text-sm text-gray-500 mt-2">
+                      {doctor.education}
                     </div>
                   </div>
-                  <div className="text-sm text-gray-500 mt-4">
-                    {doctor.profession}
+                  <div className="border-b-2 w-[299px]"></div>
+                  <div className="flex">
+                    <div className="flex gap-2">
+                      <div className="text-sm text-gray-500">Experience</div>
+                      <div>{doctor.experience}</div>
+                    </div>
                   </div>
-                  <div className="text-sm text-gray-500 mt-2">
-                    {doctor.education}
-                  </div>
+                  <Button
+                    type="primary"
+                    block
+                    onClick={() => handleBookAppointment(doctor)}
+                    style={{ backgroundColor: "black" }}
+                  >
+                    Book Appointment
+                  </Button>
                 </div>
-                <div className="border-b-2 w-[299px]"></div>
-                <div className="flex">
-                  <div className="flex gap-2">
-                    <div className="text-sm text-gray-500">Experience</div>
-                    <div>{doctor.experience}</div>
-                  </div>
-                </div>
-                <Button
-                  type="primary"
-                  block
-                  onClick={() => handleBookAppointment(doctor)}
-                  style={{ backgroundColor: "black" }}
-                >
-                  Book Appointment
-                </Button>
+              </Col>
+            ))
+          ) : (
+            <Col span={24}>
+              <div className="text-center text-gray-500">
+                No doctors available matching the selected filters.
               </div>
             </Col>
-          ))}
+          )}
         </Row>
       </div>
 

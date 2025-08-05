@@ -2,6 +2,7 @@ import {
   ArrowLeftOutlined,
   ArrowRightOutlined,
   CloseCircleOutlined,
+  UserOutlined,
 } from "@ant-design/icons";
 import {
   Avatar,
@@ -9,7 +10,6 @@ import {
   Card,
   Checkbox,
   Drawer,
-  Image,
   Typography,
   message,
   Calendar,
@@ -19,6 +19,11 @@ import { useDispatch } from "react-redux";
 import { addAppointment } from "../../redux/appointments/appointmentSlice";
 import axios from "axios";
 import dayjs, { Dayjs } from "dayjs";
+import utc from "dayjs/plugin/utc";
+import timezone from "dayjs/plugin/timezone";
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 interface SidebarProps {
   isedit: boolean;
@@ -32,20 +37,69 @@ interface Doctor {
   name: string;
   profession: string;
   education: string;
-  image: string;
   available_hours: string;
   experience: string;
-  date:string
+  date: string;
 }
 
-const timeSlots = [
-  "9:00 AM",
-  "10:00 AM",
-  "11:00 AM",
-  "12:00 PM",
-  "1:00 PM",
-  "2:00 PM",
-];
+// Function to generate time slots based on doctor's available_hours
+const generateTimeSlots = (availableHours: string, selectedDate: string | null) => {
+  // Validate inputs
+  if (!availableHours || !selectedDate || !dayjs(selectedDate, "YYYY-MM-DD").isValid()) {
+    console.warn("Invalid inputs:", { availableHours, selectedDate });
+    return [];
+  }
+
+  // Split and trim available hours
+  const timeParts = availableHours.split(" - ").map((time) => time.trim());
+  if (timeParts.length !== 2) {
+    console.warn("Invalid available_hours format:", availableHours);
+    return [];
+  }
+  const [startTime, endTime] = timeParts;
+
+  const currentDateTime = dayjs().tz("Asia/Karachi"); // Current time in PKT
+  const selectedDateTime = dayjs(selectedDate, "YYYY-MM-DD").tz("Asia/Karachi");
+
+  // Parse start and end times in 24-hour format
+  const start = dayjs(`${selectedDate} ${startTime}`, "YYYY-MM-DD HH:mm", true).tz("Asia/Karachi");
+  const end = dayjs(`${selectedDate} ${endTime}`, "YYYY-MM-DD HH:mm", true).tz("Asia/Karachi");
+
+  // Check if parsed times are valid
+  if (!start.isValid() || !end.isValid()) {
+    console.warn("Failed to parse times:", { startTime, endTime });
+    return [];
+  }
+
+  // If selected date is today, only include future time slots
+  const isToday = selectedDateTime.isSame(currentDateTime, "day");
+  const now = currentDateTime;
+
+  const slots: string[] = [];
+  let current = start;
+
+  while (current.isBefore(end)) {
+    // Ensure the slot ends within available hours
+    const slotEnd = current.add(1, "hour");
+    if (slotEnd.isAfter(end)) break; // Skip if the slot exceeds end time
+
+    if (!isToday || current.isAfter(now)) {
+      slots.push(`${current.format("HH:mm")} - ${slotEnd.format("HH:mm")}`);
+    }
+    current = slotEnd; // Move to the next 1-hour slot
+  }
+
+  // Fallback: return at least one slot if possible
+  if (slots.length === 0 && start.isBefore(end)) {
+    const fallbackEnd = start.add(1, "hour");
+    if (fallbackEnd.isBefore(end) || fallbackEnd.isSame(end)) {
+      return [`${start.format("HH:mm")} - ${fallbackEnd.format("HH:mm")}`];
+    }
+  }
+
+  console.log("Generated time slots:", slots);
+  return slots;
+};
 
 const Sidebar: React.FC<SidebarProps> = ({
   isedit,
@@ -56,23 +110,36 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const dispatch = useDispatch();
   const [selectedCard, setSelectedCard] = useState<number | null>(null);
-  const [selectedAppointmentType, setSelectedAppointmentType] =
-    useState("Walk in");
+  const [selectedAppointmentType, setSelectedAppointmentType] = useState("Walk in");
   const [selectedDateValue, setSelectedDateValue] = useState<Dayjs | undefined>(
     selectedDate && dayjs(selectedDate, "YYYY-MM-DD").isValid()
-      ? dayjs(selectedDate, "YYYY-MM-DD")
+      ? dayjs(selectedDate, "YYYY-MM-DD").tz("Asia/Karachi")
       : undefined
   );
   const [Isedit, setIsedit] = useState(isedit);
   const [isCancelClicked, setIsCancelClicked] = useState(false);
   const [selectedOption, setSelectedOption] = useState("");
+  const [timeSlots, setTimeSlots] = useState<string[]>([]);
+
+  // Update time slots based on selected doctor's available_hours and selected date
+  useEffect(() => {
+    if (selectedDoctor && selectedDate && dayjs(selectedDate, "YYYY-MM-DD").isValid()) {
+      const slots = generateTimeSlots(selectedDoctor.available_hours, selectedDate);
+      setTimeSlots(slots);
+      setSelectedCard(null); // Reset selected time slot when date or doctor changes
+    } else {
+      setTimeSlots([]);
+      console.warn("Cannot generate time slots: invalid doctor or date", { selectedDoctor, selectedDate });
+    }
+  }, [selectedDoctor, selectedDate]);
 
   // Update selectedDateValue when selectedDate prop changes
   useEffect(() => {
     if (selectedDate && dayjs(selectedDate, "YYYY-MM-DD").isValid()) {
-      setSelectedDateValue(dayjs(selectedDate, "YYYY-MM-DD"));
+      setSelectedDateValue(dayjs(selectedDate, "YYYY-MM-DD").tz("Asia/Karachi"));
     } else {
       setSelectedDateValue(undefined);
+      console.warn("Invalid selectedDate:", selectedDate);
     }
   }, [selectedDate]);
 
@@ -84,15 +151,14 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   // Handle date selection in the calendar
   const handleDateSelect = (date: Dayjs) => {
-    setSelectedDateValue(date);
+    setSelectedDateValue(date.tz("Asia/Karachi"));
   };
 
-  // Disable all dates except the selectedDate
+  // Disable past dates and future dates beyond a reasonable range
   const disabledDate = (current: Dayjs) => {
-    if (!selectedDate || !dayjs(selectedDate, "YYYY-MM-DD").isValid()) {
-      return true; // Disable all dates if selectedDate is invalid
-    }
-    return !current.isSame(dayjs(selectedDate, "YYYY-MM-DD"), "day");
+    const today = dayjs().tz("Asia/Karachi").startOf("day");
+    const maxDate = today.add(30, "day"); // Allow booking up to 30 days in advance
+    return current && (current < today || current > maxDate);
   };
 
   const handelcancel = () => {
@@ -111,6 +177,17 @@ const Sidebar: React.FC<SidebarProps> = ({
   const handleReschedule = () => {
     setIsedit(false);
     setIsCancelClicked(false);
+  };
+
+  // Get initials for avatar
+  const getInitials = (name: string) => {
+    const nameParts = name.trim().split(" ");
+    if (nameParts.length === 0) return "";
+    if (nameParts.length === 1) return nameParts[0].charAt(0).toUpperCase();
+    return (
+      nameParts[0].charAt(0).toUpperCase() +
+      nameParts[nameParts.length - 1].charAt(0).toUpperCase()
+    );
   };
 
   const handleConfirm = () => {
@@ -136,15 +213,14 @@ const Sidebar: React.FC<SidebarProps> = ({
     const appointmentData = {
       userId,
       day: getCurrentDay(),
-      date: selectedDateValue.format("MMM D"), // e.g., "Jan 1"
-      fullDate: selectedDateValue.format("YYYY-MM-DD"), // Full date for backend
-      time: timeSlots[selectedCard],
+      date: selectedDateValue.format("MMM D"),
+      fullDate: selectedDateValue.format("YYYY-MM-DD"),
+      time: timeSlots[selectedCard], // Now a 24-hour range like "09:00 - 10:00"
       type: selectedAppointmentType,
       doctorName: selectedDoctor.name,
-      avatarSrc: selectedDoctor.image,
+      avatarSrc: "", // Provide a value or fetch from selectedDoctor if available
     };
-    console.log(selectedDoctor,'hhhh');
-    
+
     dispatch(addAppointment(appointmentData));
 
     axios
@@ -213,30 +289,23 @@ const Sidebar: React.FC<SidebarProps> = ({
             <div className="flex flex-col items-start py-2">
               <div className="flex">
                 <Avatar
-                  src={
-                    <Image
-                      src={selectedDoctor?.image}
-                      alt={selectedDoctor?.name}
-                      className="w-full h-full border-2 rounded-full"
-                    />
-                  }
-                  style={{
-                    width: "60px",
-                    height: "60px",
-                    marginRight: "1rem",
-                  }}
-                />
+                  size={60}
+                  style={{ backgroundColor: "#1890ff", border: "2px solid black" }}
+                  icon={<UserOutlined />}
+                  className="border-2 border-black"
+                >
+                  {getInitials(selectedDoctor.name)}
+                </Avatar>
                 <div>
                   <h3 className="text-lg font-bold text-black mt-2">
-                    {selectedDoctor?.name}
-                    
+                    {selectedDoctor.name}
                     <span className="font-normal text-base">
-                      ({selectedDoctor?.profession})
+                      ({selectedDoctor.profession})
                     </span>
                   </h3>
                   <div className="flex flex-col items-start">
                     <p className="font-normal text-base leading-9 text-gray-500">
-                      {selectedDoctor?.education}
+                      {selectedDoctor.education}
                     </p>
                   </div>
                 </div>
@@ -251,9 +320,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   </p>
                   <div className="flex items-center">
                     <p className="font-medium text-xl leading-2">
-                      {selectedDoctor?.available_hours}
-                      {/* {selectedDoctor?.date} */}
-
+                      {selectedDoctor.available_hours || "N/A"}
                     </p>
                   </div>
                 </div>
@@ -261,7 +328,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   <p className="text-base text-gray-500">Experience</p>
                   <div className="flex items-center">
                     <p className="font-medium text-xl">
-                      {selectedDoctor?.experience}
+                      {selectedDoctor.experience}
                     </p>
                   </div>
                 </div>
@@ -361,13 +428,13 @@ const Sidebar: React.FC<SidebarProps> = ({
                 >
                   <Typography.Text>Time</Typography.Text>
                   <Typography.Text strong style={{ fontSize: "1.25rem" }}>
-                    2:00 PM
+                    {timeSlots[selectedCard ?? 0] || "N/A"}
                   </Typography.Text>
                 </div>
                 <div className="flex flex-col">
                   <Typography.Text>Date</Typography.Text>
                   <Typography.Text strong style={{ fontSize: "1.25rem" }}>
-                    Feb 5, 2023
+                    {selectedDateValue ? selectedDateValue.format("MMM D, YYYY") : "N/A"}
                   </Typography.Text>
                 </div>
               </div>
@@ -414,18 +481,22 @@ const Sidebar: React.FC<SidebarProps> = ({
           <p className="font-normal text-base leading-6 text-gray-400 mb-2">
             Select Time
           </p>
-          <div className="grid grid-cols-3 gap-4">
-            {timeSlots.map((slot, index) => (
-              <div
-                key={index}
-                className={`flex items-center justify-center h-[44px] border border-gray-300 rounded cursor-pointer ${
-                  selectedCard === index ? "bg-sky-200" : "bg-gray-200"
-                }`}
-                onClick={() => handleCardClick(index)}
-              >
-                <p className="text-sm font-medium text-black">{slot}</p>
-              </div>
-            ))}
+          <div className="grid grid-cols-2 gap-4">
+            {timeSlots.length > 0 ? (
+              timeSlots.map((slot, index) => (
+                <div
+                  key={index}
+                  className={`flex items-center justify-center h-[44px] border border-gray-300 rounded cursor-pointer ${
+                    selectedCard === index ? "bg-sky-200" : "bg-gray-200"
+                  }`}
+                  onClick={() => handleCardClick(index)}
+                >
+                  <p className="text-sm font-medium text-black">{slot}</p>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-gray-500">No available time slots</p>
+            )}
           </div>
         </div>
       )}
@@ -451,7 +522,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     Timing
                   </div>
                   <div className="text-lg font-normal text-neutral-800">
-                    {timeSlots[selectedCard]}
+                    {timeSlots[selectedCard] || "N/A"}
                   </div>
                 </div>
 
@@ -460,7 +531,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     Doctor
                   </div>
                   <div className="text-lg font-normal text-neutral-800">
-                    {selectedDoctor ? selectedDoctor?.name : ""}
+                    {selectedDoctor ? selectedDoctor.name : "N/A"}
                   </div>
                 </div>
               </div>

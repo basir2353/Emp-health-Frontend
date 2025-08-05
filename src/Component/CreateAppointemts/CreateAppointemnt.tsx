@@ -40,9 +40,9 @@ interface Appointment {
 
 const CreateAppointments: React.FC = () => {
   const navigate = useNavigate();
- const appointmentsData = localStorage.getItem("appointmentData");
- const userData = localStorage.getItem("user");
- let userParsed = JSON.parse(userData || "{}");
+  const appointmentsData = localStorage.getItem("appointmentData");
+  const userData = localStorage.getItem("user");
+  let userParsed = JSON.parse(userData || "{}");
 
   let appointments: any[] = [];
 
@@ -57,27 +57,7 @@ const CreateAppointments: React.FC = () => {
     appointments = [];
   }
 
-
   const [showDropdown, setShowDropdown] = useState(false);
-
-
-  const toggleDropdown = () => {
-    setShowDropdown(!showDropdown);
-  };
-
-  const handleMenuClick = (e: any) => {
-    switch (e.key) {
-      case "reschedule":
-        break;
-      case "edit":
-        break;
-      case "cancel":
-        break;
-      default:
-        break;
-    }
-    setShowDropdown(false);
-  };
   const [appointmentsList, setAppointmentsList] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
@@ -92,7 +72,6 @@ const CreateAppointments: React.FC = () => {
         if (data && Array.isArray(data.appointments)) {
           setAppointmentsList(data.appointments);
           console.log("Fetched appointments:", data.appointments);
-          
         } else {
           setAppointmentsList([]);
         }
@@ -105,6 +84,21 @@ const CreateAppointments: React.FC = () => {
 
     fetchAppointments();
   }, [userParsed.id]);
+
+  const handleMenuClick = (e: any) => {
+    switch (e.key) {
+      case "reschedule":
+        break;
+      case "edit":
+        break;
+      case "cancel":
+        break;
+      default:
+        break;
+    }
+    setShowDropdown(false);
+  };
+
   const menu = (
     <Menu onClick={handleMenuClick}>
       <Menu.Item key="reschedule" icon={<SendOutlined />}>
@@ -124,51 +118,42 @@ const CreateAppointments: React.FC = () => {
   );
 
   return (
-    <>
-      <div className="mt-4 h-5 justify-start items-center pl-3 bg-white ml-10 max-lg:ml-0">
-        <Breadcrumb
-          className=""
-          items={[
-            { title: "Home" },
-            { title: <a href="/health">Health</a> },
-            {
-              title: (
-                <a href="/health/admin-schedule-appointments">Appointments212</a>
-              ),
-            },
-          ]}
-        />
+    <div className="mt-4 px-4 sm:px-6 lg:px-10 bg-white min-h-screen">
+      <Breadcrumb
+        className="mb-4"
+        items={[
+          { title: "Home" },
+          { title: <a href="/health">Health</a> },
+          {
+            title: (
+              <a href="/health/admin-schedule-appointments">Appointments</a>
+            ),
+          },
+        ]}
+      />
 
-        <Row>
-          <Col className=" flex max-lg:flex-col justify-between right-0 mb-6">
-            <div className="text-black text-3xl ml-1 font-medium">
-              Appointments
-            </div>
-          </Col>
-
-          <Col
-            className="gutter-row right-8 flex max-lg:ml-0"
-            style={{ marginLeft: "auto" }}
-          >
-            <Flex gap="small" wrap="wrap" className="flex max-lg:flex-col">
-              {userParsed.role !== 'employee' ? 
-            <Button
-                className="w-[144px] "
+      <Row gutter={[16, 16]} align="middle" className="mb-6">
+        <Col xs={24} lg={12}>
+          <div className="text-black text-2xl sm:text-3xl font-medium">
+            Appointments
+          </div>
+        </Col>
+        <Col xs={24} lg={12} className="flex justify-end">
+          <Flex gap="small" wrap="wrap" className="w-full lg:w-auto">
+            {userParsed.role !== "employee" && (
+              <Button
+                className="w-full lg:w-[170px]"
                 type="default"
-                block
                 onClick={() => navigate("/health/schedule")}
-                style={{ width: "170px" }}
               >
                 Upload Schedule
               </Button>
-              : ''}
-              <Link to="/health/doctors">
-              {userParsed.role === 'admin' ?
-              ''  
-              :
-               <Button
+            )}
+            {userParsed.role !== "admin" && (
+              <Link to="/health/doctors" className="w-full lg:w-auto">
+                <Button
                   type="primary"
-                  block
+                  className="w-full lg:w-[170px]"
                   style={{
                     backgroundColor: "black",
                     borderColor: "black",
@@ -177,84 +162,79 @@ const CreateAppointments: React.FC = () => {
                 >
                   Book Appointment
                 </Button>
-            }
-               
               </Link>
-            </Flex>
-          </Col>
-        </Row>
+            )}
+          </Flex>
+        </Col>
+      </Row>
 
-        <Row gutter={[16, 16]} className="flex-col md:flex-row">
-          <Col xs={24} md={8} lg={6} className="mb-6 md:mb-0">
-            <Space direction="vertical">
-              <ProfileBox  />
-            </Space>
-          </Col>
+      <Row gutter={[18, 18]} className="flex-col lg:flex-row">
+        <Col xs={24} lg={8} className="mb-6 lg:mb-0">
+          <ProfileBox />
+        </Col>
 
-          <Col className="ml-10 max-lg:ml-0">
-            <Row>
-              <div className="text-2xl ">Appointments!</div>
-            </Row>
-            <div>
+        <Col xs={24} lg={16}>
+          <div className="text-xl sm:text-2xl mb-4">Appointments</div>
+          {loading ? (
+            <Text>Loading...</Text>
+          ) : appointmentsList.length === 0 ? (
+            <Text>No appointments found.</Text>
+          ) : (
+            <div className="space-y-4">
               {appointmentsList.map((appointment: Appointment, index: number) => (
                 <div
                   key={index}
-                  className="gap-56 max-lg:gap-0 h-[72px] max-lg:h-auto p-[20px] mt-5 border border-solid border-gray-200 rounded-md flex justify-between"
+                  className="p-4 border border-gray-200 rounded-md flex flex-col sm:flex-row sm:items-center justify-between gap-4"
                 >
-                  <div className="flex max-lg:gap-10  max-lg:flex-col items-center space-x-44 max-lg:space-x-0">
-                    <div className="flex space-x-10 max-lg:space-x-0">
-                      <div className="flex-col">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 w-full">
+                    <div className="flex items-center gap-4">
+                      <div className="flex flex-col">
                         <Text className="text-xs">{appointment.day}</Text>
-                        <br />
-                        <Text className="text-2xl text-[#096DD9] font-medium">
+                        <Text className="text-xl sm:text-2xl text-[#096DD9] font-medium">
                           {appointment.date}
                         </Text>
                       </div>
-                      <div className=" h-[60px] max-lg:h-auto top-0 right-0 rounded-full">
-                        <div className="h-full bg-[#D9D9D9] w-[3px] rounded-full"></div>
-                      </div>
+                      <div className="hidden sm:block h-[40px] w-[3px] bg-[#D9D9D9] rounded-full"></div>
                     </div>
-                    <div className="flex-col">
-                      <div className="flex items-center space-x-2 mb-2">
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center gap-2">
                         <ClockCircleOutlined />
-                        <Text className="text-base text-[#262626] ">
+                        <Text className="text-sm sm:text-base">
                           {appointment.time}
                         </Text>
                       </div>
-                      <Text className="text-base w-[53px] h-[30px] bg-[#F0F0F0] rounded p-1 gap-2 ">
+                      <Text className="text-sm sm:text-base bg-[#F0F0F0] rounded px-2 py-1">
                         {appointment.type}
                       </Text>
                     </div>
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center gap-2">
                       <Avatar
                         src={appointment.avatarSrc}
                         style={{
                           border: "2px solid #000",
                           borderRadius: "50%",
                         }}
+                        size={{ xs: 32, sm: 40 }}
                       />
-                      <Text className="text-base">
+                      <Text className="text-sm sm:text-base">
                         {appointment.doctorName}
                       </Text>
                     </div>
                   </div>
-                  <div>
-                    <div
-                      className="flex shadow-md border border-gray-700 px-1 py-1 rounded-md"
-                      onClick={toggleDropdown}
-                    >
-                      <Dropdown overlay={menu} placement="bottomRight">
+                  <div className="flex justify-end">
+                    <Dropdown overlay={menu} placement="bottomRight">
+                      <div className="p-2 hover:bg-gray-100 rounded-md cursor-pointer">
                         <EllipsisOutlined style={{ fontSize: "24px" }} />
-                      </Dropdown>
-                    </div>
+                      </div>
+                    </Dropdown>
                   </div>
                 </div>
               ))}
             </div>
-          </Col>
-        </Row>
-      </div>
-    </>
+          )}
+        </Col>
+      </Row>
+    </div>
   );
 };
 
