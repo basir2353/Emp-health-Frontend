@@ -70,12 +70,24 @@ const Call = () => {
 
   // Join room and initialize media
   const joinRoom = async () => {
-    if (!roomId || !zegoClient) {
-      message.error('Room ID or ZEGOCLOUD client not available');
-      setDiagnosticInfo(prev => ({ ...prev, connectionState: 'Missing room ID or client' }));
+    if (!zegoClient) {
+      message.error('ZEGOCLOUD client not initialized');
+      setDiagnosticInfo(prev => ({ ...prev, connectionState: 'Client not initialized' }));
       return;
     }
+    if (!roomId || typeof roomId !== 'string' || roomId.trim() === '') {
+      message.error('Please enter a valid Room ID');
+      setDiagnosticInfo(prev => ({ ...prev, connectionState: 'Invalid Room ID' }));
+      return;
+    }
+    if (!userId) {
+      message.error('User ID not set. Please try again.');
+      setDiagnosticInfo(prev => ({ ...prev, connectionState: 'User ID not set' }));
+      return;
+    }
+
     try {
+      console.log('Joining room with:', { roomId, userId, userName: currentUser?.name || userId, appID, serverSecret });
       await zegoClient.loginRoom(
         roomId.toLowerCase(),
         { userID: userId, userName: currentUser?.name || userId },
@@ -122,7 +134,7 @@ const Call = () => {
                 message.error(`Failed to play remote video: ${e.message}`);
               });
             }
-          }, 3000); // 3-second delay to prevent play interruption
+          }, 5000); // Increased to 5 seconds to prevent play interruption
         }
       });
 
@@ -287,13 +299,13 @@ const Call = () => {
               <Input
                 placeholder="Enter Room ID (e.g., room123)"
                 value={roomId}
-                onChange={(e) => setRoomId(e.target.value.toLowerCase())}
+                onChange={(e) => setRoomId(e.target.value)}
                 className="w-64"
               />
               <Button
                 type="primary"
                 onClick={() => joinRoom()}
-                disabled={!roomId.trim() || !zegoClient}
+                disabled={!roomId.trim() || !zegoClient || !userId}
                 style={{ backgroundColor: 'black' }}
               >
                 Join
