@@ -39,9 +39,12 @@ const Call = () => {
   });
   const maxReconnectionAttempts = 3;
   const iceGatheringTimeout = 10000;
+  const playRetryDelay = 1000;
+  const playRetryAttempts = 3;
 
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
+  const isPlayingRef = useRef(false);
 
   // ICE servers with multiple TURN servers
   const iceServers = {
@@ -57,11 +60,6 @@ const Call = () => {
         ],
         username: 'openrelayproject',
         credential: 'openrelayproject',
-      },
-      {
-        urls: 'turn:relay1.express-turn.com:3478',
-        username: 'testuser',
-        credential: 'testpass',
       },
     ],
     iceCandidatePoolSize: 10,
@@ -251,30 +249,14 @@ const Call = () => {
         const audioTracks = stream.getAudioTracks();
         console.log('Remote stream video tracks:', videoTracks);
         console.log('Remote stream audio tracks:', audioTracks);
-        if (videoTracks.length === 0 && audioTracks.length > 0) {
-          message.warning('No video stream received, audio-only mode');
-        }
-        setRemoteStream(stream);
         setDiagnosticInfo(prev => ({
           ...prev,
           remoteStream: `Initialized (Video: ${videoTracks.length}, Audio: ${audioTracks.length})`,
         }));
-        if (remoteVideoRef.current) {
-          remoteVideoRef.current.srcObject = stream;
-          remoteVideoRef.current.muted = true; // Mute to bypass autoplay restrictions
-          remoteVideoRef.current.play().catch(e => {
-            console.error('Remote video play error:', e);
-            message.error('Failed to play remote video: ' + e.message);
-            setDiagnosticInfo(prev => ({ ...prev, remoteStream: `Error: ${e.message}` }));
-            // Retry playback after a delay
-            setTimeout(() => {
-              remoteVideoRef.current.play().catch(err => {
-                console.error('Retry play failed:', err);
-                message.error('Retry play failed: ' + err.message);
-              });
-            }, 1000);
-          });
+        if (videoTracks.length === 0 && audioTracks.length > 0) {
+          message.warning('No video stream received, audio-only mode');
         }
+        setRemoteStream(stream);
       }
     };
 
@@ -396,6 +378,7 @@ const Call = () => {
       setRemoteDescriptionSet(false);
       setPendingCandidates([]);
       setRemoteStream(null);
+      isPlayingRef.current = false;
 
       const pc = createPeerConnection();
       setPeerConnection(pc);
@@ -497,33 +480,55 @@ const Call = () => {
     };
   }, [socket, peerConnection, remoteDescriptionSet, pendingCandidates, localStream]);
 
+  // Play remote video with retry logic
+  const playRemoteVideo = async (videoElement, stream, attempt = 1) => {
+    if (!videoElement || !stream) {
+      console.warn('No video element or stream for playback');
+      return;
+    }
+    if (isPlayingRef.current) {
+      console.log('Playback already in progress, skipping');
+      return;
+    }
+    isPlayingRef.current = true;
+    try {
+      videoElement.srcObject = stream;
+      videoElement.muted = true; // Mute to bypass autoplay restrictions
+      await videoElement.play();
+      console.log('Remote video playing successfully');
+      setDiagnosticInfo(prev => ({ ...prev, remoteStream: 'Playing' }));
+      isPlayingRef.current = false;
+    } catch (error) {
+      console.error(`Remote video play error (attempt ${attempt}):`, error);
+      setDiagnosticInfo(prev => ({ ...prev, remoteStream: `Error: ${error.message}` }));
+      if (error.message.includes('interrupted by a new load request') && attempt < playRetryAttempts) {
+        console.log(`Retrying play (attempt ${attempt + 1})...`);
+        setTimeout(() => playRemoteVideo(videoElement, stream, attempt + 1), playRetryDelay);
+      } else {
+        message.error(`Failed to play remote video: ${error.message}`);
+        isPlayingRef.current = false;
+      }
+    }
+  };
+
   // Update remote video stream
   useEffect(() => {
     if (remoteStream && remoteVideoRef.current) {
       console.log('Setting remote stream:', remoteStream);
       const videoTracks = remoteStream.getVideoTracks();
-      if (videoTracks.length === 0) {
+      const audioTracks = remoteStream.getAudioTracks();
+      console.log('Remote stream video tracks:', videoTracks);
+      console.log('Remote stream audio tracks:', audioTracks);
+      if (videoTracks.length === 0 && audioTracks.length > 0) {
         console.warn('No video tracks in remote stream');
         message.warning('No video stream received from remote user');
       }
-      remoteVideoRef.current.srcObject = remoteStream;
-      remoteVideoRef.current.muted = true; // Mute to bypass autoplay restrictions
-      remoteVideoRef.current.play().catch(e => {
-        console.error('Remote video play error:', e);
-        message.error('Failed to play remote video: ' + e.message);
-        setDiagnosticInfo(prev => ({ ...prev, remoteStream: `Error: ${e.message}` }));
-        // Retry playback
-        setTimeout(() => {
-          remoteVideoRef.current.play().catch(err => {
-            console.error('Retry play failed:', err);
-            message.error('Retry play failed: ' + err.message);
-          });
-        }, 1000);
-      });
+      playRemoteVideo(remoteVideoRef.current, remoteStream);
     } else if (!remoteStream && remoteVideoRef.current) {
       console.log('Clearing remote video');
       remoteVideoRef.current.srcObject = null;
       setDiagnosticInfo(prev => ({ ...prev, remoteStream: 'Not initialized' }));
+      isPlayingRef.current = false;
     }
   }, [remoteStream]);
 
@@ -687,6 +692,7 @@ const Call = () => {
     setRemoteDescriptionSet(false);
     setPendingCandidates([]);
     setRemoteStream(null);
+    isPlayingRef.current = false;
     console.log('Call rejected');
   };
 
@@ -719,6 +725,7 @@ const Call = () => {
     }));
     if (localVideoRef.current) localVideoRef.current.srcObject = null;
     if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+    isPlayingRef.current = false;
     await handleLeaveCall();
   };
 
