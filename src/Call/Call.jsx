@@ -30,36 +30,56 @@ const Call = () => {
   const [isUserOnline, setIsUserOnline] = useState(false);
   const [loading, setLoading] = useState(false);
   const [reconnectionAttempts, setReconnectionAttempts] = useState(0);
+  const [networkStatus, setNetworkStatus] = useState('Checking...');
   const maxReconnectionAttempts = 3;
+  const iceGatheringTimeout = 10000; // 10 seconds
 
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
 
-  // Enhanced ICE servers with TURN support
+  // ICE servers with multiple TURN servers
   const iceServers = {
     iceServers: [
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
       { urls: 'stun:stun2.l.google.com:19302' },
       {
-        urls: 'turn:openrelay.metered.ca:80', // Public TURN server for testing
-        username: 'openrelayproject',
-        credential: 'openrelayproject',
-      },
-      {
-        urls: 'turn:openrelay.metered.ca:443', // Additional TURN server
+        urls: [
+          'turn:openrelay.metered.ca:80',
+          'turn:openrelay.metered.ca:443',
+          'turn:turnserver.openrelay.metered.ca:443',
+        ],
         username: 'openrelayproject',
         credential: 'openrelayproject',
       },
     ],
-    iceTransportPolicy: 'relay', // Force TURN usage for testing
     iceCandidatePoolSize: 10,
+  };
+
+  // Test media devices
+  const testMedia = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
+      console.log('Test media stream:', stream);
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = stream;
+        localVideoRef.current.play().catch(e => console.error('Test video play error:', e));
+      }
+      message.success('Camera and microphone working!');
+      stream.getTracks().forEach(track => track.stop());
+    } catch (error) {
+      console.error('Test media error:', error);
+      message.error('Failed to access media: ' + error.message);
+    }
   };
 
   // Store socket ID
   const handleStoreSocketId = async (socketId) => {
     if (!currentUser?.id) {
-      console.warn('No current user found');
+      console.warn('No current user');
       return;
     }
     try {
@@ -78,7 +98,7 @@ const Call = () => {
   // Handle disconnection
   const handleLeaveCall = async () => {
     if (!currentUser?.id) {
-      console.warn('No current user found');
+      console.warn('No current user');
       return;
     }
     try {
@@ -131,12 +151,14 @@ const Call = () => {
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
     });
     setSocket(newSocket);
 
     newSocket.on('connect', async () => {
       console.log('Socket connected:', newSocket.id);
       setCallStatus('Socket connected');
+      setNetworkStatus('Connected');
       setReconnectionAttempts(0);
       await handleStoreSocketId(newSocket.id);
       await fetchOnlineUsers();
@@ -144,12 +166,13 @@ const Call = () => {
 
     newSocket.on('connect_error', (error) => {
       console.error('Socket error:', error);
-      setCallStatus('Socket connection failed');
+      setNetworkStatus('Connection failed');
       if (reconnectionAttempts < maxReconnectionAttempts) {
         setReconnectionAttempts(prev => prev + 1);
         message.warning(`Reconnecting... Attempt ${reconnectionAttempts + 1}/${maxReconnectionAttempts}`);
       } else {
         message.error('Failed to connect to server after retries.');
+        setNetworkStatus('Disconnected');
       }
     });
 
@@ -196,6 +219,8 @@ const Call = () => {
   // Create WebRTC peer connection
   const createPeerConnection = () => {
     const pc = new RTCPeerConnection(iceServers);
+    let iceGatheringTimer;
+
     pc.ontrack = (event) => {
       console.log('ontrack:', event);
       if (event.streams && event.streams[0]) {
@@ -203,10 +228,14 @@ const Call = () => {
         setRemoteStream(event.streams[0]);
         if (remoteVideoRef.current) {
           remoteVideoRef.current.srcObject = event.streams[0];
-          remoteVideoRef.current.play().catch(e => console.error('Remote video play error:', e));
+          remoteVideoRef.current.play().catch(e => {
+            console.error('Remote video play error:', e);
+            message.error('Failed to play remote video');
+          });
         }
       }
     };
+
     pc.onicecandidate = (event) => {
       if (event.candidate) {
         console.log('Sending ICE candidate:', event.candidate);
@@ -216,9 +245,11 @@ const Call = () => {
         });
       }
     };
+
     pc.oniceconnectionstatechange = () => {
       console.log('ICE Connection State:', pc.iceConnectionState);
       setCallStatus(`Connection: ${pc.iceConnectionState}`);
+      setNetworkStatus(`ICE: ${pc.iceConnectionState}`);
       if (['failed', 'disconnected', 'closed'].includes(pc.iceConnectionState)) {
         console.warn('Connection issue, attempting reconnect...');
         if (reconnectionAttempts < maxReconnectionAttempts) {
@@ -227,15 +258,21 @@ const Call = () => {
         } else {
           endCall();
           message.error('Connection failed after retries.');
+          setNetworkStatus('Disconnected');
         }
+      } else if (pc.iceConnectionState === 'connected') {
+        setReconnectionAttempts(0);
       }
     };
+
     pc.onicegatheringstatechange = () => {
       console.log('ICE Gathering State:', pc.iceGatheringState);
       if (pc.iceGatheringState === 'complete') {
+        clearTimeout(iceGatheringTimer);
         console.log('ICE gathering complete');
       }
     };
+
     pc.onnegotiationneeded = async () => {
       try {
         const offer = await pc.createOffer();
@@ -249,20 +286,33 @@ const Call = () => {
         message.error('Failed to negotiate call');
       }
     };
+
+    // Set ICE gathering timeout
+    iceGatheringTimer = setTimeout(() => {
+      console.warn('ICE gathering timeout, forcing completion');
+      if (pc.iceGatheringState !== 'complete') {
+        socket.emit('ice-candidate', {
+          candidate: null,
+          to: callerData?.from || connectedUsers[0],
+        });
+      }
+    }, iceGatheringTimeout);
+
     return pc;
   };
 
-  // Reconnection logic
+  // Reconnection logic with exponential backoff
   const attemptReconnection = async () => {
     console.log('Attempting reconnection...');
     if (localStream && roomId && socket) {
       await endCall();
+      const backoff = Math.pow(2, reconnectionAttempts) * 1000; // Exponential backoff
       setTimeout(async () => {
         await joinRoom();
         if (callerData?.from) {
           await makeCall(callerData.from);
         }
-      }, 2000);
+      }, backoff);
     }
   };
 
@@ -304,7 +354,11 @@ const Call = () => {
       if (localStream) {
         localStream.getTracks().forEach(track => {
           console.log('Adding track:', track);
-          pc.addTrack(track, localStream);
+          if (track.readyState === 'live') {
+            pc.addTrack(track, localStream);
+          } else {
+            console.warn('Track not live:', track);
+          }
         });
       }
     });
@@ -321,6 +375,7 @@ const Call = () => {
         } catch (error) {
           console.error('Error setting remote description:', error);
           message.error('Failed to connect call');
+          attemptReconnection();
         }
       }
     });
@@ -353,6 +408,7 @@ const Call = () => {
         } catch (error) {
           console.error('Error handling offer:', error);
           message.error('Failed to handle offer');
+          attemptReconnection();
         }
       }
     });
@@ -367,6 +423,7 @@ const Call = () => {
         } catch (error) {
           console.error('Error handling answer:', error);
           message.error('Failed to handle answer');
+          attemptReconnection();
         }
       }
     });
@@ -400,7 +457,10 @@ const Call = () => {
       remoteVideoRef.current.play().catch(e => {
         console.error('Remote video autoplay error:', e);
         remoteVideoRef.current.muted = true;
-        remoteVideoRef.current.play().catch(err => console.error('Retry play failed:', err));
+        remoteVideoRef.current.play().catch(err => {
+          console.error('Retry play failed:', err);
+          message.error('Failed to play remote video');
+        });
       });
     } else if (!remoteStream && remoteVideoRef.current) {
       console.log('Clearing remote video');
@@ -415,10 +475,21 @@ const Call = () => {
       return;
     }
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-      });
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        });
+      } catch (videoError) {
+        console.warn('Video failed, trying audio-only:', videoError);
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        });
+        message.warning('Video not available, using audio-only');
+        setIsVideoOn(false);
+      }
+
       console.log('Local stream:', stream);
       setLocalStream(stream);
       setMediaError(null);
@@ -434,14 +505,19 @@ const Call = () => {
       const pc = createPeerConnection();
       setPeerConnection(pc);
       stream.getTracks().forEach(track => {
-        console.log('Adding track to peer:', track);
-        pc.addTrack(track, stream);
+        if (track.readyState === 'live') {
+          console.log('Adding track to peer:', track);
+          pc.addTrack(track, stream);
+        } else {
+          console.warn('Track not live:', track);
+        }
       });
 
       socket.emit('join-room', { roomId: roomId.toLowerCase(), userId: socket.id });
       setCallStatus('Connected to room');
       await handleStoreSocketId(socket.id);
       setReconnectionAttempts(0);
+      setNetworkStatus('Connected to room');
     } catch (error) {
       console.error('Error joining room:', error);
       if (error.name === 'NotAllowedError') {
@@ -477,6 +553,7 @@ const Call = () => {
     } catch (error) {
       console.error('Error making call:', error);
       message.error('Failed to initiate call');
+      attemptReconnection();
     }
   };
 
@@ -496,6 +573,7 @@ const Call = () => {
     } catch (error) {
       console.error('Error making call:', error);
       message.error('Failed to initiate call');
+      attemptReconnection();
     }
   };
 
@@ -515,11 +593,13 @@ const Call = () => {
       setIsCallActive(true);
       setIsIncomingCall(false);
       setCallStatus('Call connected');
+      setNetworkStatus('Call connected');
       await processPendingCandidates();
       setReconnectionAttempts(0);
     } catch (error) {
       console.error('Error answering call:', error);
       message.error('Failed to answer call');
+      attemptReconnection();
     }
   };
 
@@ -554,6 +634,7 @@ const Call = () => {
     setIsIncomingCall(false);
     setCallerData(null);
     setCallStatus('Disconnected');
+    setNetworkStatus('Disconnected');
     setRemoteDescriptionSet(false);
     setPendingCandidates([]);
     if (localVideoRef.current) localVideoRef.current.srcObject = null;
@@ -605,6 +686,7 @@ const Call = () => {
         <div className="flex items-center space-x-4">
           <span className="text-sm">User ID: {socket?.id || 'Not connected'}</span>
           <Badge status={isUserOnline ? 'success' : 'error'} text={isUserOnline ? 'Online' : 'Offline'} />
+          <span className="text-sm">Network: {networkStatus}</span>
           <Button type="primary" danger onClick={endCall}>
             Leave Call
           </Button>
@@ -634,6 +716,32 @@ const Call = () => {
             <Button type="primary" onClick={joinRoom}>
               Retry
             </Button>
+          </Card>
+        )}
+
+        {!localStream && !mediaError && (
+          <Card className="mb-4 border-blue-500 border-2">
+            <Title level={4}>Join Room</Title>
+            <div className="flex space-x-2 mb-2">
+              <Input
+                placeholder="Enter Room ID (e.g., room123)"
+                value={roomId}
+                onChange={(e) => setRoomId(e.target.value.toLowerCase())}
+                className="w-64"
+              />
+              <Button type="primary" onClick={joinRoom} disabled={!roomId.trim() || !socket} style={{ backgroundColor: 'black' }}>
+                Join
+              </Button>
+              <Button onClick={testMedia}>
+                Test Media
+              </Button>
+            </div>
+            <Paragraph className="text-sm text-gray-500">
+              Share the Room ID to start a video call!
+            </Paragraph>
+            <Paragraph className="text-sm text-gray-500">
+              <span>Your User ID: {socket?.id || 'Not connected'}</span>
+            </Paragraph>
           </Card>
         )}
 
@@ -716,29 +824,6 @@ const Call = () => {
                 </Paragraph>
               </div>
             )}
-          </Card>
-        )}
-
-        {!localStream && !mediaError && (
-          <Card className="mb-4 border-blue-500 border-2">
-            <Title level={4}>Join Room</Title>
-            <div className="flex space-x-2 mb-2">
-              <Input
-                placeholder="Enter Room ID (e.g., room123)"
-                value={roomId}
-                onChange={(e) => setRoomId(e.target.value.toLowerCase())}
-                className="w-64"
-              />
-              <Button type="primary" onClick={joinRoom} disabled={!roomId.trim() || !socket} style={{ backgroundColor: 'black' }}>
-                Join
-              </Button>
-            </div>
-            <Paragraph className="text-sm text-gray-500">
-              Share the Room ID to start a video call!
-            </Paragraph>
-            <Paragraph className="text-sm text-gray-500">
-              <span>Your User ID: {socket?.id || 'Not connected'}</span>
-            </Paragraph>
           </Card>
         )}
 
