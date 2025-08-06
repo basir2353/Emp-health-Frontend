@@ -33,29 +33,33 @@ const Call = () => {
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
 
-  // Updated ICE servers with TURN server for cross-IP support
+  // Updated ICE servers with public TURN server for cross-IP reliability
   const iceServers = {
     iceServers: [
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
       { urls: 'stun:stun2.l.google.com:19302' },
       {
-        urls: 'turn:your-turn-server.com:3478', // Replace with your TURN server
-        username: 'your-username', // Replace with TURN server credentials
-        credential: 'your-password',
+        urls: 'turn:openrelay.metered.ca:80', // Public TURN server for testing
+        username: 'openrelay.project',
+        credential: 'openrelayproject',
+      },
+      {
+        urls: 'turn:openrelay.metered.ca:443', // TURN over TLS
+        username: 'openrelay.project',
+        credential: 'openrelayproject',
       },
     ],
-    iceTransportPolicy: 'all', // Allow both relay (TURN) and direct connections
-    iceCandidatePoolSize: 10, // Improve ICE candidate gathering
+    iceTransportPolicy: 'all', // 'relay' to force TURN if needed
+    iceCandidatePoolSize: 10,
   };
 
-  // Store socket ID in backend when user joins
+  // Store socket ID in backend
   const handleStoreSocketId = async (socketId) => {
     if (!currentUser?.id) {
       console.warn('No current user found');
       return;
     }
-
     try {
       const response = await storeSocketId(currentUser.id, socketId);
       if (response.success) {
@@ -75,7 +79,6 @@ const Call = () => {
       console.warn('No current user found');
       return;
     }
-
     try {
       const response = await leaveCall(currentUser.id);
       if (response.success) {
@@ -89,30 +92,25 @@ const Call = () => {
     }
   };
 
-  // Fetch online users based on current user role
+  // Fetch online users
   const fetchOnlineUsers = async () => {
     if (!currentUser?.id) {
-      console.log('No current user found, cannot fetch online users');
+      console.log('No current user found');
       return;
     }
-
     try {
       setLoading(true);
-      console.log('Fetching online users for role:', currentUser.role);
-      
       if (currentUser.role === 'doctor') {
         const response = await getOnlineUsers();
-        console.log('Online users response:', response);
         if (response.success) {
           setOnlineUsers(response.data);
-          console.log('Set online users:', response.data);
+          console.log('Online users:', response.data);
         }
       } else if (currentUser.role === 'employee') {
         const response = await getOnlineDoctors();
-        console.log('Online doctors response:', response);
         if (response.success) {
           setOnlineDoctors(response.data);
-          console.log('Set online doctors:', response.data);
+          console.log('Online doctors:', response.data);
         }
       }
     } catch (error) {
@@ -123,15 +121,14 @@ const Call = () => {
     }
   };
 
-  // Initialize Socket.IO connection
+  // Initialize Socket.IO
   useEffect(() => {
     const newSocket = io('https://empolyee-backedn.onrender.com/', {
       transports: ['websocket', 'polling'],
       withCredentials: true,
-      reconnectionAttempts: 5, // Retry connection for cross-IP scenarios
+      reconnectionAttempts: 5,
       reconnectionDelay: 1000,
     });
-    console.log('Socket initialized:', newSocket.id);
     setSocket(newSocket);
 
     newSocket.on('connect', async () => {
@@ -143,12 +140,11 @@ const Call = () => {
 
     newSocket.on('connect_error', (error) => {
       console.error('Socket connection error:', error);
-      message.error('Failed to connect to server. Please check your network or try again.');
+      message.error('Failed to connect to server. Please check your network.');
       setCallStatus('Socket connection failed');
     });
 
     return () => {
-      console.log('Cleaning up socket');
       handleLeaveCall();
       newSocket.close();
       if (localStream) {
@@ -157,7 +153,7 @@ const Call = () => {
     };
   }, [currentUser]);
 
-  // Handle ICE candidates safely
+  // Handle ICE candidates
   const addIceCandidateSafely = async (candidate) => {
     if (peerConnection && remoteDescriptionSet) {
       try {
@@ -187,18 +183,15 @@ const Call = () => {
     }
   };
 
-  // Create WebRTC peer connection
+  // Create WebRTC peer connection with ICE restart logic
   const createPeerConnection = () => {
     const pc = new RTCPeerConnection(iceServers);
     pc.ontrack = (event) => {
-      console.log('ontrack event triggered:', event);
-      if (event.streams && event.streams[0]) {
-        console.log('Received remote stream:', event.streams[0]);
-        setRemoteStream(event.streams[0]);
-        if (remoteVideoRef.current) {
-          remoteVideoRef.current.srcObject = event.streams[0];
-          remoteVideoRef.current.play().catch(e => console.error('Remote video play error:', e));
-        }
+      console.log('Received remote stream:', event.streams[0]);
+      setRemoteStream(event.streams[0]);
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = event.streams[0];
+        remoteVideoRef.current.play().catch(e => console.error('Remote video play error:', e));
       }
     };
     pc.onicecandidate = (event) => {
@@ -213,9 +206,12 @@ const Call = () => {
     pc.oniceconnectionstatechange = () => {
       console.log('ICE Connection State:', pc.iceConnectionState);
       setCallStatus(`Connection: ${pc.iceConnectionState}`);
-      if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected') {
+      if (pc.iceConnectionState === 'disconnected') {
+        console.log('Attempting ICE restart...');
+        pc.restartIce(); // Restart ICE to recover connection
+      } else if (pc.iceConnectionState === 'failed') {
         endCall();
-        message.error('Connection failed or disconnected. Check your network or TURN server.');
+        message.error('Connection failed. Check your network or TURN server.');
       }
     };
     pc.onicegatheringstatechange = () => {
@@ -242,14 +238,11 @@ const Call = () => {
     if (!socket) return;
 
     socket.on('room-users', (users) => {
-      console.log('Received room-users:', users);
       setConnectedUsers(users.filter(user => user !== socket.id));
-      console.log('Updated connectedUsers:', users.filter(user => user !== socket.id));
       setCallStatus(users.length > 1 ? 'Users in room' : 'Waiting for users');
     });
 
     socket.on('user-connected', (newUserId) => {
-      console.log('User connected:', newUserId);
       if (newUserId !== socket.id) {
         setConnectedUsers(prev => [...new Set([...prev, newUserId])]);
         setCallStatus(`User ${newUserId} joined`);
@@ -257,13 +250,11 @@ const Call = () => {
     });
 
     socket.on('user-disconnected', (disconnectedUserId) => {
-      console.log('User disconnected:', disconnectedUserId);
       setConnectedUsers(prev => prev.filter(id => id !== disconnectedUserId));
       setCallStatus(`User ${disconnectedUserId} left`);
     });
 
     socket.on('call-made', async ({ signal, from, name, callId }) => {
-      console.log('Received call-made:', { signal, from, name, callId });
       setIsIncomingCall(true);
       setCallerData({ signal, from, name, callId });
       setCallStatus('Incoming call...');
@@ -274,15 +265,11 @@ const Call = () => {
       const pc = createPeerConnection();
       setPeerConnection(pc);
       if (localStream) {
-        localStream.getTracks().forEach(track => {
-          console.log('Adding track to peer connection:', track);
-          pc.addTrack(track, localStream);
-        });
+        localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
       }
     });
 
     socket.on('call-accepted', async (signal) => {
-      console.log('Call accepted:', signal);
       setIsCallActive(true);
       setCallStatus('Call connected');
       if (peerConnection) {
@@ -298,28 +285,24 @@ const Call = () => {
     });
 
     socket.on('call-rejected', () => {
-      console.log('Call rejected');
       setCallStatus('Call rejected');
       endCall();
       message.warning('Call was rejected');
     });
 
     socket.on('call-ended', () => {
-      console.log('Call ended');
       setCallStatus('Call ended');
       endCall();
       message.info('Call ended');
     });
 
     socket.on('offer', async ({ offer, from }) => {
-      console.log('Received offer:', { offer, from });
       if (peerConnection) {
         try {
           await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
           setRemoteDescriptionSet(true);
           const answer = await peerConnection.createAnswer();
           await peerConnection.setLocalDescription(answer);
-          console.log('Sending answer:', answer);
           socket.emit('answer', { answer, to: from });
           await processPendingCandidates();
         } catch (error) {
@@ -330,7 +313,6 @@ const Call = () => {
     });
 
     socket.on('answer', async ({ answer }) => {
-      console.log('Received answer:', answer);
       if (peerConnection) {
         try {
           await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
@@ -345,7 +327,6 @@ const Call = () => {
 
     socket.on('ice-candidate', ({ candidate }) => {
       if (candidate) {
-        console.log('Received ICE candidate:', candidate);
         addIceCandidateSafely(candidate);
       }
     });
@@ -374,15 +355,9 @@ const Call = () => {
   // Update remote video stream
   useEffect(() => {
     if (remoteStream && remoteVideoRef.current) {
-      console.log('Setting remote stream to video element:', remoteStream);
       remoteVideoRef.current.srcObject = remoteStream;
-      remoteVideoRef.current.play().catch(e => {
-        console.error('Remote video autoplay error:', e);
-        remoteVideoRef.current.muted = true;
-        remoteVideoRef.current.play().catch(err => console.error('Retry play failed:', err));
-      });
+      remoteVideoRef.current.play().catch(e => console.error('Remote video autoplay error:', e));
     } else if (!remoteStream && remoteVideoRef.current) {
-      console.log('Clearing remote video srcObject');
       remoteVideoRef.current.srcObject = null;
     }
   }, [remoteStream]);
@@ -398,13 +373,11 @@ const Call = () => {
         video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
         audio: { echoCancellation: true, noiseSuppression: true },
       });
-      console.log('Local stream obtained:', stream);
       setLocalStream(stream);
       setMediaError(null);
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
         localVideoRef.current.play().catch(e => {
-          console.error('Local video autoplay error:', e);
           localVideoRef.current.muted = true;
           localVideoRef.current.play();
         });
@@ -412,22 +385,19 @@ const Call = () => {
 
       const pc = createPeerConnection();
       setPeerConnection(pc);
-      stream.getTracks().forEach(track => {
-        console.log('Adding track to peer connection:', track);
-        pc.addTrack(track, stream);
-      });
+      stream.getTracks().forEach(track => pc.addTrack(track, stream));
 
       socket.emit('join-room', { roomId: roomId.toLowerCase(), userId: socket.id });
       setCallStatus('Connected to room');
-      await handleStoreSocketId(socket.id); // Store socket ID when joining room
+      await handleStoreSocketId(socket.id);
     } catch (error) {
       console.error('Error joining room:', error);
       if (error.name === 'NotAllowedError') {
-        setMediaError('Camera or microphone access denied. Please allow permissions.');
-        message.error('Camera or microphone access denied. Please allow permissions.');
+        setMediaError('Camera or microphone access denied.');
+        message.error('Camera or microphone access denied.');
       } else if (error.name === 'NotFoundError') {
-        setMediaError('No camera or microphone found. Please check your devices.');
-        message.error('No camera or microphone found. Please check your devices.');
+        setMediaError('No camera or microphone found.');
+        message.error('No camera or microphone found.');
       } else {
         setMediaError('Failed to access camera/microphone: ' + error.message);
         message.error('Failed to access camera/microphone: ' + error.message);
@@ -435,7 +405,7 @@ const Call = () => {
     }
   };
 
-  // Call user directly by socket ID (for doctors)
+  // Call user by socket ID
   const callUserBySocketId = async (targetSocketId, targetUserId) => {
     if (!peerConnection || !socket || !targetSocketId) {
       message.error('Cannot make call: Missing peer connection or target user');
@@ -444,8 +414,6 @@ const Call = () => {
     try {
       const offer = await peerConnection.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
       await peerConnection.setLocalDescription(offer);
-      console.log('Making call with offer:', offer);
-      
       socket.emit('initiate-call', {
         callerId: currentUser.id,
         calleeId: targetUserId,
@@ -453,7 +421,6 @@ const Call = () => {
         signalData: offer,
         from: socket.id,
       });
-      
       setCallStatus('Calling...');
     } catch (error) {
       console.error('Error making call:', error);
@@ -461,32 +428,13 @@ const Call = () => {
     }
   };
 
-  // Initiate a call
-  const makeCall = async (targetUserId) => {
-    if (!peerConnection || !socket || !targetUserId) {
-      message.error('Cannot make call: Missing peer connection or target user');
-      return;
-    }
-    try {
-      const offer = await peerConnection.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
-      await peerConnection.setLocalDescription(offer);
-      console.log('Making call with offer:', offer);
-      socket.emit('call-user', { userToCall: targetUserId, signalData: offer, from: socket.id, name: userId });
-      setCallStatus('Calling...');
-    } catch (error) {
-      console.error('Error making call:', error);
-      message.error('Failed to initiate call');
-    }
-  };
-
-  // Answer an incoming call
+  // Answer incoming call
   const answerCall = async () => {
     if (!callerData || !peerConnection) {
       message.error('Cannot answer call: Missing caller data or peer connection');
       return;
     }
     try {
-      console.log('Answering call with signal:', callerData.signal);
       await peerConnection.setRemoteDescription(new RTCSessionDescription(callerData.signal));
       setRemoteDescriptionSet(true);
       const answer = await peerConnection.createAnswer();
@@ -502,7 +450,7 @@ const Call = () => {
     }
   };
 
-  // Reject an incoming call
+  // Reject call
   const rejectCall = () => {
     if (socket && callerData) {
       socket.emit('reject-call', { to: callerData.from, callId: callerData.callId });
@@ -513,14 +461,13 @@ const Call = () => {
     setRemoteDescriptionSet(false);
     setPendingCandidates([]);
     setRemoteStream(null);
-    console.log('Call rejected, states reset');
   };
 
-  // End the call
+  // End call
   const endCall = async () => {
-    console.log('Ending call');
     if (socket && callerData) socket.emit('end-call', { to: callerData.from, callId: callerData.callId });
     if (peerConnection) {
+      peerConnection.getSenders().forEach(sender => sender.track?.stop());
       peerConnection.close();
       setPeerConnection(null);
     }
@@ -537,7 +484,7 @@ const Call = () => {
     setPendingCandidates([]);
     if (localVideoRef.current) localVideoRef.current.srcObject = null;
     if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
-    await handleLeaveCall(); // Update backend on call end
+    await handleLeaveCall();
   };
 
   // Toggle audio
@@ -547,10 +494,8 @@ const Call = () => {
       if (audioTrack) {
         audioTrack.enabled = !audioTrack.enabled;
         setIsAudioOn(audioTrack.enabled);
-        console.log('Audio track enabled:', audioTrack.enabled);
         message.info(audioTrack.enabled ? 'Microphone ON' : 'Microphone OFF');
       } else {
-        console.warn('No audio track found');
         message.error('No audio track available');
       }
     }
@@ -563,10 +508,8 @@ const Call = () => {
       if (videoTrack) {
         videoTrack.enabled = !videoTrack.enabled;
         setIsVideoOn(videoTrack.enabled);
-        console.log('Video track enabled:', videoTrack.enabled);
         message.info(videoTrack.enabled ? 'Camera ON' : 'Camera OFF');
       } else {
-        console.warn('No video track found');
         message.error('No video track available');
       }
     }
@@ -591,62 +534,42 @@ const Call = () => {
       </header>
       <main className="flex-grow p-4">
         <Card className="mb-4 shadow-md">
-          <Paragraph>
-            <strong>Status:</strong> {callStatus}
-          </Paragraph>
-          {roomId && (
-            <Paragraph>
-              <strong>Room ID:</strong> {roomId}
-            </Paragraph>
-          )}
+          <Paragraph><strong>Status:</strong> {callStatus}</Paragraph>
+          {roomId && <Paragraph><strong>Room ID:</strong> {roomId}</Paragraph>}
           {currentUser && (
-            <Paragraph>
-              <strong>Logged in as:</strong> {currentUser.name || currentUser.email} ({currentUser.role})
-            </Paragraph>
+            <Paragraph><strong>Logged in as:</strong> {currentUser.name || currentUser.email} ({currentUser.role})</Paragraph>
           )}
         </Card>
-
         {mediaError && (
           <Card className="mb-4 border-red-500 border-2">
             <Title level={4}>Media Error</Title>
             <Paragraph className="text-red-500">{mediaError}</Paragraph>
-            <Button type="primary" onClick={joinRoom}>
-              Retry
-            </Button>
+            <Button type="primary" onClick={joinRoom}>Retry</Button>
           </Card>
         )}
-
-        {/* Online Users Section */}
         {currentUser && !isCallActive && !isIncomingCall && (
           <Card className="mb-4 border-green-500 border-2">
             <div className="flex justify-between items-center mb-4">
-              <Title level={4}>
-                {currentUser?.role === 'doctor' ? 'Online Employees' : 'Online Doctors'}
-              </Title>
+              <Title level={4}>{currentUser?.role === 'doctor' ? 'Online Employees' : 'Online Doctors'}</Title>
               <div className="flex space-x-2">
-                <Button onClick={fetchOnlineUsers} loading={loading}>
-                  Fetch Online Users
-                </Button>
-                <Button onClick={refreshOnlineUsers} loading={loading}>
-                  Refresh
-                </Button>
+                <Button onClick={fetchOnlineUsers} loading={loading}>Fetch Online Users</Button>
+                <Button onClick={refreshOnlineUsers} loading={loading}>Refresh</Button>
               </div>
             </div>
-            
             {currentUser?.role === 'doctor' && onlineUsers.length > 0 && (
               <List
                 dataSource={onlineUsers}
                 renderItem={(user) => (
                   <List.Item
                     actions={[
-                      <Button 
-                        type="primary" 
+                      <Button
+                        type="primary"
                         icon={<PhoneOutlined />}
                         onClick={() => callUserBySocketId(user.socketId, user._id)}
                         className="bg-green-600"
                       >
                         Call
-                      </Button>
+                      </Button>,
                     ]}
                   >
                     <List.Item.Meta
@@ -658,21 +581,20 @@ const Call = () => {
                 )}
               />
             )}
-            
             {currentUser?.role === 'employee' && onlineDoctors.length > 0 && (
               <List
                 dataSource={onlineDoctors}
                 renderItem={(doctor) => (
                   <List.Item
                     actions={[
-                      <Button 
-                        type="primary" 
+                      <Button
+                        type="primary"
                         icon={<PhoneOutlined />}
                         onClick={() => callUserBySocketId(doctor.socketId, doctor._id)}
                         className="bg-green-600"
                       >
                         Call
-                      </Button>
+                      </Button>,
                     ]}
                   >
                     <List.Item.Meta
@@ -684,21 +606,19 @@ const Call = () => {
                 )}
               />
             )}
-            
-            {((currentUser?.role === 'doctor' && onlineUsers.length === 0) || 
+            {((currentUser?.role === 'doctor' && onlineUsers.length === 0) ||
               (currentUser?.role === 'employee' && onlineDoctors.length === 0)) && (
               <div>
                 <Paragraph className="text-gray-500">
                   No {currentUser?.role === 'doctor' ? 'employees' : 'doctors'} online at the moment.
                 </Paragraph>
                 <Paragraph className="text-sm text-gray-400">
-                  Make sure doctors/employees are logged in and have connected to the call service.
+                  Make sure doctors/employees are logged in and connected.
                 </Paragraph>
               </div>
             )}
           </Card>
         )}
-
         {!localStream && !mediaError && (
           <Card className="mb-4 border-blue-500 border-2">
             <Title level={4}>Join Room</Title>
@@ -713,52 +633,38 @@ const Call = () => {
                 Join
               </Button>
             </div>
-            <Paragraph className="text-sm text-gray-500">
-              Share the Room ID with others to start a video call!
-            </Paragraph>
-            <Paragraph className="text-sm text-gray-500">
-              <span>Your User ID: {socket?.id || 'Not connected'}</span>
-            </Paragraph>
+            <Paragraph className="text-sm text-gray-500">Share the Room ID to start a video call!</Paragraph>
+            <Paragraph className="text-sm text-gray-500">Your User ID: {socket?.id || 'Not connected'}</Paragraph>
           </Card>
         )}
-
         {localStream && !isCallActive && !isIncomingCall && connectedUsers.length > 0 && (
           <Card className="mb-4 border-green-500 border-2">
             <Title level={4}>Available Users in Room</Title>
             {connectedUsers.map(user => (
               <div key={user} className="flex justify-between items-center p-2 bg-gray-50 rounded mb-2">
                 <span className="font-medium">{user}</span>
-                <Button type="primary" className="bg-green-600" onClick={() => makeCall(user)}>
+                <Button type="primary" className="bg-green-600" onClick={() => callUserBySocketId(user, user)}>
                   Call
                 </Button>
               </div>
             ))}
           </Card>
         )}
-
         {localStream && !isCallActive && !isIncomingCall && connectedUsers.length === 0 && (
           <Card className="mb-4 border-yellow-400 border-2">
-            <Paragraph>
-              <strong>Waiting for users to join room "{roomId}"...</strong>
-            </Paragraph>
+            <Paragraph><strong>Waiting for users to join room "{roomId}"...</strong></Paragraph>
             <Paragraph>Share this Room ID to start a video call!</Paragraph>
           </Card>
         )}
-
         {isIncomingCall && (
           <Card className="mb-4 bg-blue-50 border-blue-500 border-2">
             <Title level={4}>Incoming Call from {callerData?.name || 'Unknown'}</Title>
             <div className="flex space-x-2">
-              <Button type="primary" className="bg-green-600" onClick={answerCall}>
-                Accept
-              </Button>
-              <Button danger onClick={rejectCall}>
-                Reject
-              </Button>
+              <Button type="primary" className="bg-green-600" onClick={answerCall}>Accept</Button>
+              <Button danger onClick={rejectCall}>Reject</Button>
             </div>
           </Card>
         )}
-
         {isCallActive && (
           <Card className="mb-4 bg-green-50">
             <Title level={4}>Call Controls</Title>
@@ -779,18 +685,13 @@ const Call = () => {
               >
                 {isVideoOn ? 'Stop Video' : 'Start Video'}
               </Button>
-              <Button danger onClick={endCall}>
-                End Call
-              </Button>
+              <Button danger onClick={endCall}>End Call</Button>
             </div>
           </Card>
         )}
-
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="relative">
-            <Title level={4} className="text-center">
-              Your Video
-            </Title>
+            <Title level={4} className="text-center">Your Video</Title>
             <video
               ref={localVideoRef}
               autoPlay
@@ -803,9 +704,7 @@ const Call = () => {
             </div>
           </div>
           <div className="relative">
-            <Title level={4} className="text-center">
-              {currentUser?.role === 'doctor' ? 'Patient' : 'Doctor'}
-            </Title>
+            <Title level={4} className="text-center">{currentUser?.role === 'doctor' ? 'Patient' : 'Doctor'}</Title>
             <video
               ref={remoteVideoRef}
               autoPlay

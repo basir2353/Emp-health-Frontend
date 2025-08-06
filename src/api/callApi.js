@@ -2,14 +2,12 @@ import axios from 'axios';
 
 const API_BASE_URL = 'https://empolyee-backedn.onrender.com/api';
 
-// Create axios instance with default config
 const callApi = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 15000, // Increased timeout for cross-IP scenarios
-  withCredentials: true, // Ensure credentials are sent
+  timeout: 20000, // Increased timeout for cross-IP scenarios
+  withCredentials: true,
 });
 
-// Add request interceptor to include auth token
 callApi.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token_real') || localStorage.getItem('token');
@@ -25,21 +23,22 @@ callApi.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Add response interceptor for error handling
 callApi.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
       console.error('Authentication failed:', error.response.data);
-      // Optionally redirect to login or refresh token
     } else if (error.code === 'ECONNABORTED') {
       console.error('Request timeout:', error.message);
+      throw new Error('Network timeout. Please check your connection or try again.');
+    } else if (error.code === 'ERR_NETWORK') {
+      console.error('Network error:', error.message);
+      throw new Error('Network error. Please check your connection or server availability.');
     }
     return Promise.reject(error);
   }
 );
 
-// Store socket ID for user
 export const storeSocketId = async (userId, socketId) => {
   try {
     const response = await callApi.post('/auth/store_socket_id', {
@@ -53,12 +52,10 @@ export const storeSocketId = async (userId, socketId) => {
   }
 };
 
-// Disconnect user from call service
 export const leaveCall = async (userId) => {
   try {
     console.log('Calling leaveCall API for user:', userId);
     const response = await callApi.post('/auth/leave', { userId });
-    console.log('leaveCall response:', response.data);
     return response.data;
   } catch (error) {
     console.error('Error disconnecting user:', error.response?.data || error.message);
@@ -66,12 +63,9 @@ export const leaveCall = async (userId) => {
   }
 };
 
-// Get online users (employees)
 export const getOnlineUsers = async () => {
   try {
-    console.log('Calling getOnlineUsers API...');
     const response = await callApi.get('/auth/online-users');
-    console.log('getOnlineUsers response:', response.data);
     return response.data;
   } catch (error) {
     console.error('Error fetching online users:', error.response?.data || error.message);
@@ -79,12 +73,9 @@ export const getOnlineUsers = async () => {
   }
 };
 
-// Get online doctors
 export const getOnlineDoctors = async () => {
   try {
-    console.log('Calling getOnlineDoctors API...');
     const response = await callApi.get('/auth/online-doctors');
-    console.log('getOnlineDoctors response:', response.data);
     return response.data;
   } catch (error) {
     console.error('Error fetching online doctors:', error.response?.data || error.message);
@@ -92,7 +83,6 @@ export const getOnlineDoctors = async () => {
   }
 };
 
-// Get call history
 export const getCallHistory = async () => {
   try {
     const response = await callApi.get('/calls');
@@ -103,7 +93,6 @@ export const getCallHistory = async () => {
   }
 };
 
-// Create a new call record
 export const createCallRecord = async (callData) => {
   try {
     const response = await callApi.post('/calls', callData);
@@ -114,7 +103,6 @@ export const createCallRecord = async (callData) => {
   }
 };
 
-// Update call status
 export const updateCallStatus = async (callId, status) => {
   try {
     const response = await callApi.patch(`/calls/${callId}`, { status });
