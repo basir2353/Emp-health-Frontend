@@ -7,7 +7,7 @@ function DataCourse() {
     <div>
       <Card
         bordered={false}
-        className="w-[610px]  h-[418px] max-lg:w-auto max-lg:mb-10"
+        className="w-[610px]  h-[425px] max-lg:w-auto max-lg:mb-10"
       >
         <div className="flex items-center justify-between">
           <div className="text-neutral-400 text-2xl font-normal leading-loose ml-2 ">

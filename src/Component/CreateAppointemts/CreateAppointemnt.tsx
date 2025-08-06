@@ -20,38 +20,103 @@ import {
   Space,
   Typography,
 } from "antd";
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+import timezone from "dayjs/plugin/timezone";
 
 import { RootState } from "../../redux/store";
 import { setAppointments } from "../../redux/appointments/appointmentSlice";
-import Maria from "../../public/images/Maria.svg";
 import Navbar from "../Navbar";
 import ProfileBox from "./ProfileSection/ProfileBox";
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 const { Text } = Typography;
 
 interface Appointment {
+  _id: string;
   day: string;
   date: string;
   time: string;
   type: string;
   doctorName: string;
   avatarSrc: string;
+  createdAt: string;
+  user: {
+    _id: string;
+    name: string;
+    email: string;
+    role: string;
+  };
 }
+
+// Normalize date format (e.g., "Aug 5" to "2025-08-05")
+const normalizeDateFormat = (date: string, year: number = new Date().getFullYear()): string => {
+  if (!date) return "N/A";
+  try {
+    // Parse "Aug 5" or similar short formats
+    const parsedDate = dayjs(`${date} ${year}`, "MMM D YYYY");
+    if (parsedDate.isValid()) {
+      return parsedDate.format("YYYY-MM-DD");
+    }
+    // If already in a parseable format, try parsing directly
+    if (dayjs(date).isValid()) {
+      return dayjs(date).format("YYYY-MM-DD");
+    }
+    return "N/A";
+  } catch {
+    return "N/A";
+  }
+};
+
+// Normalize time format (e.g., "10:00 AM" or "10:00 - 11:00" or "10-12")
+const normalizeTimeFormat = (time: string): string => {
+  if (!time) return "N/A";
+  try {
+    // Handle "10-12" format
+    if (/^\d{1,2}-\d{1,2}$/.test(time)) {
+      const [start, end] = time.split("-").map(t => t.trim());
+      return `${start.padStart(2, "0")}:00 - ${end.padStart(2, "0")}:00`;
+    }
+    // Handle "10:00 - 12:00" format
+    if (/^\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}$/.test(time)) {
+      return time;
+    }
+    // Handle "10:00 AM" format
+    if (/^\d{1,2}:\d{2}\s*(AM|PM)$/i.test(time)) {
+      return dayjs(time, "h:mm A").format("HH:mm");
+    }
+    return "N/A";
+  } catch {
+    return "N/A";
+  }
+};
+
+// Normalize appointment data
+const normalizeAppointment = (appt: Appointment): Appointment => ({
+  ...appt,
+  date: normalizeDateFormat(appt.date),
+  time: normalizeTimeFormat(appt.time),
+  createdAt: dayjs(appt.createdAt).isValid() ? appt.createdAt : dayjs().toISOString(),
+  avatarSrc: appt.avatarSrc || "https://cdn-icons-png.flaticon.com/512/3675/3675805.png",
+});
 
 const CreateAppointments: React.FC = () => {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const appointmentsData = localStorage.getItem("appointmentData");
   const userData = localStorage.getItem("user");
-  let userParsed = JSON.parse(userData || "{}");
+  let userParsed = userData ? JSON.parse(userData) : {};
 
-  let appointments: any[] = [];
+  let appointments: Appointment[] = [];
 
   try {
     const parsed = JSON.parse(appointmentsData || "[]");
     if (Array.isArray(parsed)) {
-      appointments = parsed;
+      appointments = parsed.map(normalizeAppointment);
     } else if (parsed && typeof parsed === "object") {
-      appointments = [parsed];
+      appointments = [normalizeAppointment(parsed)];
     }
   } catch {
     appointments = [];
@@ -68,30 +133,44 @@ const CreateAppointments: React.FC = () => {
         const response = await fetch(
           `https://empolyee-backedn.onrender.com/api/appointments?userId=${userParsed.id}`
         );
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
         const data = await response.json();
         if (data && Array.isArray(data.appointments)) {
-          setAppointmentsList(data.appointments);
-          console.log("Fetched appointments:", data.appointments);
+          const normalizedAppointments = data.appointments.map(normalizeAppointment);
+          setAppointmentsList(normalizedAppointments);
+          dispatch(setAppointments(normalizedAppointments));
+          console.log("Fetched appointments:", normalizedAppointments);
         } else {
           setAppointmentsList([]);
         }
       } catch (error) {
+        console.error("Error fetching appointments:", error);
         setAppointmentsList([]);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchAppointments();
-  }, [userParsed.id]);
+    if (userParsed.id) {
+      fetchAppointments();
+    } else {
+      console.warn("No user ID found, skipping fetchAppointments");
+      setLoading(false);
+    }
+  }, [userParsed.id, dispatch]);
 
   const handleMenuClick = (e: any) => {
     switch (e.key) {
       case "reschedule":
+        // Implement reschedule logic
         break;
       case "edit":
+        // Implement edit logic
         break;
       case "cancel":
+        // Implement cancel logic
         break;
       default:
         break;
@@ -191,7 +270,9 @@ const CreateAppointments: React.FC = () => {
                       <div className="flex flex-col">
                         <Text className="text-xs">{appointment.day}</Text>
                         <Text className="text-xl sm:text-2xl text-[#096DD9] font-medium">
-                          {appointment.date}
+                          {dayjs(appointment.date).isValid()
+                            ? dayjs(appointment.date).format("MMM D, YYYY")
+                            : "Invalid Date"}
                         </Text>
                       </div>
                       <div className="hidden sm:block h-[40px] w-[3px] bg-[#D9D9D9] rounded-full"></div>

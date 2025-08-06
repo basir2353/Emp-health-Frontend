@@ -67,15 +67,15 @@ function StepOne() {
   };
 
   return (
-    <div className="mb-10">
+    <div className="">
       <Row
         style={{ height: "calc(100vh - 81px)", backgroundColor: "#f5f5f5" }}
         justify="space-between"
         align="middle"
       >
-        <Col span={24} lg={12}>
+        <Col span={24} lg={12} className="order-1 lg:order-1 max-lg:mb-20">
           <Row justify="center">
-            <Col span={24} lg={18} className="w-full text-center" >
+            <Col span={24} lg={18} className="w-full text-center">
               <Title>How tall are you?</Title>
               <Text type="secondary">
                 Lorem ipsum dolor, sit amet consectetur adipisicing elit. Assumenda
@@ -118,37 +118,31 @@ function StepOne() {
           </Row>
         </Col>
 
-        <Layout
-          className="w-full lg:w-[720px] h-[calc(100vh-81px)] lg:absolute lg:right-0 lg:top-[118px]"
-        >
-          <Layout.Content className="bg-blue-100">
-            <div className="gap-10" />
-            <div />
-            <div>
-              <div className="w-[638px] max-lg:w-auto ml-10 max-lg:ml-0 mt-7">
-                <Title
-                  level={3}
-                  className="font-satoshi font-semibold text-4xl leading-10 text-black"
-                >
-                  Your wellness is your productivity.
-                </Title>
-                <Text className="font-satoshi font-normal text-base">
-                  Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nunc
-                  vulputate libero et velit interdum, ac aliquet odio mattis. Class
-                  aptent taciti sociosqu ad litora torquent per conubia nostra, per
-                  inceptos himenaeos.
-                </Text>
-              </div>
-              <div className="ml-[225px] max-lg:ml-0 left-0">
+        <Col span={24} lg={12} className="order-2 lg:order-2 bg-[#E6F7FF]">
+          <div className="w-full h-full flex  justify-center">
+            <div className="w-full max-w-[638px] mx-auto  text-left">
+              <Title
+                level={3}
+                className="font-satoshi font-semibold text-4xl leading-10 text-black "
+              >
+                Your wellness is your productivity.
+              </Title>
+              <Text className="font-satoshi font-normal text-base  block">
+                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nunc
+                vulputate libero et velit interdum, ac aliquet odio mattis. Class
+                aptent taciti sociosqu ad litora torquent per conubia nostra, per
+                inceptos himenaeos.
+              </Text>
+              <div className="mt-6 flex justify-center">
                 <img
                   src="/step1.png"
                   alt="Step 1"
-                  className="w-[500px] max-lg:w-auto right-0 bottom-0"
+                  className="w-full max-w-[500px] object-contain"
                 />
               </div>
             </div>
-          </Layout.Content>
-        </Layout>
+          </div>
+        </Col>
       </Row>
     </div>
   );

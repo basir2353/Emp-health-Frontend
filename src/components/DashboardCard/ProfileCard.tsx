@@ -114,7 +114,7 @@ const ProfileCard = () => {
 
   return (
     <>
-      <Card bordered={false} className="w-auto md:w-[391px] h-auto md:h-[180px] bg-[#141414]">
+      <Card bordered={false} className="w-auto  h-auto  bg-[#141414]">
         <div className="flex flex-row max-lg:flex-col justify-evenly">
           <div className="w-96 h-24 p-2 rounded justify-between items-center inline-flex mt-4">
             <div className="justify-start items-start gap-2.5 flex">

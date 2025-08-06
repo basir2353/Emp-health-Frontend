@@ -18,7 +18,7 @@ const employees = [
 
 function LeadboardCard() {
   return (
-    <div className="w-full max-w-xl mx-auto ">
+    <div className="w-full max-w-xl mx-auto">
       <Card bordered={false} className="w-[391px] h-[426px] max-lg:w-auto">
         <div className="w-full text-neutral-400 text-2xl font-normal leading-loose pl-3">
           Healthy Lead Board

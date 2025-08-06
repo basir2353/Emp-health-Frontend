@@ -10,34 +10,48 @@ import StatsCard from "../DashboardCard/StatsCard";
 
 export const Dashboard = () => {
   return (
-    <div className="justify-start pt-2 items-center  bg-gray-100 h-screen px-10 max-lg:px-1">
+    <div className="justify-start pt-2 items-center bg-gray-100 h-screen px-10 max-lg:px-1">
       <NotificationCard />
 
-      <Space direction="vertical" size={1}>
-        <Space direction="horizontal" size={24} wrap>
+      <Space direction="vertical" size={1} className="w-full">
+        {/* Row 1 */}
+        <Space
+          direction="horizontal"
+          size={24}
+          wrap
+          className="max-lg:!flex max-lg:!flex-col"
+        >
           <Space
             direction="vertical"
             size={5}
-            style={{ marginBottom: "20px", background: "#ececec" }}
-            className="-mt-80"
+            style={{ background: "#ececec" }}
+            className=" max-lg:!w-full"
           >
             <ProfileCard />
             <StatsCard />
           </Space>
-          {/* <AppointmentCard /> */}
-          <Appointment />
-          {/* <CourseCard /> */}
-          <DataCourse />
+
+          <div className="max-lg:w-full flex align-middle justify-center gap-4 max-lg:flex-col">
+            <Appointment />
+            <DataCourse />
+          </div>
         </Space>
+
+        {/* Row 2 */}
         <Space
           direction="horizontal"
           size={24}
-          className="flex max-lg:flex-col"
+          className="flex max-lg:flex-col mt-10"
         >
-          <LeadboardCard />
-          <PeriphalCard />
-          <DataReport />
-          {/* <ReportCard /> */}
+          <div className="max-lg:w-full">
+            <LeadboardCard />
+          </div>
+          <div className="max-lg:w-full">
+            <PeriphalCard />
+          </div>
+          <div className="max-lg:w-full">
+            <DataReport />
+          </div>
         </Space>
       </Space>
     </div>

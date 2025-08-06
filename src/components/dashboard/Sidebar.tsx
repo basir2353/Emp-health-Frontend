@@ -10,6 +10,7 @@ import {
   Card,
   Checkbox,
   Drawer,
+  Image,
   Typography,
   message,
   Calendar,
@@ -37,20 +38,22 @@ interface Doctor {
   name: string;
   profession: string;
   education: string;
+  image?: string;
   available_hours: string;
   experience: string;
   date: string;
 }
 
+// Default avatar URL
+const DEFAULT_AVATAR = "https://cdn-icons-png.flaticon.com/512/3675/3675805.png";
+
 // Function to generate time slots based on doctor's available_hours
 const generateTimeSlots = (availableHours: string, selectedDate: string | null) => {
-  // Validate inputs
   if (!availableHours || !selectedDate || !dayjs(selectedDate, "YYYY-MM-DD").isValid()) {
     console.warn("Invalid inputs:", { availableHours, selectedDate });
     return [];
   }
 
-  // Split and trim available hours
   const timeParts = availableHours.split(" - ").map((time) => time.trim());
   if (timeParts.length !== 2) {
     console.warn("Invalid available_hours format:", availableHours);
@@ -58,20 +61,17 @@ const generateTimeSlots = (availableHours: string, selectedDate: string | null) 
   }
   const [startTime, endTime] = timeParts;
 
-  const currentDateTime = dayjs().tz("Asia/Karachi"); // Current time in PKT
+  const currentDateTime = dayjs().tz("Asia/Karachi");
   const selectedDateTime = dayjs(selectedDate, "YYYY-MM-DD").tz("Asia/Karachi");
 
-  // Parse start and end times in 24-hour format
   const start = dayjs(`${selectedDate} ${startTime}`, "YYYY-MM-DD HH:mm", true).tz("Asia/Karachi");
   const end = dayjs(`${selectedDate} ${endTime}`, "YYYY-MM-DD HH:mm", true).tz("Asia/Karachi");
 
-  // Check if parsed times are valid
   if (!start.isValid() || !end.isValid()) {
     console.warn("Failed to parse times:", { startTime, endTime });
     return [];
   }
 
-  // If selected date is today, only include future time slots
   const isToday = selectedDateTime.isSame(currentDateTime, "day");
   const now = currentDateTime;
 
@@ -79,17 +79,15 @@ const generateTimeSlots = (availableHours: string, selectedDate: string | null) 
   let current = start;
 
   while (current.isBefore(end)) {
-    // Ensure the slot ends within available hours
     const slotEnd = current.add(1, "hour");
-    if (slotEnd.isAfter(end)) break; // Skip if the slot exceeds end time
+    if (slotEnd.isAfter(end)) break;
 
     if (!isToday || current.isAfter(now)) {
       slots.push(`${current.format("HH:mm")} - ${slotEnd.format("HH:mm")}`);
     }
-    current = slotEnd; // Move to the next 1-hour slot
+    current = slotEnd;
   }
 
-  // Fallback: return at least one slot if possible
   if (slots.length === 0 && start.isBefore(end)) {
     const fallbackEnd = start.add(1, "hour");
     if (fallbackEnd.isBefore(end) || fallbackEnd.isSame(end)) {
@@ -121,12 +119,12 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [selectedOption, setSelectedOption] = useState("");
   const [timeSlots, setTimeSlots] = useState<string[]>([]);
 
-  // Update time slots based on selected doctor's available_hours and selected date
+  // Generate time slots based on doctor's available_hours and selected date
   useEffect(() => {
     if (selectedDoctor && selectedDate && dayjs(selectedDate, "YYYY-MM-DD").isValid()) {
       const slots = generateTimeSlots(selectedDoctor.available_hours, selectedDate);
       setTimeSlots(slots);
-      setSelectedCard(null); // Reset selected time slot when date or doctor changes
+      setSelectedCard(null);
     } else {
       setTimeSlots([]);
       console.warn("Cannot generate time slots: invalid doctor or date", { selectedDoctor, selectedDate });
@@ -146,7 +144,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   // Get the day of the week for the selected date
   const getCurrentDay = () => {
     if (!selectedDateValue) return "";
-    return selectedDateValue.format("ddd"); // e.g., "Wed"
+    return selectedDateValue.format("ddd");
   };
 
   // Handle date selection in the calendar
@@ -154,10 +152,10 @@ const Sidebar: React.FC<SidebarProps> = ({
     setSelectedDateValue(date.tz("Asia/Karachi"));
   };
 
-  // Disable past dates and future dates beyond a reasonable range
+  // Disable past dates and future dates beyond 30 days
   const disabledDate = (current: Dayjs) => {
     const today = dayjs().tz("Asia/Karachi").startOf("day");
-    const maxDate = today.add(30, "day"); // Allow booking up to 30 days in advance
+    const maxDate = today.add(30, "day");
     return current && (current < today || current > maxDate);
   };
 
@@ -179,32 +177,40 @@ const Sidebar: React.FC<SidebarProps> = ({
     setIsCancelClicked(false);
   };
 
-  // Get initials for avatar
-  const getInitials = (name: string) => {
-    const nameParts = name.trim().split(" ");
-    if (nameParts.length === 0) return "";
-    if (nameParts.length === 1) return nameParts[0].charAt(0).toUpperCase();
-    return (
-      nameParts[0].charAt(0).toUpperCase() +
-      nameParts[nameParts.length - 1].charAt(0).toUpperCase()
-    );
-  };
-
   const handleConfirm = () => {
-    if (!selectedDateValue || selectedCard === null || !selectedDoctor) {
-      message.error("Please select date, time, and doctor for the appointment");
+    let user;
+    try {
+      const userData = localStorage.getItem("user");
+      if (!userData) {
+        message.error("User data not found in local storage. Please log in again.");
+        return;
+      }
+      user = JSON.parse(userData);
+    } catch (error) {
+      console.error("Failed to parse user from localStorage:", error);
+      message.error("Invalid user data. Please log in again.");
       return;
     }
 
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-    const userId = user?.id || user?._id || null;
-    const token = localStorage.getItem("token_real");
-
+    const userId = user?.id || user?._id;
     if (!userId) {
-      message.error("User ID not found. Please log in again.");
+      console.error("User ID not found in user object:", user);
+      message.error("User ID is required. Please log in again.");
       return;
     }
 
+    if (!selectedDateValue || selectedCard === null || !selectedDoctor || !selectedAppointmentType) {
+      message.error("All fields are required: date, time, doctor, and appointment type.");
+      return;
+    }
+
+    const timeSlot = timeSlots[selectedCard];
+    if (!timeSlot) {
+      message.error("Invalid time slot selected.");
+      return;
+    }
+
+    const token = localStorage.getItem("token_real");
     if (!token) {
       message.error("No authentication token found. Please log in again.");
       return;
@@ -215,11 +221,13 @@ const Sidebar: React.FC<SidebarProps> = ({
       day: getCurrentDay(),
       date: selectedDateValue.format("MMM D"),
       fullDate: selectedDateValue.format("YYYY-MM-DD"),
-      time: timeSlots[selectedCard], // Now a 24-hour range like "09:00 - 10:00"
+      time: timeSlot,
       type: selectedAppointmentType,
-      doctorName: selectedDoctor.name,
-      avatarSrc: "", // Provide a value or fetch from selectedDoctor if available
+      doctorName: selectedDoctor?.name || "",
+      avatarSrc: selectedDoctor?.image || DEFAULT_AVATAR, // Use default avatar if image is falsy
     };
+
+    console.log("Sending appointmentData:", appointmentData);
 
     dispatch(addAppointment(appointmentData));
 
@@ -239,13 +247,10 @@ const Sidebar: React.FC<SidebarProps> = ({
       })
       .catch((error) => {
         console.error("Error details:", error.response?.data || error.message);
-        message.error("Failed to create appointment on server. Please check your authentication or try again.");
+        const errorMsg = error.response?.data?.message || "Failed to create appointment. Please check your input or try again.";
+        message.error(errorMsg);
       });
   };
-
-  React.useEffect(() => {
-    setIsedit(isedit !== undefined ? isedit : true);
-  }, [isedit]);
 
   return (
     <Drawer
@@ -267,7 +272,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           </button>
           <h2 className="text-base font-semibold ml-2">Appointment Booking</h2>
         </div>
-        <div className="flex items-center justify-center space-x-2 ">
+        <div className="flex items-center justify-center space-x-2">
           <button
             onClick={onClose}
             className="px-4 py-1 border rounded text-gray-600 border-gray-400 hover:bg-gray-200 focus:outline-none"
@@ -289,12 +294,31 @@ const Sidebar: React.FC<SidebarProps> = ({
             <div className="flex flex-col items-start py-2">
               <div className="flex">
                 <Avatar
-                  size={60}
-                  style={{ backgroundColor: "#1890ff", border: "2px solid black" }}
-                  icon={<UserOutlined />}
-                  className="border-2 border-black"
+                  src={
+                    selectedDoctor.image || DEFAULT_AVATAR ? (
+                      <Image
+                        src={selectedDoctor.image || DEFAULT_AVATAR}
+                        alt={selectedDoctor.name}
+                        className="w-full h-full border-2 rounded-full"
+                      />
+                    ) : undefined
+                  }
+                  style={{
+                    width: "60px",
+                    height: "60px",
+                    marginRight: "1rem",
+                    backgroundColor: (selectedDoctor.image || DEFAULT_AVATAR) ? undefined : "#1890ff",
+                  }}
+                  icon={!(selectedDoctor.image || DEFAULT_AVATAR) ? <UserOutlined /> : undefined}
                 >
-                  {getInitials(selectedDoctor.name)}
+                  {!(selectedDoctor.image || DEFAULT_AVATAR) &&
+                    selectedDoctor.name
+                      .trim()
+                      .split(" ")
+                      .map((n) => n[0])
+                      .join("")
+                      .toUpperCase()
+                      .slice(0, 2)}
                 </Avatar>
                 <div>
                   <h3 className="text-lg font-bold text-black mt-2">

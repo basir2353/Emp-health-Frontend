@@ -62,7 +62,7 @@ const DataReport = () => {
   };
 
   return (
-    <div className="h-[426px] w-[22vw] mx-auto bg-white rounded-xl shadow-md overflow-hidden">
+    <div className="w-[355px] h-[426px] max-lg:w-auto max-lg:h-auto mx-auto bg-white rounded-xl shadow-md overflow-hidden">
       <div>
         {/* Header */}
         <div className="flex justify-between items-center mb-2">

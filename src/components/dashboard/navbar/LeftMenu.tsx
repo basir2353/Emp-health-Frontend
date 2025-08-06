@@ -9,20 +9,21 @@ import { useNavigate } from "react-router-dom";
 
 const LeftMenu = (props: any) => {
   const navigate = useNavigate();
-  const [userRole, setUserRole] = useState("");
+  const [userRole, setUserRole] = useState<string | null>(null);
   const [current, setCurrent] = useState("mail");
 
   useEffect(() => {
-    let roleStr: any = JSON.parse(localStorage.getItem("user") || "{}");
-    console.log(roleStr, "roleStr");
-
-    let extractRole: string;
-    try {
-      extractRole = roleStr?.role || "user";
-    } catch {
-      extractRole = "user";
+    const userData = localStorage.getItem("user");
+    let extractRole = "user"; // Default role
+    if (userData) {
+      try {
+        const roleStr = JSON.parse(userData);
+        extractRole = roleStr?.role || "user";
+      } catch (error) {
+        console.error("Error parsing user data from localStorage:", error);
+      }
     }
-    console.log(extractRole, "extractRole");
+    console.log("Setting userRole to:", extractRole);
     setUserRole(extractRole);
   }, []);
 
@@ -31,7 +32,7 @@ const LeftMenu = (props: any) => {
   };
 
   const healthMenuItems: MenuProps["items"] = [
-    ...(userRole === "user"
+    ...(userRole === "user" || userRole === "employee" // Added "employee" here
       ? [
           {
             key: "dashboard",
@@ -39,7 +40,7 @@ const LeftMenu = (props: any) => {
               <div className="h-auto mt-4" onClick={() => navigate("/health")}>
                 <div className="font-medium text-sm leading-3">Dashboard</div>
                 <div className="font-normal text-sm leading-5 mt-2 w-full h-full text-wrap text-[#64748B]">
-                  View all of your appointments basic stats and other stuff here.
+                  TST View all of your appointments basic stats and other stuff here.
                 </div>
               </div>
             ),
@@ -49,7 +50,7 @@ const LeftMenu = (props: any) => {
             label: (
               <div
                 className="h-auto mt-4"
-                onClick={() => navigate("/health/schedule-appointments")}
+                onClick={() => navigate("/health/admin-schedule-appointments")}
               >
                 <div className="font-medium text-sm leading-3">Appointments</div>
                 <div className="font-normal text-sm leading-5 mt-2 w-full h-full text-wrap text-[#64748B]">
@@ -84,7 +85,8 @@ const LeftMenu = (props: any) => {
                 className="h-auto mt-4"
                 onClick={() => navigate("/health/doctor-schedule-appointments")}
               >
-                <div className="font-medium text-sm leading-3">
+                <div className="font-medium text-sm leading-3ಸ
+                leading-3">
                   My Schedule Appointments {userRole === "admin" ? "(Admin)" : "(Doctor)"}
                 </div>
                 <div className="font-normal text-sm leading-5 mt-2 text-[#64748B]">
@@ -119,7 +121,7 @@ const LeftMenu = (props: any) => {
 
   const safetyMenuItems: MenuProps["items"] = [
     {
-      key: "Saftey", // Typo: Should be "Safety"
+      key: "Safety",
       label: (
         <div className="h-auto mt-4" onClick={() => navigate("/safety")}>
           <div className="font-medium text-sm leading-3">Dashboard</div>
@@ -253,7 +255,11 @@ const LeftMenu = (props: any) => {
     },
   ];
 
-  console.log({ healthMenuItems, items }); // Debug: Verify menu items
+  console.log({ healthMenuItems, items, userRole });
+
+  if (!userRole) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <Space size="large" direction="horizontal" align="baseline">

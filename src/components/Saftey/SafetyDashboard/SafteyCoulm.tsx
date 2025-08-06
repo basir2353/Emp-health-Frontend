@@ -102,6 +102,7 @@ const SafetyBox: React.FC = () => {
   const [identityPopupVisible, setIdentityPopupVisible] = useState<boolean>(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [notificationMessage, setNotificationMessage] = useState<string>("");
+  const [showAnonymousSection, setShowAnonymousSection] = useState<boolean>(true);
 
   const user = useMemo((): User => {
     try {
@@ -415,6 +416,8 @@ const SafetyBox: React.FC = () => {
       );
 
       message.success("Notification sent to Admin");
+      message.success(`${userName} has been approved`);
+
     } catch (error: any) {
       console.error("Failed to send identity request:", error);
       message.error(error.response?.data?.message || "Failed to send identity request");
@@ -422,7 +425,8 @@ const SafetyBox: React.FC = () => {
   };
 
   const handleNotSend = (data: any) => {
-    message.success('Okay admin notify');
+    setShowAnonymousSection(false);
+    message.success('Okay, your name not approve');
   };
 
   const [userName, setUserName] = useState<string>('');
@@ -438,6 +442,7 @@ const SafetyBox: React.FC = () => {
     // Fix: Handle undefined name by providing fallback
     setUserName(incident?.reportedBy?.name || '');
     setSidebarVisible(true);
+    setShowAnonymousSection(true); // Reset the anonymous section visibility
     if (isAdmin) {
       await fetchNotificationsForAdmin(incident);
     } else {
@@ -658,10 +663,10 @@ const SafetyBox: React.FC = () => {
               </div>
               <div className="flex max-lg:flex-col justify-between text-lg font-semibold mt-4 mb-4">
                 <div className="flex flex-col">
-                  {selectedIncident?.anonymous && (
-                    <>
-                      <h2>Reported anonymously</h2>
-                      {selectedIncident.identityStatus === "provided" ? (
+                                     {selectedIncident?.anonymous && showAnonymousSection && (
+                     <>
+                       <h2>Reported anonymously</h2>
+                       {selectedIncident.identityStatus === "provided" ? (
                         <Card
                           style={{
                             width: 280,

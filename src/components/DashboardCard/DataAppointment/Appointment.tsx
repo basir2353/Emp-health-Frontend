@@ -34,7 +34,7 @@ function Appointment() {
 
   return (
     <div className="">
-      <Card bordered={false} className="w-[355px] h-[426px]">
+      <Card bordered={false} className="w-[355px] h-[426px] max-lg:w-auto max-lg:h-auto">
         <div className="flex justify-between items-center mb-4 px-4 gap-[5px] flex-wrap">
           <div className="text-neutral-400 text-2xl font-normal leading-loose">
             Appointments
