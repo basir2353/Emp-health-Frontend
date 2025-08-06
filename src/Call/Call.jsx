@@ -57,11 +57,16 @@ const Call = () => {
     });
 
     return () => {
-      if (zg) {
-        zg.destroy();
+      console.log('Cleaning up ZEGOCLOUD client');
+      if (zg && roomId) {
+        zg.logoutRoom(roomId.toLowerCase());
+      }
+      if (zg && localStream) {
+        zg.stopPublishingStream(userId);
+        zg.destroyStream(localStream);
       }
     };
-  }, []);
+  }, [roomId, localStream, userId]);
 
   // Initialize Socket.IO
   useEffect(() => {
@@ -284,13 +289,15 @@ const Call = () => {
         }));
         if (remoteVideoRef.current) {
           setTimeout(() => {
-            remoteVideoRef.current.srcObject = streamObj;
-            remoteVideoRef.current.play().catch(e => {
-              console.error('Remote video play error:', e);
-              setDiagnosticInfo(prev => ({ ...prev, remoteStream: `Error: ${e.message}` }));
-              message.error(`Failed to play remote video: ${e.message}`);
-            });
-          }, 1000); // Delay to prevent play interruption
+            if (remoteVideoRef.current) {
+              remoteVideoRef.current.srcObject = streamObj;
+              remoteVideoRef.current.play().catch(e => {
+                console.error('Remote video play error:', e);
+                setDiagnosticInfo(prev => ({ ...prev, remoteStream: `Error: ${e.message}` }));
+                message.error(`Failed to play remote video: ${e.message}`);
+              });
+            }
+          }, 2000); // Increased delay to prevent play interruption
         }
       });
 
@@ -314,7 +321,7 @@ const Call = () => {
       return;
     }
     try {
-      console.log('Initiating call to:', { targetSocketId, targetUserId });
+      console.log('Initiating call to:', { targetSocketId, targetUserId, callerSocketId: socket.id });
       socket.emit('initiate-call', {
         callerId: currentUser.id,
         calleeId: targetUserId,
@@ -398,6 +405,9 @@ const Call = () => {
       zegoClient.stopPublishingStream(userId);
       zegoClient.destroyStream(localStream);
       setLocalStream(null);
+    }
+    if (zegoClient && roomId) {
+      zegoClient.logoutRoom(roomId.toLowerCase());
     }
     setRemoteStream(null);
     setIsCallActive(false);
@@ -581,21 +591,20 @@ const Call = () => {
                 </Button>
               </div>
             </div>
-            
             {currentUser?.role === 'doctor' && onlineUsers.length > 0 && (
               <List
                 dataSource={onlineUsers}
                 renderItem={(user) => (
                   <List.Item
                     actions={[
-                      <Button 
-                        type="primary" 
+                      <Button
+                        type="primary"
                         icon={<PhoneOutlined />}
                         onClick={() => callUserBySocketId(user.socketId, user._id)}
                         className="bg-green-600"
                       >
                         Call
-                      </Button>
+                      </Button>,
                     ]}
                   >
                     <List.Item.Meta
@@ -607,21 +616,20 @@ const Call = () => {
                 )}
               />
             )}
-            
             {currentUser?.role === 'employee' && onlineDoctors.length > 0 && (
               <List
                 dataSource={onlineDoctors}
                 renderItem={(doctor) => (
                   <List.Item
                     actions={[
-                      <Button 
-                        type="primary" 
+                      <Button
+                        type="primary"
                         icon={<PhoneOutlined />}
                         onClick={() => callUserBySocketId(doctor.socketId, doctor._id)}
                         className="bg-green-600"
                       >
                         Call
-                      </Button>
+                      </Button>,
                     ]}
                   >
                     <List.Item.Meta
@@ -633,8 +641,7 @@ const Call = () => {
                 )}
               />
             )}
-            
-            {((currentUser?.role === 'doctor' && onlineUsers.length === 0) || 
+            {((currentUser?.role === 'doctor' && onlineUsers.length === 0) ||
               (currentUser?.role === 'employee' && onlineDoctors.length === 0)) && (
               <div>
                 <Paragraph className="text-gray-500">
