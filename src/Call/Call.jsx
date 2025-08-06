@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useContext } from 'react';
 import io from 'socket.io-client';
+import { ZegoExpressEngine } from 'zego-express-engine-webrtc';
 import { Button, Input, Card, Typography, message, List, Avatar, Badge, Spin } from 'antd';
 import { UserOutlined, VideoCameraOutlined, PhoneOutlined } from '@ant-design/icons';
 import { AuthContext } from '../components/context/AuthContext';
@@ -7,12 +8,16 @@ import { storeSocketId, getOnlineUsers, getOnlineDoctors, leaveCall } from '../a
 
 const { Title, Paragraph } = Typography;
 
+// ZEGOCLOUD credentials
+const appID = 695626790;
+const serverSecret = '08b17ed68b9d48ed301e32184ed7a624';
+
 const Call = () => {
   const { currentUser } = useContext(AuthContext);
   const [socket, setSocket] = useState(null);
+  const [zegoClient, setZegoClient] = useState(null);
   const [localStream, setLocalStream] = useState(null);
   const [remoteStream, setRemoteStream] = useState(null);
-  const [peerConnection, setPeerConnection] = useState(null);
   const [isCallActive, setIsCallActive] = useState(false);
   const [isIncomingCall, setIsIncomingCall] = useState(false);
   const [callerData, setCallerData] = useState(null);
@@ -22,70 +27,78 @@ const Call = () => {
   const [connectedUsers, setConnectedUsers] = useState([]);
   const [isAudioOn, setIsAudioOn] = useState(true);
   const [isVideoOn, setIsVideoOn] = useState(true);
-  const [pendingCandidates, setPendingCandidates] = useState([]);
-  const [remoteDescriptionSet, setRemoteDescriptionSet] = useState(false);
   const [mediaError, setMediaError] = useState(null);
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [onlineDoctors, setOnlineDoctors] = useState([]);
   const [isUserOnline, setIsUserOnline] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [reconnectionAttempts, setReconnectionAttempts] = useState(0);
   const [networkStatus, setNetworkStatus] = useState('Checking...');
   const [diagnosticInfo, setDiagnosticInfo] = useState({
     localStream: 'Not initialized',
     remoteStream: 'Not initialized',
-    iceState: 'N/A',
-    iceCandidates: [],
+    connectionState: 'N/A',
   });
-  const maxReconnectionAttempts = 3;
-  const iceGatheringTimeout = 10000;
-  const playRetryDelay = 1000;
-  const playRetryAttempts = 3;
 
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
-  const isPlayingRef = useRef(false);
 
-  // ICE servers with multiple TURN servers
-  const iceServers = {
-    iceServers: [
-      { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' },
-      { urls: 'stun:stun2.l.google.com:19302' },
-      {
-        urls: [
-          'turn:openrelay.metered.ca:80',
-          'turn:openrelay.metered.ca:443',
-          'turn:turnserver.openrelay.metered.ca:443',
-        ],
-        username: 'openrelayproject',
-        credential: 'openrelayproject',
-      },
-    ],
-    iceCandidatePoolSize: 10,
-  };
+  // Initialize ZEGOCLOUD client
+  useEffect(() => {
+    const zg = new ZegoExpressEngine(appID, serverSecret);
+    setZegoClient(zg);
 
-  // Test media devices
-  const testMedia = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-      });
-      console.log('Test media stream:', stream);
-      setDiagnosticInfo(prev => ({ ...prev, localStream: 'Initialized' }));
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = stream;
-        localVideoRef.current.play().catch(e => console.error('Test video play error:', e));
+    // Check environment compatibility
+    zg.checkSystemRequirements().then(result => {
+      console.log('System requirements:', result);
+      if (!result.webRTC) {
+        message.error('WebRTC not supported in this browser.');
+        setDiagnosticInfo(prev => ({ ...prev, connectionState: 'WebRTC not supported' }));
       }
-      message.success('Camera and microphone working!');
-      stream.getTracks().forEach(track => track.stop());
-    } catch (error) {
-      console.error('Test media error:', error);
-      setDiagnosticInfo(prev => ({ ...prev, localStream: `Error: ${error.message}` }));
-      message.error('Failed to access media: ' + error.message);
-    }
-  };
+    });
+
+    return () => {
+      if (zg) {
+        zg.destroy();
+      }
+    };
+  }, []);
+
+  // Initialize Socket.IO
+  useEffect(() => {
+    const newSocket = io('https://empolyee-backedn.onrender.com/', {
+      transports: ['websocket', 'polling'],
+      withCredentials: true,
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+    });
+    setSocket(newSocket);
+
+    newSocket.on('connect', async () => {
+      console.log('Socket connected:', newSocket.id);
+      setCallStatus('Socket connected');
+      setNetworkStatus('Connected');
+      await handleStoreSocketId(newSocket.id);
+      await fetchOnlineUsers();
+    });
+
+    newSocket.on('connect_error', (error) => {
+      console.error('Socket error:', error);
+      setNetworkStatus('Connection failed');
+      message.error('Failed to connect to server.');
+    });
+
+    return () => {
+      console.log('Cleaning up socket');
+      handleLeaveCall();
+      newSocket.close();
+      if (localStream) {
+        zegoClient.stopPublishingStream(userId);
+        zegoClient.destroyStream(localStream);
+      }
+    };
+  }, [zegoClient, currentUser]);
 
   // Store socket ID
   const handleStoreSocketId = async (socketId) => {
@@ -154,201 +167,9 @@ const Call = () => {
     }
   };
 
-  // Initialize Socket.IO
-  useEffect(() => {
-    const newSocket = io('https://empolyee-backedn.onrender.com/', {
-      transports: ['websocket', 'polling'],
-      withCredentials: true,
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-    });
-    setSocket(newSocket);
-
-    newSocket.on('connect', async () => {
-      console.log('Socket connected:', newSocket.id);
-      setCallStatus('Socket connected');
-      setNetworkStatus('Connected');
-      setReconnectionAttempts(0);
-      await handleStoreSocketId(newSocket.id);
-      await fetchOnlineUsers();
-    });
-
-    newSocket.on('connect_error', (error) => {
-      console.error('Socket error:', error);
-      setNetworkStatus('Connection failed');
-      if (reconnectionAttempts < maxReconnectionAttempts) {
-        setReconnectionAttempts(prev => prev + 1);
-        message.warning(`Reconnecting... Attempt ${reconnectionAttempts + 1}/${maxReconnectionAttempts}`);
-      } else {
-        message.error('Failed to connect to server after retries.');
-        setNetworkStatus('Disconnected');
-      }
-    });
-
-    return () => {
-      console.log('Cleaning up socket');
-      handleLeaveCall();
-      newSocket.close();
-      if (localStream) {
-        localStream.getTracks().forEach(track => track.stop());
-      }
-    };
-  }, [currentUser, reconnectionAttempts]);
-
-  // Handle ICE candidates
-  const addIceCandidateSafely = async (candidate) => {
-    if (peerConnection && remoteDescriptionSet) {
-      try {
-        console.log('Adding ICE candidate:', candidate);
-        await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-        setDiagnosticInfo(prev => ({
-          ...prev,
-          iceCandidates: [...prev.iceCandidates, candidate],
-        }));
-      } catch (error) {
-        console.error('Error adding ICE candidate:', error);
-      }
-    } else {
-      console.log('Queuing ICE candidate:', candidate);
-      setPendingCandidates(prev => [...prev, candidate]);
-    }
-  };
-
-  // Process queued ICE candidates
-  const processPendingCandidates = async () => {
-    if (peerConnection && remoteDescriptionSet && pendingCandidates.length > 0) {
-      console.log('Processing ICE candidates:', pendingCandidates);
-      for (const candidate of pendingCandidates) {
-        try {
-          await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-          setDiagnosticInfo(prev => ({
-            ...prev,
-            iceCandidates: [...prev.iceCandidates, candidate],
-          }));
-        } catch (error) {
-          console.error('Error adding pending ICE candidate:', error);
-        }
-      }
-      setPendingCandidates([]);
-    }
-  };
-
-  // Create WebRTC peer connection
-  const createPeerConnection = () => {
-    const pc = new RTCPeerConnection(iceServers);
-    let iceGatheringTimer;
-
-    pc.ontrack = (event) => {
-      console.log('ontrack:', event);
-      if (event.streams && event.streams[0]) {
-        const stream = event.streams[0];
-        console.log('Received remote stream:', stream);
-        const videoTracks = stream.getVideoTracks();
-        const audioTracks = stream.getAudioTracks();
-        console.log('Remote stream video tracks:', videoTracks);
-        console.log('Remote stream audio tracks:', audioTracks);
-        setDiagnosticInfo(prev => ({
-          ...prev,
-          remoteStream: `Initialized (Video: ${videoTracks.length}, Audio: ${audioTracks.length})`,
-        }));
-        if (videoTracks.length === 0 && audioTracks.length > 0) {
-          message.warning('No video stream received, audio-only mode');
-        }
-        setRemoteStream(stream);
-      }
-    };
-
-    pc.onicecandidate = (event) => {
-      if (event.candidate) {
-        console.log('Sending ICE candidate:', event.candidate);
-        socket.emit('ice-candidate', {
-          candidate: event.candidate,
-          to: callerData?.from || connectedUsers[0],
-        });
-        setDiagnosticInfo(prev => ({
-          ...prev,
-          iceCandidates: [...prev.iceCandidates, event.candidate],
-        }));
-      }
-    };
-
-    pc.oniceconnectionstatechange = () => {
-      console.log('ICE Connection State:', pc.iceConnectionState);
-      setCallStatus(`Connection: ${pc.iceConnectionState}`);
-      setNetworkStatus(`ICE: ${pc.iceConnectionState}`);
-      setDiagnosticInfo(prev => ({ ...prev, iceState: pc.iceConnectionState }));
-      if (['failed', 'disconnected', 'closed'].includes(pc.iceConnectionState)) {
-        console.warn('Connection issue, attempting reconnect...');
-        if (reconnectionAttempts < maxReconnectionAttempts) {
-          setReconnectionAttempts(prev => prev + 1);
-          attemptReconnection();
-        } else {
-          endCall();
-          message.error('Connection failed after retries.');
-          setNetworkStatus('Disconnected');
-        }
-      } else if (pc.iceConnectionState === 'connected') {
-        setReconnectionAttempts(0);
-      }
-    };
-
-    pc.onicegatheringstatechange = () => {
-      console.log('ICE Gathering State:', pc.iceGatheringState);
-      if (pc.iceGatheringState === 'complete') {
-        clearTimeout(iceGatheringTimer);
-        console.log('ICE gathering complete');
-      }
-    };
-
-    pc.onnegotiationneeded = async () => {
-      try {
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        console.log('Created offer:', offer);
-        if (socket && connectedUsers[0]) {
-          socket.emit('offer', { offer: pc.localDescription, to: connectedUsers[0], from: socket.id });
-        }
-      } catch (err) {
-        console.error('Negotiation error:', err);
-        message.error('Failed to negotiate call');
-        attemptReconnection();
-      }
-    };
-
-    // ICE gathering timeout
-    iceGatheringTimer = setTimeout(() => {
-      console.warn('ICE gathering timeout, forcing completion');
-      if (pc.iceGatheringState !== 'complete') {
-        socket.emit('ice-candidate', {
-          candidate: null,
-          to: callerData?.from || connectedUsers[0],
-        });
-      }
-    }, iceGatheringTimeout);
-
-    return pc;
-  };
-
-  // Reconnection logic with exponential backoff
-  const attemptReconnection = async () => {
-    console.log('Attempting reconnection...');
-    if (localStream && roomId && socket) {
-      await endCall();
-      const backoff = Math.pow(2, reconnectionAttempts) * 1000;
-      setTimeout(async () => {
-        await joinRoom();
-        if (callerData?.from) {
-          await makeCall(callerData.from);
-        }
-      }, backoff);
-    }
-  };
-
   // Handle socket events
   useEffect(() => {
-    if (!socket) return;
+    if (!socket || !zegoClient) return;
 
     socket.on('room-users', (users) => {
       console.log('Room users:', users);
@@ -370,45 +191,18 @@ const Call = () => {
       setCallStatus(`User ${disconnectedUserId} left`);
     });
 
-    socket.on('call-made', async ({ signal, from, name }) => {
-      console.log('Call-made:', { signal, from, name });
+    socket.on('call-made', async ({ from, name }) => {
+      console.log('Incoming call from:', { from, name });
       setIsIncomingCall(true);
-      setCallerData({ signal, from, name });
+      setCallerData({ from, name });
       setCallStatus('Incoming call...');
-      setRemoteDescriptionSet(false);
-      setPendingCandidates([]);
-      setRemoteStream(null);
-      isPlayingRef.current = false;
-
-      const pc = createPeerConnection();
-      setPeerConnection(pc);
-      if (localStream) {
-        localStream.getTracks().forEach(track => {
-          if (track.readyState === 'live') {
-            console.log('Adding track:', track);
-            pc.addTrack(track, localStream);
-          } else {
-            console.warn('Track not live:', track);
-          }
-        });
-      }
     });
 
-    socket.on('call-accepted', async (signal) => {
-      console.log('Call accepted:', signal);
+    socket.on('call-accepted', () => {
+      console.log('Call accepted');
       setIsCallActive(true);
       setCallStatus('Call connected');
-      if (peerConnection) {
-        try {
-          await peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
-          setRemoteDescriptionSet(true);
-          await processPendingCandidates();
-        } catch (error) {
-          console.error('Error setting remote description:', error);
-          message.error('Failed to connect call');
-          attemptReconnection();
-        }
-      }
+      setNetworkStatus('Call connected');
     });
 
     socket.on('call-rejected', () => {
@@ -425,47 +219,6 @@ const Call = () => {
       message.info('Call ended');
     });
 
-    socket.on('offer', async ({ offer, from }) => {
-      console.log('Received offer:', { offer, from });
-      if (peerConnection) {
-        try {
-          await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-          setRemoteDescriptionSet(true);
-          const answer = await peerConnection.createAnswer();
-          await peerConnection.setLocalDescription(answer);
-          console.log('Sending answer:', answer);
-          socket.emit('answer', { answer, to: from });
-          await processPendingCandidates();
-        } catch (error) {
-          console.error('Error handling offer:', error);
-          message.error('Failed to handle offer');
-          attemptReconnection();
-        }
-      }
-    });
-
-    socket.on('answer', async ({ answer }) => {
-      console.log('Received answer:', answer);
-      if (peerConnection) {
-        try {
-          await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-          setRemoteDescriptionSet(true);
-          await processPendingCandidates();
-        } catch (error) {
-          console.error('Error handling answer:', error);
-          message.error('Failed to handle answer');
-          attemptReconnection();
-        }
-      }
-    });
-
-    socket.on('ice-candidate', ({ candidate }) => {
-      if (candidate) {
-        console.log('Received ICE candidate:', candidate);
-        addIceCandidateSafely(candidate);
-      }
-    });
-
     return () => {
       socket.off('room-users');
       socket.off('user-connected');
@@ -474,95 +227,33 @@ const Call = () => {
       socket.off('call-accepted');
       socket.off('call-rejected');
       socket.off('call-ended');
-      socket.off('offer');
-      socket.off('answer');
-      socket.off('ice-candidate');
     };
-  }, [socket, peerConnection, remoteDescriptionSet, pendingCandidates, localStream]);
-
-  // Play remote video with retry logic
-  const playRemoteVideo = async (videoElement, stream, attempt = 1) => {
-    if (!videoElement || !stream) {
-      console.warn('No video element or stream for playback');
-      return;
-    }
-    if (isPlayingRef.current) {
-      console.log('Playback already in progress, skipping');
-      return;
-    }
-    isPlayingRef.current = true;
-    try {
-      videoElement.srcObject = stream;
-      videoElement.muted = true; // Mute to bypass autoplay restrictions
-      await videoElement.play();
-      console.log('Remote video playing successfully');
-      setDiagnosticInfo(prev => ({ ...prev, remoteStream: 'Playing' }));
-      isPlayingRef.current = false;
-    } catch (error) {
-      console.error(`Remote video play error (attempt ${attempt}):`, error);
-      setDiagnosticInfo(prev => ({ ...prev, remoteStream: `Error: ${error.message}` }));
-      if (error.message.includes('interrupted by a new load request') && attempt < playRetryAttempts) {
-        console.log(`Retrying play (attempt ${attempt + 1})...`);
-        setTimeout(() => playRemoteVideo(videoElement, stream, attempt + 1), playRetryDelay);
-      } else {
-        message.error(`Failed to play remote video: ${error.message}`);
-        isPlayingRef.current = false;
-      }
-    }
-  };
-
-  // Update remote video stream
-  useEffect(() => {
-    if (remoteStream && remoteVideoRef.current) {
-      console.log('Setting remote stream:', remoteStream);
-      const videoTracks = remoteStream.getVideoTracks();
-      const audioTracks = remoteStream.getAudioTracks();
-      console.log('Remote stream video tracks:', videoTracks);
-      console.log('Remote stream audio tracks:', audioTracks);
-      if (videoTracks.length === 0 && audioTracks.length > 0) {
-        console.warn('No video tracks in remote stream');
-        message.warning('No video stream received from remote user');
-      }
-      playRemoteVideo(remoteVideoRef.current, remoteStream);
-    } else if (!remoteStream && remoteVideoRef.current) {
-      console.log('Clearing remote video');
-      remoteVideoRef.current.srcObject = null;
-      setDiagnosticInfo(prev => ({ ...prev, remoteStream: 'Not initialized' }));
-      isPlayingRef.current = false;
-    }
-  }, [remoteStream]);
+  }, [socket, zegoClient]);
 
   // Join room and initialize media
-  const joinRoom = async (retryCount = 0) => {
-    if (!roomId || !socket) {
-      message.error('Room ID or socket not available');
+  const joinRoom = async () => {
+    if (!roomId || !socket || !zegoClient) {
+      message.error('Room ID, socket, or ZEGOCLOUD client not available');
       return;
     }
     try {
-      let stream;
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
-          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-        });
-      } catch (videoError) {
-        console.warn('Video failed, trying audio-only:', videoError);
-        if (retryCount < 2) {
-          message.warning('Video not available, retrying...');
-          setTimeout(() => joinRoom(retryCount + 1), 1000);
-          return;
-        }
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-        });
-        message.warning('Video not available, using audio-only');
-        setIsVideoOn(false);
-      }
+      // Log in to ZEGOCLOUD room
+      await zegoClient.loginRoom(
+        roomId.toLowerCase(),
+        { userID: userId, userName: currentUser?.name || userId },
+        { appID, serverSecret }
+      );
+      console.log('Logged into ZEGOCLOUD room:', roomId);
 
-      console.log('Local stream:', stream);
+      // Create and publish local stream
+      const stream = await zegoClient.createStream({
+        camera: { video: true, audio: true, videoQuality: 4 },
+      });
       setLocalStream(stream);
-      setMediaError(null);
       setDiagnosticInfo(prev => ({ ...prev, localStream: 'Initialized' }));
+      await zegoClient.startPublishingStream(userId, stream);
+      console.log('Publishing local stream:', stream);
+
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
         localVideoRef.current.muted = true;
@@ -572,18 +263,23 @@ const Call = () => {
         });
       }
 
-      const pc = createPeerConnection();
-      setPeerConnection(pc);
-      stream.getTracks().forEach(track => {
-        if (track.readyState === 'live') {
-          console.log('Adding track to peer:', track);
-          pc.addTrack(track, stream);
-        } else {
-          console.warn('Track not live:', track);
-          setDiagnosticInfo(prev => ({
-            ...prev,
-            localStream: `Error: Track ${track.kind} not live`,
-          }));
+      // Subscribe to remote streams
+      zegoClient.on('streamAdd', async (streamList) => {
+        const remote = streamList[0];
+        console.log('Remote stream added:', remote);
+        const streamObj = await zegoClient.startPlayingStream(remote.streamID);
+        setRemoteStream(streamObj);
+        setDiagnosticInfo(prev => ({
+          ...prev,
+          remoteStream: `Initialized (Stream ID: ${remote.streamID})`,
+        }));
+        if (remoteVideoRef.current) {
+          remoteVideoRef.current.srcObject = streamObj;
+          remoteVideoRef.current.play().catch(e => {
+            console.error('Remote video play error:', e);
+            setDiagnosticInfo(prev => ({ ...prev, remoteStream: `Error: ${e.message}` }));
+            message.error(`Failed to play remote video: ${e.message}`);
+          });
         }
       });
 
@@ -591,33 +287,21 @@ const Call = () => {
       setCallStatus('Connected to room');
       setNetworkStatus('Connected to room');
       await handleStoreSocketId(socket.id);
-      setReconnectionAttempts(0);
     } catch (error) {
       console.error('Error joining room:', error);
       setDiagnosticInfo(prev => ({ ...prev, localStream: `Error: ${error.message}` }));
-      if (error.name === 'NotAllowedError') {
-        setMediaError('Camera or microphone access denied.');
-        message.error('Camera or microphone access denied.');
-      } else if (error.name === 'NotFoundError') {
-        setMediaError('No camera or microphone found.');
-        message.error('No camera or microphone found.');
-      } else {
-        setMediaError('Failed to access media: ' + error.message);
-        message.error('Failed to access media: ' + error.message);
-      }
+      setMediaError('Failed to access media: ' + error.message);
+      message.error('Failed to access media: ' + error.message);
     }
   };
 
   // Call user by socket ID
   const callUserBySocketId = async (targetSocketId, targetUserId) => {
-    if (!peerConnection || !socket || !targetSocketId) {
+    if (!zegoClient || !socket || !targetSocketId) {
       message.error('Cannot make call: Missing connection or target');
       return;
     }
     try {
-      const offer = await peerConnection.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
-      await peerConnection.setLocalDescription(offer);
-      console.log('Making call with offer:', offer);
       socket.emit('initiate-call', {
         callerId: currentUser.id,
         calleeId: targetUserId,
@@ -625,58 +309,47 @@ const Call = () => {
       });
       setCallStatus('Calling...');
       setNetworkStatus('Calling...');
-      setReconnectionAttempts(0);
     } catch (error) {
       console.error('Error making call:', error);
       message.error('Failed to initiate call');
-      attemptReconnection();
     }
   };
 
   // Initiate a call
   const makeCall = async (targetUserId) => {
-    if (!peerConnection || !socket || !targetUserId) {
+    if (!zegoClient || !socket || !targetUserId) {
       message.error('Cannot make call: Missing connection or target');
       return;
     }
     try {
-      const offer = await peerConnection.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
-      await peerConnection.setLocalDescription(offer);
-      console.log('Making call with offer:', offer);
-      socket.emit('call-user', { userToCall: targetUserId, signalData: offer, from: socket.id, name: userId });
+      socket.emit('call-user', {
+        userToCall: targetUserId,
+        from: socket.id,
+        name: userId,
+      });
       setCallStatus('Calling...');
       setNetworkStatus('Calling...');
-      setReconnectionAttempts(0);
     } catch (error) {
       console.error('Error making call:', error);
       message.error('Failed to initiate call');
-      attemptReconnection();
     }
   };
 
   // Answer call
   const answerCall = async () => {
-    if (!callerData || !peerConnection) {
+    if (!callerData || !zegoClient) {
       message.error('Cannot answer call: Missing data or connection');
       return;
     }
     try {
-      console.log('Answering call:', callerData.signal);
-      await peerConnection.setRemoteDescription(new RTCSessionDescription(callerData.signal));
-      setRemoteDescriptionSet(true);
-      const answer = await peerConnection.createAnswer();
-      await peerConnection.setLocalDescription(answer);
-      socket.emit('answer-call', { signal: answer, to: callerData.from });
+      socket.emit('answer-call', { to: callerData.from });
       setIsCallActive(true);
       setIsIncomingCall(false);
       setCallStatus('Call connected');
       setNetworkStatus('Call connected');
-      await processPendingCandidates();
-      setReconnectionAttempts(0);
     } catch (error) {
       console.error('Error answering call:', error);
       message.error('Failed to answer call');
-      attemptReconnection();
     }
   };
 
@@ -689,10 +362,7 @@ const Call = () => {
     setCallerData(null);
     setCallStatus('Call rejected');
     setNetworkStatus('Disconnected');
-    setRemoteDescriptionSet(false);
-    setPendingCandidates([]);
     setRemoteStream(null);
-    isPlayingRef.current = false;
     console.log('Call rejected');
   };
 
@@ -700,12 +370,9 @@ const Call = () => {
   const endCall = async () => {
     console.log('Ending call');
     if (socket && callerData) socket.emit('end-call', { to: callerData.from });
-    if (peerConnection) {
-      peerConnection.close();
-      setPeerConnection(null);
-    }
-    if (localStream) {
-      localStream.getTracks().forEach(track => track.stop());
+    if (zegoClient && localStream) {
+      zegoClient.stopPublishingStream(userId);
+      zegoClient.destroyStream(localStream);
       setLocalStream(null);
     }
     setRemoteStream(null);
@@ -714,56 +381,71 @@ const Call = () => {
     setCallerData(null);
     setCallStatus('Disconnected');
     setNetworkStatus('Disconnected');
-    setRemoteDescriptionSet(false);
-    setPendingCandidates([]);
     setDiagnosticInfo(prev => ({
       ...prev,
       localStream: 'Not initialized',
       remoteStream: 'Not initialized',
-      iceState: 'N/A',
-      iceCandidates: [],
+      connectionState: 'N/A',
     }));
     if (localVideoRef.current) localVideoRef.current.srcObject = null;
     if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
-    isPlayingRef.current = false;
     await handleLeaveCall();
   };
 
   // Toggle audio
   const toggleAudio = () => {
-    if (localStream) {
-      const audioTrack = localStream.getAudioTracks()[0];
-      if (audioTrack) {
-        audioTrack.enabled = !audioTrack.enabled;
-        setIsAudioOn(audioTrack.enabled);
-        console.log('Audio track:', audioTrack.enabled);
-        message.info(audioTrack.enabled ? 'Microphone ON' : 'Microphone OFF');
-      } else {
-        console.warn('No audio track');
-        message.error('No audio track available');
-      }
+    if (localStream && zegoClient) {
+      const enabled = !isAudioOn;
+      zegoClient.muteMicrophone(!enabled);
+      setIsAudioOn(enabled);
+      console.log('Audio:', enabled);
+      message.info(enabled ? 'Microphone ON' : 'Microphone OFF');
+    } else {
+      message.error('No stream or client available');
     }
   };
 
   // Toggle video
   const toggleVideo = () => {
-    if (localStream) {
-      const videoTrack = localStream.getVideoTracks()[0];
-      if (videoTrack) {
-        videoTrack.enabled = !videoTrack.enabled;
-        setIsVideoOn(videoTrack.enabled);
-        console.log('Video track:', videoTrack.enabled);
-        message.info(videoTrack.enabled ? 'Camera ON' : 'Camera OFF');
-      } else {
-        console.warn('No video track');
-        message.error('No video track available');
-      }
+    if (localStream && zegoClient) {
+      const enabled = !isVideoOn;
+      zegoClient.muteCamera(!enabled);
+      setIsVideoOn(enabled);
+      console.log('Video:', enabled);
+      message.info(enabled ? 'Camera ON' : 'Camera OFF');
+    } else {
+      message.error('No stream or client available');
     }
   };
 
   // Refresh online users
   const refreshOnlineUsers = () => {
     fetchOnlineUsers();
+  };
+
+  // Test media devices
+  const testMedia = async () => {
+    if (!zegoClient) {
+      message.error('ZEGOCLOUD client not initialized');
+      return;
+    }
+    try {
+      const stream = await zegoClient.createStream({
+        camera: { video: true, audio: true, videoQuality: 4 },
+      });
+      console.log('Test media stream:', stream);
+      setDiagnosticInfo(prev => ({ ...prev, localStream: 'Initialized' }));
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = stream;
+        localVideoRef.current.play().catch(e => console.error('Test video play error:', e));
+      }
+      message.success('Camera and microphone working!');
+      zegoClient.destroyStream(stream);
+    } catch (error) {
+      console.error('Test media error:', error);
+      setDiagnosticInfo(prev => ({ ...prev, localStream: `Error: ${error.message}` }));
+      message.error('Failed to access media: ' + error.message);
+    }
   };
 
   return (
@@ -805,10 +487,7 @@ const Call = () => {
             <strong>Remote Stream:</strong> {diagnosticInfo.remoteStream}
           </Paragraph>
           <Paragraph>
-            <strong>ICE State:</strong> {diagnosticInfo.iceState}
-          </Paragraph>
-          <Paragraph>
-            <strong>ICE Candidates:</strong> {diagnosticInfo.iceCandidates.length} received
+            <strong>Connection State:</strong> {diagnosticInfo.connectionState}
           </Paragraph>
         </Card>
 
@@ -835,7 +514,7 @@ const Call = () => {
               <Button
                 type="primary"
                 onClick={() => joinRoom()}
-                disabled={!roomId.trim() || !socket}
+                disabled={!roomId.trim() || !socket || !zegoClient}
                 style={{ backgroundColor: 'black' }}
               >
                 Join
