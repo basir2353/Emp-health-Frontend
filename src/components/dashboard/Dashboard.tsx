@@ -19,19 +19,19 @@ export const Dashboard = () => {
           direction="horizontal"
           size={24}
           wrap
-          className="max-lg:!flex max-lg:!flex-col"
+          className="max-lg:!flex max-lg:!flex-col -"
         >
           <Space
             direction="vertical"
             size={5}
             style={{ background: "#ececec" }}
-            className=" max-lg:!w-full"
+            className=" max-lg:!w-full "
           >
             <ProfileCard />
             <StatsCard />
           </Space>
 
-          <div className="max-lg:w-full flex align-middle justify-center gap-4 max-lg:flex-col">
+          <div className="max-lg:w-full flex align-middle justify-center gap-4 max-lg:flex-col -mb-14">
             <Appointment />
             <DataCourse />
           </div>
@@ -41,7 +41,7 @@ export const Dashboard = () => {
         <Space
           direction="horizontal"
           size={24}
-          className="flex max-lg:flex-col mt-10"
+          className="flex max-lg:flex-col mt-14"
         >
           <div className="max-lg:w-full">
             <LeadboardCard />

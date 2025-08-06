@@ -102,7 +102,7 @@ const DataReport = () => {
             apiReports.slice(0, 4).map((report: any, index) => (
               <Card
                 key={report.id + index}
-                className="mx-2 mt-2 w-[349px] flex flex-col h-[72px] justify-center px-3 gap-10 bg-[#F5F5F5] border border-[#E0E0E0] rounded-md"
+                className="mx-2 mt-2 w-[339px] flex flex-col h-[72px] justify-center px-3 gap-10 bg-[#F5F5F5] border border-[#E0E0E0] rounded-md"
               >
                 <div className="flex flex-row justify-between items-center">
                   <div className="font-medium text-base text-black">
