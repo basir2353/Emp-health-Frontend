@@ -2,16 +2,11 @@ import { Alert, Col, Flex, Layout, Row, Space, Spin, Typography } from "antd";
 import { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import {
-  setEmployeeHeight,
-  onboardingMasterData,
-} from "../../../features/onboardSlice";
+import { setEmployeeHeight } from "../../../features/onboardSlice";
 import { BaseButton } from "../../form/base-button";
 import { BaseNumberInput } from "../../form/base-number-input";
 import BaseSwitch from "../../form/base-switch";
-import { useQuery } from "@tanstack/react-query";
-import { getMasterData } from "../utils";
-import { Loader } from "../../../components/Loader";
+
 import { saveStepData } from "../../../utils/onboardingStorage";
 
 function StepOne() {
@@ -21,7 +16,7 @@ function StepOne() {
     localStorage.setItem("botVisible", "false");
     console.log("StepOne - stepsCompleted and botVisible set to false");
   }, []);
-  
+
   const [value, setValue] = useState<string>("");
   const [unit, setUnit] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -36,10 +31,12 @@ function StepOne() {
     const num = Number(val);
     if (unit) {
       // cm
-      if (num < 50 || num > 300) return "Height in cm should be between 50 and 300.";
+      if (num < 50 || num > 300)
+        return "Height in cm should be between 50 and 300.";
     } else {
       // inch
-      if (num < 20 || num > 120) return "Height in inches should be between 20 and 120.";
+      if (num < 20 || num > 120)
+        return "Height in inches should be between 20 and 120.";
     }
     return null;
   };
@@ -78,8 +75,9 @@ function StepOne() {
             <Col span={24} lg={18} className="w-full text-center">
               <Title>How tall are you?</Title>
               <Text type="secondary">
-                Lorem ipsum dolor, sit amet consectetur adipisicing elit. Assumenda
-                veniam facere in delectus, maxime iusto non id reiciendis.
+                Lorem ipsum dolor, sit amet consectetur adipisicing elit.
+                Assumenda veniam facere in delectus, maxime iusto non id
+                reiciendis.
               </Text>
               <BaseNumberInput
                 style={{ margin: "20px 0px" }}
@@ -129,9 +127,9 @@ function StepOne() {
               </Title>
               <Text className="font-satoshi font-normal text-base  block">
                 Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nunc
-                vulputate libero et velit interdum, ac aliquet odio mattis. Class
-                aptent taciti sociosqu ad litora torquent per conubia nostra, per
-                inceptos himenaeos.
+                vulputate libero et velit interdum, ac aliquet odio mattis.
+                Class aptent taciti sociosqu ad litora torquent per conubia
+                nostra, per inceptos himenaeos.
               </Text>
               <div className="mt-6 flex justify-center">
                 <img

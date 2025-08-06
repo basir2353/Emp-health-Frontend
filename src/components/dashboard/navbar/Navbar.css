@@ -1,23 +1,51 @@
 .menu {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: 21px 20px;
-  border-bottom: solid 3px #e8e8e8;
-  overflow: auto;
+  border-bottom: 3px solid #e8e8e8;
   box-shadow: 0 0 30px #f3f1f1;
+  background-color: #fff;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
 }
 
 .menu__logo {
   width: 150px;
-  float: left;
+  display: flex;
+  align-items: center;
 }
 
-.menu__logo a {
-  display: inline-block;
-  font-size: 20px;
-  padding: 19px 20px;
+.App-logo {
+  height: 40px;
+  max-width: 150px;
+}
+
+.menu__container {
+  display: flex;
+  align-items: center;
+  flex-grow: 1;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.menu_left,
+.menu_right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Ant Design menu overrides */
+.menu__container .ant-menu-horizontal {
+  border-bottom: none;
+  display: flex;
+  align-items: center;
 }
 
 .menu__container .ant-menu-item {
-  padding: 0px 5px;
+  padding: 0 5px;
 }
 
 .menu__container .ant-menu-submenu-title {
@@ -29,62 +57,43 @@
   padding: 10px 15px;
 }
 
-.menu__container .ant-menu-horizontal {
-  border-bottom: none;
-}
-
-.menu__container .menu_left {
-  display: flex;
-  flex-wrap: wrap;
-  flex-direction: column;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0px 20px;
-  gap: 28px;
-
-  width: 102px;
-  height: 46px;
-  float: left;
-}
-
-.menu__container .menu_rigth {
-  float: right;
-}
-
+/* Mobile menu button */
 .menu__mobile-button {
-  float: right;
+  display: none;
   height: 32px;
   padding: 6px;
   margin-top: 8px;
-  display: none !important; /* use of important to overwrite ant-btn */
   background: #3e91f7;
+  color: #fff;
+  border: none;
 }
 
+/* Drawer styles */
 .menu_drawer .ant-drawer-body {
-  padding: 0 !important;
+  padding: 0;
 }
 
-.ant-card-body {
-  padding: 0px !important;
-}
-
-/* align header of Drawer with header of page */
 .menu_drawer .ant-drawer-header {
-  padding: 14px 24px !important;
+  padding: 14px 24px;
 }
 
+/* Responsive styles */
 @media (max-width: 767px) {
-  .menu__mobile-button {
-    display: inline-block !important;
+  .menu__container {
+    justify-content: flex-end;
   }
 
   .menu_left,
-  .menu_rigth {
+  .menu_right {
     display: none;
   }
 
-  .menu__logo a {
-    margin-left: 20px;
+  .menu__mobile-button {
+    display: block;
+  }
+
+  .menu__logo {
+    width: 120px;
   }
 
   .menu__container .ant-menu-item,
@@ -92,7 +101,22 @@
     padding: 1px 20px;
   }
 
-  .menu__logo a {
-    padding: 10px 20px;
+  .App-logo {
+    height: 32px;
+  }
+}
+
+/* Smaller screens */
+@media (max-width: 480px) {
+  .menu {
+    padding: 15px 10px;
+  }
+
+  .menu__logo {
+    width: 100px;
+  }
+
+  .App-logo {
+    height: 28px;
   }
 }

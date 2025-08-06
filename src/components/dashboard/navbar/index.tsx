@@ -1,18 +1,16 @@
 import { Button, Drawer } from "antd";
 import { useState } from "react";
 import LeftMenu from "./LeftMenu";
+import RightMenu from "./RightMenu";
 import "./Navbar.css";
 import CompanyLogo from "../../../public/images/company-logo.svg";
-import RightMenu from "./RightMenu";
 
 const Navbar = () => {
-  const [visible, setVisible] = useState<boolean>(false);
   const [openDrawer, setOpenDrawer] = useState<boolean>(false);
 
   const handleLogout = () => {
     localStorage.clear();
     sessionStorage.clear();
-    // Optionally redirect to login page
     window.location.reload();
   };
 
@@ -25,7 +23,7 @@ const Navbar = () => {
         <div className="menu_left">
           <LeftMenu mode="horizontal" />
         </div>
-        <div className="menu_rigth" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+        <div className="menu_right">
           <RightMenu mode="horizontal" />
           <Button type="primary" danger onClick={handleLogout}>
             Logout
@@ -36,19 +34,25 @@ const Navbar = () => {
           type="primary"
           onClick={() => setOpenDrawer(true)}
         >
-          {/* <Icon type="align-right" /> */}
+          {/* Replace with an icon, e.g., hamburger icon */}
+          Menu
         </Button>
         <Drawer
-          title="Basic Drawer"
+          title="Menu"
           placement="right"
           className="menu_drawer"
-          closable={false}
+          closable={true}
           onClose={() => setOpenDrawer(false)}
-          open={visible}
+          open={openDrawer}
         >
           <LeftMenu mode="inline" />
           <RightMenu mode="inline" />
-          <Button type="primary" danger onClick={handleLogout} style={{ marginTop: 16, width: "100%" }}>
+          <Button
+            type="primary"
+            danger
+            onClick={handleLogout}
+            style={{ marginTop: 16, width: "100%" }}
+          >
             Logout
           </Button>
         </Drawer>

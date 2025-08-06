@@ -131,7 +131,7 @@ function StepSeven() {
               <BaseButton
                 type="primary"
                 size="large"
-                style={{ width: "80%", backgroundColor: "black" }}
+                style={{ width: "80%", backgroundColor: "black", marginTop: "10px" }}
                 onClick={handleClick}
               >
                 Next
