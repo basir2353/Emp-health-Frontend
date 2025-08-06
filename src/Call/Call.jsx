@@ -29,6 +29,8 @@ const Call = () => {
   const [onlineDoctors, setOnlineDoctors] = useState([]);
   const [isUserOnline, setIsUserOnline] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [reconnectionAttempts, setReconnectionAttempts] = useState(0);
+  const maxReconnectionAttempts = 3;
 
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
@@ -40,16 +42,21 @@ const Call = () => {
       { urls: 'stun:stun1.l.google.com:19302' },
       { urls: 'stun:stun2.l.google.com:19302' },
       {
-        urls: 'turn:turn.example.com:3478', // Replace with your TURN server
-        username: 'your-turn-username', // Replace with your TURN username
-        credential: 'your-turn-password', // Replace with your TURN password
+        urls: 'turn:openrelay.metered.ca:80', // Public TURN server for testing
+        username: 'openrelayproject',
+        credential: 'openrelayproject',
+      },
+      {
+        urls: 'turn:openrelay.metered.ca:443', // Additional TURN server
+        username: 'openrelayproject',
+        credential: 'openrelayproject',
       },
     ],
-    iceTransportPolicy: 'all', // Allow both relay and non-relay connections
-    iceCandidatePoolSize: 10, // Pre-gather more candidates
+    iceTransportPolicy: 'relay', // Force TURN usage for testing
+    iceCandidatePoolSize: 10,
   };
 
-  // Store socket ID in backend
+  // Store socket ID
   const handleStoreSocketId = async (socketId) => {
     if (!currentUser?.id) {
       console.warn('No current user found');
@@ -68,7 +75,7 @@ const Call = () => {
     }
   };
 
-  // Handle user disconnection
+  // Handle disconnection
   const handleLeaveCall = async () => {
     if (!currentUser?.id) {
       console.warn('No current user found');
@@ -90,12 +97,11 @@ const Call = () => {
   // Fetch online users
   const fetchOnlineUsers = async () => {
     if (!currentUser?.id) {
-      console.log('No current user, cannot fetch online users');
+      console.log('No current user');
       return;
     }
     try {
       setLoading(true);
-      console.log('Fetching users for role:', currentUser.role);
       if (currentUser.role === 'doctor') {
         const response = await getOnlineUsers();
         if (response.success) {
@@ -111,7 +117,7 @@ const Call = () => {
       }
     } catch (error) {
       console.error('Error fetching users:', error);
-      message.error('Failed to fetch online users: ' + error.message);
+      message.error('Failed to fetch users: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -122,7 +128,8 @@ const Call = () => {
     const newSocket = io('https://empolyee-backedn.onrender.com/', {
       transports: ['websocket', 'polling'],
       withCredentials: true,
-      reconnectionAttempts: 5, // Retry connection
+      reconnection: true,
+      reconnectionAttempts: 5,
       reconnectionDelay: 1000,
     });
     setSocket(newSocket);
@@ -130,14 +137,20 @@ const Call = () => {
     newSocket.on('connect', async () => {
       console.log('Socket connected:', newSocket.id);
       setCallStatus('Socket connected');
+      setReconnectionAttempts(0);
       await handleStoreSocketId(newSocket.id);
       await fetchOnlineUsers();
     });
 
     newSocket.on('connect_error', (error) => {
       console.error('Socket error:', error);
-      message.error('Failed to connect to server. Retrying...');
       setCallStatus('Socket connection failed');
+      if (reconnectionAttempts < maxReconnectionAttempts) {
+        setReconnectionAttempts(prev => prev + 1);
+        message.warning(`Reconnecting... Attempt ${reconnectionAttempts + 1}/${maxReconnectionAttempts}`);
+      } else {
+        message.error('Failed to connect to server after retries.');
+      }
     });
 
     return () => {
@@ -148,7 +161,7 @@ const Call = () => {
         localStream.getTracks().forEach(track => track.stop());
       }
     };
-  }, [currentUser]);
+  }, [currentUser, reconnectionAttempts]);
 
   // Handle ICE candidates
   const addIceCandidateSafely = async (candidate) => {
@@ -207,13 +220,21 @@ const Call = () => {
       console.log('ICE Connection State:', pc.iceConnectionState);
       setCallStatus(`Connection: ${pc.iceConnectionState}`);
       if (['failed', 'disconnected', 'closed'].includes(pc.iceConnectionState)) {
-        console.warn('Connection issue detected, attempting to reconnect...');
-        endCall();
-        message.error('Connection failed or disconnected. Please try again.');
+        console.warn('Connection issue, attempting reconnect...');
+        if (reconnectionAttempts < maxReconnectionAttempts) {
+          setReconnectionAttempts(prev => prev + 1);
+          attemptReconnection();
+        } else {
+          endCall();
+          message.error('Connection failed after retries.');
+        }
       }
     };
     pc.onicegatheringstatechange = () => {
       console.log('ICE Gathering State:', pc.iceGatheringState);
+      if (pc.iceGatheringState === 'complete') {
+        console.log('ICE gathering complete');
+      }
     };
     pc.onnegotiationneeded = async () => {
       try {
@@ -229,6 +250,20 @@ const Call = () => {
       }
     };
     return pc;
+  };
+
+  // Reconnection logic
+  const attemptReconnection = async () => {
+    console.log('Attempting reconnection...');
+    if (localStream && roomId && socket) {
+      await endCall();
+      setTimeout(async () => {
+        await joinRoom();
+        if (callerData?.from) {
+          await makeCall(callerData.from);
+        }
+      }, 2000);
+    }
   };
 
   // Handle socket events
@@ -382,7 +417,7 @@ const Call = () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
-        audio: { echoCancellation: true, noiseSuppression: true },
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
       });
       console.log('Local stream:', stream);
       setLocalStream(stream);
@@ -406,6 +441,7 @@ const Call = () => {
       socket.emit('join-room', { roomId: roomId.toLowerCase(), userId: socket.id });
       setCallStatus('Connected to room');
       await handleStoreSocketId(socket.id);
+      setReconnectionAttempts(0);
     } catch (error) {
       console.error('Error joining room:', error);
       if (error.name === 'NotAllowedError') {
@@ -437,6 +473,7 @@ const Call = () => {
         callerName: currentUser.name || currentUser.email,
       });
       setCallStatus('Calling...');
+      setReconnectionAttempts(0);
     } catch (error) {
       console.error('Error making call:', error);
       message.error('Failed to initiate call');
@@ -455,6 +492,7 @@ const Call = () => {
       console.log('Making call with offer:', offer);
       socket.emit('call-user', { userToCall: targetUserId, signalData: offer, from: socket.id, name: userId });
       setCallStatus('Calling...');
+      setReconnectionAttempts(0);
     } catch (error) {
       console.error('Error making call:', error);
       message.error('Failed to initiate call');
@@ -478,6 +516,7 @@ const Call = () => {
       setIsIncomingCall(false);
       setCallStatus('Call connected');
       await processPendingCandidates();
+      setReconnectionAttempts(0);
     } catch (error) {
       console.error('Error answering call:', error);
       message.error('Failed to answer call');
@@ -673,7 +712,7 @@ const Call = () => {
                   No {currentUser?.role === 'doctor' ? 'employees' : 'doctors'} online at the moment.
                 </Paragraph>
                 <Paragraph className="text-sm text-gray-400">
-                  Make sure doctors/employees are logged in and connected to the call service.
+                  Make sure doctors/employees are logged in and connected.
                 </Paragraph>
               </div>
             )}
