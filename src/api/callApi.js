@@ -5,7 +5,8 @@ const API_BASE_URL = 'https://empolyee-backedn.onrender.com/api';
 // Create axios instance with default config
 const callApi = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000,
+  timeout: 15000, // Increased timeout for cross-IP scenarios
+  withCredentials: true, // Ensure credentials are sent
 });
 
 // Add request interceptor to include auth token
@@ -13,7 +14,6 @@ callApi.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token_real') || localStorage.getItem('token');
     if (token) {
-      // Try different token formats
       config.headers.Authorization = `Bearer ${token}`;
       config.headers['x-auth-token'] = token;
       console.log('Adding auth token to request:', token.substring(0, 20) + '...');
@@ -30,7 +30,10 @@ callApi.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      console.error('Authentication failed');
+      console.error('Authentication failed:', error.response.data);
+      // Optionally redirect to login or refresh token
+    } else if (error.code === 'ECONNABORTED') {
+      console.error('Request timeout:', error.message);
     }
     return Promise.reject(error);
   }
@@ -41,15 +44,16 @@ export const storeSocketId = async (userId, socketId) => {
   try {
     const response = await callApi.post('/auth/store_socket_id', {
       userId,
-      socketId
+      socketId,
     });
     return response.data;
   } catch (error) {
-    console.error('Error storing socket ID:', error);
+    console.error('Error storing socket ID:', error.response?.data || error.message);
     throw error;
   }
 };
-// Frontend: src/api/callApi.js
+
+// Disconnect user from call service
 export const leaveCall = async (userId) => {
   try {
     console.log('Calling leaveCall API for user:', userId);
@@ -61,11 +65,12 @@ export const leaveCall = async (userId) => {
     throw error;
   }
 };
+
 // Get online users (employees)
 export const getOnlineUsers = async () => {
   try {
     console.log('Calling getOnlineUsers API...');
-    const response = await callApi.get('https://empolyee-backedn.onrender.com/api/auth/online-users');
+    const response = await callApi.get('/auth/online-users');
     console.log('getOnlineUsers response:', response.data);
     return response.data;
   } catch (error) {
@@ -78,7 +83,7 @@ export const getOnlineUsers = async () => {
 export const getOnlineDoctors = async () => {
   try {
     console.log('Calling getOnlineDoctors API...');
-    const response = await callApi.get('https://empolyee-backedn.onrender.com/api/auth/online-doctors');
+    const response = await callApi.get('/auth/online-doctors');
     console.log('getOnlineDoctors response:', response.data);
     return response.data;
   } catch (error) {
@@ -93,7 +98,7 @@ export const getCallHistory = async () => {
     const response = await callApi.get('/calls');
     return response.data;
   } catch (error) {
-    console.error('Error fetching call history:', error);
+    console.error('Error fetching call history:', error.response?.data || error.message);
     throw error;
   }
 };
@@ -104,7 +109,7 @@ export const createCallRecord = async (callData) => {
     const response = await callApi.post('/calls', callData);
     return response.data;
   } catch (error) {
-    console.error('Error creating call record:', error);
+    console.error('Error creating call record:', error.response?.data || error.message);
     throw error;
   }
 };
@@ -115,9 +120,9 @@ export const updateCallStatus = async (callId, status) => {
     const response = await callApi.patch(`/calls/${callId}`, { status });
     return response.data;
   } catch (error) {
-    console.error('Error updating call status:', error);
+    console.error('Error updating call status:', error.response?.data || error.message);
     throw error;
   }
 };
 
-export default callApi; 
+export default callApi;

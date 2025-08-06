@@ -33,12 +33,20 @@ const Call = () => {
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
 
+  // Updated ICE servers with TURN server for cross-IP support
   const iceServers = {
     iceServers: [
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
       { urls: 'stun:stun2.l.google.com:19302' },
+      {
+        urls: 'turn:your-turn-server.com:3478', // Replace with your TURN server
+        username: 'your-username', // Replace with TURN server credentials
+        credential: 'your-password',
+      },
     ],
+    iceTransportPolicy: 'all', // Allow both relay (TURN) and direct connections
+    iceCandidatePoolSize: 10, // Improve ICE candidate gathering
   };
 
   // Store socket ID in backend when user joins
@@ -120,6 +128,8 @@ const Call = () => {
     const newSocket = io('https://empolyee-backedn.onrender.com/', {
       transports: ['websocket', 'polling'],
       withCredentials: true,
+      reconnectionAttempts: 5, // Retry connection for cross-IP scenarios
+      reconnectionDelay: 1000,
     });
     console.log('Socket initialized:', newSocket.id);
     setSocket(newSocket);
@@ -133,7 +143,7 @@ const Call = () => {
 
     newSocket.on('connect_error', (error) => {
       console.error('Socket connection error:', error);
-      message.error('Failed to connect to server. Please try again.');
+      message.error('Failed to connect to server. Please check your network or try again.');
       setCallStatus('Socket connection failed');
     });
 
@@ -205,8 +215,11 @@ const Call = () => {
       setCallStatus(`Connection: ${pc.iceConnectionState}`);
       if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected') {
         endCall();
-        message.error('Connection failed or disconnected');
+        message.error('Connection failed or disconnected. Check your network or TURN server.');
       }
+    };
+    pc.onicegatheringstatechange = () => {
+      console.log('ICE Gathering State:', pc.iceGatheringState);
     };
     pc.onnegotiationneeded = async () => {
       try {
@@ -249,10 +262,10 @@ const Call = () => {
       setCallStatus(`User ${disconnectedUserId} left`);
     });
 
-    socket.on('call-made', async ({ signal, from, name }) => {
-      console.log('Received call-made:', { signal, from, name });
+    socket.on('call-made', async ({ signal, from, name, callId }) => {
+      console.log('Received call-made:', { signal, from, name, callId });
       setIsIncomingCall(true);
-      setCallerData({ signal, from, name });
+      setCallerData({ signal, from, name, callId });
       setCallStatus('Incoming call...');
       setRemoteDescriptionSet(false);
       setPendingCandidates([]);
@@ -337,6 +350,12 @@ const Call = () => {
       }
     });
 
+    socket.on('call-error', ({ message }) => {
+      console.error('Call error:', message);
+      message.error(message);
+      endCall();
+    });
+
     return () => {
       socket.off('room-users');
       socket.off('user-connected');
@@ -348,6 +367,7 @@ const Call = () => {
       socket.off('offer');
       socket.off('answer');
       socket.off('ice-candidate');
+      socket.off('call-error');
     };
   }, [socket, peerConnection, remoteDescriptionSet, pendingCandidates, localStream]);
 
@@ -430,6 +450,8 @@ const Call = () => {
         callerId: currentUser.id,
         calleeId: targetUserId,
         callerName: currentUser.name || currentUser.email,
+        signalData: offer,
+        from: socket.id,
       });
       
       setCallStatus('Calling...');
@@ -483,7 +505,7 @@ const Call = () => {
   // Reject an incoming call
   const rejectCall = () => {
     if (socket && callerData) {
-      socket.emit('reject-call', { to: callerData.from });
+      socket.emit('reject-call', { to: callerData.from, callId: callerData.callId });
     }
     setIsIncomingCall(false);
     setCallerData(null);
@@ -497,7 +519,7 @@ const Call = () => {
   // End the call
   const endCall = async () => {
     console.log('Ending call');
-    if (socket && callerData) socket.emit('end-call', { to: callerData.from });
+    if (socket && callerData) socket.emit('end-call', { to: callerData.from, callId: callerData.callId });
     if (peerConnection) {
       peerConnection.close();
       setPeerConnection(null);
