@@ -22,7 +22,7 @@ const Call = () => {
   const [isIncomingCall, setIsIncomingCall] = useState(false);
   const [callerData, setCallerData] = useState(null);
   const [roomId, setRoomId] = useState('');
-  const [userId] = useState(`user_${Math.random().toString(36).substr(2, 9)}`);
+  const [userId, setUserId] = useState('');
   const [callStatus, setCallStatus] = useState('Disconnected');
   const [connectedUsers, setConnectedUsers] = useState([]);
   const [isAudioOn, setIsAudioOn] = useState(true);
@@ -36,6 +36,7 @@ const Call = () => {
   const [diagnosticInfo, setDiagnosticInfo] = useState({
     localStream: 'Not initialized',
     remoteStream: 'Not initialized',
+    socketId: 'Not connected',
     connectionState: 'N/A',
   });
 
@@ -47,7 +48,6 @@ const Call = () => {
     const zg = new ZegoExpressEngine(appID, serverSecret);
     setZegoClient(zg);
 
-    // Check environment compatibility
     zg.checkSystemRequirements().then(result => {
       console.log('System requirements:', result);
       if (!result.webRTC) {
@@ -77,8 +77,10 @@ const Call = () => {
 
     newSocket.on('connect', async () => {
       console.log('Socket connected:', newSocket.id);
+      setUserId(newSocket.id); // Sync userId with socket.id
       setCallStatus('Socket connected');
       setNetworkStatus('Connected');
+      setDiagnosticInfo(prev => ({ ...prev, socketId: newSocket.id }));
       await handleStoreSocketId(newSocket.id);
       await fetchOnlineUsers();
     });
@@ -86,6 +88,7 @@ const Call = () => {
     newSocket.on('connect_error', (error) => {
       console.error('Socket error:', error);
       setNetworkStatus('Connection failed');
+      setDiagnosticInfo(prev => ({ ...prev, socketId: 'Connection failed' }));
       message.error('Failed to connect to server.');
     });
 
@@ -93,7 +96,7 @@ const Call = () => {
       console.log('Cleaning up socket');
       handleLeaveCall();
       newSocket.close();
-      if (localStream) {
+      if (localStream && zegoClient) {
         zegoClient.stopPublishingStream(userId);
         zegoClient.destroyStream(localStream);
       }
@@ -104,6 +107,7 @@ const Call = () => {
   const handleStoreSocketId = async (socketId) => {
     if (!currentUser?.id) {
       console.warn('No current user');
+      setDiagnosticInfo(prev => ({ ...prev, socketId: 'No current user' }));
       return;
     }
     try {
@@ -112,10 +116,15 @@ const Call = () => {
         console.log('Socket ID stored:', response);
         setIsUserOnline(true);
         message.success('Connected to call service');
+      } else {
+        console.error('Failed to store socket ID:', response);
+        setDiagnosticInfo(prev => ({ ...prev, socketId: `Error: ${response.message}` }));
+        message.error('Failed to store socket ID');
       }
     } catch (error) {
       console.error('Error storing socket ID:', error);
-      message.error('Failed to connect to call service');
+      setDiagnosticInfo(prev => ({ ...prev, socketId: `Error: ${error.message}` }));
+      message.error('Failed to connect to call service: ' + error.message);
     }
   };
 
@@ -234,18 +243,18 @@ const Call = () => {
   const joinRoom = async () => {
     if (!roomId || !socket || !zegoClient) {
       message.error('Room ID, socket, or ZEGOCLOUD client not available');
+      setDiagnosticInfo(prev => ({ ...prev, connectionState: 'Missing room ID or client' }));
       return;
     }
     try {
-      // Log in to ZEGOCLOUD room
       await zegoClient.loginRoom(
         roomId.toLowerCase(),
         { userID: userId, userName: currentUser?.name || userId },
         { appID, serverSecret }
       );
       console.log('Logged into ZEGOCLOUD room:', roomId);
+      setDiagnosticInfo(prev => ({ ...prev, connectionState: `Logged into room ${roomId}` }));
 
-      // Create and publish local stream
       const stream = await zegoClient.createStream({
         camera: { video: true, audio: true, videoQuality: 4 },
       });
@@ -260,10 +269,10 @@ const Call = () => {
         localVideoRef.current.play().catch(e => {
           console.error('Local video play error:', e);
           setDiagnosticInfo(prev => ({ ...prev, localStream: `Error: ${e.message}` }));
+          message.error(`Local video error: ${e.message}`);
         });
       }
 
-      // Subscribe to remote streams
       zegoClient.on('streamAdd', async (streamList) => {
         const remote = streamList[0];
         console.log('Remote stream added:', remote);
@@ -274,12 +283,14 @@ const Call = () => {
           remoteStream: `Initialized (Stream ID: ${remote.streamID})`,
         }));
         if (remoteVideoRef.current) {
-          remoteVideoRef.current.srcObject = streamObj;
-          remoteVideoRef.current.play().catch(e => {
-            console.error('Remote video play error:', e);
-            setDiagnosticInfo(prev => ({ ...prev, remoteStream: `Error: ${e.message}` }));
-            message.error(`Failed to play remote video: ${e.message}`);
-          });
+          setTimeout(() => {
+            remoteVideoRef.current.srcObject = streamObj;
+            remoteVideoRef.current.play().catch(e => {
+              console.error('Remote video play error:', e);
+              setDiagnosticInfo(prev => ({ ...prev, remoteStream: `Error: ${e.message}` }));
+              message.error(`Failed to play remote video: ${e.message}`);
+            });
+          }, 1000); // Delay to prevent play interruption
         }
       });
 
@@ -289,7 +300,7 @@ const Call = () => {
       await handleStoreSocketId(socket.id);
     } catch (error) {
       console.error('Error joining room:', error);
-      setDiagnosticInfo(prev => ({ ...prev, localStream: `Error: ${error.message}` }));
+      setDiagnosticInfo(prev => ({ ...prev, localStream: `Error: ${error.message}`, connectionState: `Error: ${error.message}` }));
       setMediaError('Failed to access media: ' + error.message);
       message.error('Failed to access media: ' + error.message);
     }
@@ -299,19 +310,24 @@ const Call = () => {
   const callUserBySocketId = async (targetSocketId, targetUserId) => {
     if (!zegoClient || !socket || !targetSocketId) {
       message.error('Cannot make call: Missing connection or target');
+      setDiagnosticInfo(prev => ({ ...prev, connectionState: 'Missing client or target' }));
       return;
     }
     try {
+      console.log('Initiating call to:', { targetSocketId, targetUserId });
       socket.emit('initiate-call', {
         callerId: currentUser.id,
         calleeId: targetUserId,
         callerName: currentUser.name || currentUser.email,
+        callerSocketId: socket.id,
       });
       setCallStatus('Calling...');
       setNetworkStatus('Calling...');
+      setDiagnosticInfo(prev => ({ ...prev, connectionState: `Calling ${targetSocketId}` }));
     } catch (error) {
       console.error('Error making call:', error);
-      message.error('Failed to initiate call');
+      setDiagnosticInfo(prev => ({ ...prev, connectionState: `Call error: ${error.message}` }));
+      message.error('Failed to initiate call: ' + error.message);
     }
   };
 
@@ -319,19 +335,23 @@ const Call = () => {
   const makeCall = async (targetUserId) => {
     if (!zegoClient || !socket || !targetUserId) {
       message.error('Cannot make call: Missing connection or target');
+      setDiagnosticInfo(prev => ({ ...prev, connectionState: 'Missing client or target' }));
       return;
     }
     try {
+      console.log('Making call to:', targetUserId);
       socket.emit('call-user', {
         userToCall: targetUserId,
         from: socket.id,
-        name: userId,
+        name: currentUser?.name || userId,
       });
       setCallStatus('Calling...');
       setNetworkStatus('Calling...');
+      setDiagnosticInfo(prev => ({ ...prev, connectionState: `Calling ${targetUserId}` }));
     } catch (error) {
       console.error('Error making call:', error);
-      message.error('Failed to initiate call');
+      setDiagnosticInfo(prev => ({ ...prev, connectionState: `Call error: ${error.message}` }));
+      message.error('Failed to initiate call: ' + error.message);
     }
   };
 
@@ -339,6 +359,7 @@ const Call = () => {
   const answerCall = async () => {
     if (!callerData || !zegoClient) {
       message.error('Cannot answer call: Missing data or connection');
+      setDiagnosticInfo(prev => ({ ...prev, connectionState: 'Missing caller data or client' }));
       return;
     }
     try {
@@ -347,9 +368,11 @@ const Call = () => {
       setIsIncomingCall(false);
       setCallStatus('Call connected');
       setNetworkStatus('Call connected');
+      setDiagnosticInfo(prev => ({ ...prev, connectionState: 'Call connected' }));
     } catch (error) {
       console.error('Error answering call:', error);
-      message.error('Failed to answer call');
+      setDiagnosticInfo(prev => ({ ...prev, connectionState: `Answer error: ${error.message}` }));
+      message.error('Failed to answer call: ' + error.message);
     }
   };
 
@@ -363,6 +386,7 @@ const Call = () => {
     setCallStatus('Call rejected');
     setNetworkStatus('Disconnected');
     setRemoteStream(null);
+    setDiagnosticInfo(prev => ({ ...prev, connectionState: 'Call rejected' }));
     console.log('Call rejected');
   };
 
@@ -385,7 +409,7 @@ const Call = () => {
       ...prev,
       localStream: 'Not initialized',
       remoteStream: 'Not initialized',
-      connectionState: 'N/A',
+      connectionState: 'Disconnected',
     }));
     if (localVideoRef.current) localVideoRef.current.srcObject = null;
     if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
@@ -402,6 +426,7 @@ const Call = () => {
       message.info(enabled ? 'Microphone ON' : 'Microphone OFF');
     } else {
       message.error('No stream or client available');
+      setDiagnosticInfo(prev => ({ ...prev, localStream: 'No stream or client' }));
     }
   };
 
@@ -415,6 +440,7 @@ const Call = () => {
       message.info(enabled ? 'Camera ON' : 'Camera OFF');
     } else {
       message.error('No stream or client available');
+      setDiagnosticInfo(prev => ({ ...prev, localStream: 'No stream or client' }));
     }
   };
 
@@ -427,6 +453,7 @@ const Call = () => {
   const testMedia = async () => {
     if (!zegoClient) {
       message.error('ZEGOCLOUD client not initialized');
+      setDiagnosticInfo(prev => ({ ...prev, localStream: 'Client not initialized' }));
       return;
     }
     try {
@@ -437,7 +464,10 @@ const Call = () => {
       setDiagnosticInfo(prev => ({ ...prev, localStream: 'Initialized' }));
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
-        localVideoRef.current.play().catch(e => console.error('Test video play error:', e));
+        localVideoRef.current.play().catch(e => {
+          console.error('Test video play error:', e);
+          setDiagnosticInfo(prev => ({ ...prev, localStream: `Error: ${e.message}` }));
+        });
       }
       message.success('Camera and microphone working!');
       zegoClient.destroyStream(stream);
@@ -453,7 +483,8 @@ const Call = () => {
       <header className="p-4 flex justify-between items-center">
         <Title level={3}>Video Call</Title>
         <div className="flex items-center space-x-4">
-          <span className="text-sm">User ID: {socket?.id || 'Not connected'}</span>
+          <span className="text-sm">Socket ID: {socket?.id || 'Not connected'}</span>
+          <span className="text-sm">ZEGO User ID: {userId || 'Not set'}</span>
           <Badge status={isUserOnline ? 'success' : 'error'} text={isUserOnline ? 'Online' : 'Offline'} />
           <span className="text-sm">Network: {networkStatus}</span>
           <Button type="primary" danger onClick={endCall}>
@@ -480,6 +511,9 @@ const Call = () => {
 
         <Card className="mb-4 border-blue-500 border-2">
           <Title level={4}>Diagnostics</Title>
+          <Paragraph>
+            <strong>Socket ID:</strong> {diagnosticInfo.socketId}
+          </Paragraph>
           <Paragraph>
             <strong>Local Stream:</strong> {diagnosticInfo.localStream}
           </Paragraph>
@@ -527,7 +561,7 @@ const Call = () => {
               Share the Room ID to start a video call!
             </Paragraph>
             <Paragraph className="text-sm text-gray-500">
-              <span>Your User ID: {socket?.id || 'Not connected'}</span>
+              <span>Your Socket ID: {socket?.id || 'Not connected'}</span>
             </Paragraph>
           </Card>
         )}
