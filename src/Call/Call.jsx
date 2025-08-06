@@ -33,27 +33,34 @@ const Call = () => {
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
 
+  // Enhanced ICE servers with TURN support
   const iceServers = {
     iceServers: [
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
       { urls: 'stun:stun2.l.google.com:19302' },
+      {
+        urls: 'turn:turn.example.com:3478', // Replace with your TURN server
+        username: 'your-turn-username', // Replace with your TURN username
+        credential: 'your-turn-password', // Replace with your TURN password
+      },
     ],
+    iceTransportPolicy: 'all', // Allow both relay and non-relay connections
+    iceCandidatePoolSize: 10, // Pre-gather more candidates
   };
 
-  // Store socket ID in backend when user joins
+  // Store socket ID in backend
   const handleStoreSocketId = async (socketId) => {
     if (!currentUser?.id) {
       console.warn('No current user found');
       return;
     }
-
     try {
       const response = await storeSocketId(currentUser.id, socketId);
       if (response.success) {
-        console.log('Socket ID stored successfully:', response);
+        console.log('Socket ID stored:', response);
         setIsUserOnline(true);
-        message.success('Successfully connected to call service');
+        message.success('Connected to call service');
       }
     } catch (error) {
       console.error('Error storing socket ID:', error);
@@ -67,61 +74,57 @@ const Call = () => {
       console.warn('No current user found');
       return;
     }
-
     try {
       const response = await leaveCall(currentUser.id);
       if (response.success) {
-        console.log('User disconnected successfully:', response);
+        console.log('User disconnected:', response);
         setIsUserOnline(false);
-        message.success('Successfully disconnected from call service');
+        message.success('Disconnected from call service');
       }
     } catch (error) {
-      console.error('Error disconnecting user:', error);
+      console.error('Error disconnecting:', error);
       message.error('Failed to disconnect from call service');
     }
   };
 
-  // Fetch online users based on current user role
+  // Fetch online users
   const fetchOnlineUsers = async () => {
     if (!currentUser?.id) {
-      console.log('No current user found, cannot fetch online users');
+      console.log('No current user, cannot fetch online users');
       return;
     }
-
     try {
       setLoading(true);
-      console.log('Fetching online users for role:', currentUser.role);
-      
+      console.log('Fetching users for role:', currentUser.role);
       if (currentUser.role === 'doctor') {
         const response = await getOnlineUsers();
-        console.log('Online users response:', response);
         if (response.success) {
           setOnlineUsers(response.data);
-          console.log('Set online users:', response.data);
+          console.log('Online users:', response.data);
         }
       } else if (currentUser.role === 'employee') {
         const response = await getOnlineDoctors();
-        console.log('Online doctors response:', response);
         if (response.success) {
           setOnlineDoctors(response.data);
-          console.log('Set online doctors:', response.data);
+          console.log('Online doctors:', response.data);
         }
       }
     } catch (error) {
-      console.error('Error fetching online users:', error);
+      console.error('Error fetching users:', error);
       message.error('Failed to fetch online users: ' + error.message);
     } finally {
       setLoading(false);
     }
   };
 
-  // Initialize Socket.IO connection
+  // Initialize Socket.IO
   useEffect(() => {
     const newSocket = io('https://empolyee-backedn.onrender.com/', {
       transports: ['websocket', 'polling'],
       withCredentials: true,
+      reconnectionAttempts: 5, // Retry connection
+      reconnectionDelay: 1000,
     });
-    console.log('Socket initialized:', newSocket.id);
     setSocket(newSocket);
 
     newSocket.on('connect', async () => {
@@ -132,8 +135,8 @@ const Call = () => {
     });
 
     newSocket.on('connect_error', (error) => {
-      console.error('Socket connection error:', error);
-      message.error('Failed to connect to server. Please try again.');
+      console.error('Socket error:', error);
+      message.error('Failed to connect to server. Retrying...');
       setCallStatus('Socket connection failed');
     });
 
@@ -147,7 +150,7 @@ const Call = () => {
     };
   }, [currentUser]);
 
-  // Handle ICE candidates safely
+  // Handle ICE candidates
   const addIceCandidateSafely = async (candidate) => {
     if (peerConnection && remoteDescriptionSet) {
       try {
@@ -165,7 +168,7 @@ const Call = () => {
   // Process queued ICE candidates
   const processPendingCandidates = async () => {
     if (peerConnection && remoteDescriptionSet && pendingCandidates.length > 0) {
-      console.log('Processing pending ICE candidates:', pendingCandidates);
+      console.log('Processing ICE candidates:', pendingCandidates);
       for (const candidate of pendingCandidates) {
         try {
           await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
@@ -181,7 +184,7 @@ const Call = () => {
   const createPeerConnection = () => {
     const pc = new RTCPeerConnection(iceServers);
     pc.ontrack = (event) => {
-      console.log('ontrack event triggered:', event);
+      console.log('ontrack:', event);
       if (event.streams && event.streams[0]) {
         console.log('Received remote stream:', event.streams[0]);
         setRemoteStream(event.streams[0]);
@@ -203,21 +206,25 @@ const Call = () => {
     pc.oniceconnectionstatechange = () => {
       console.log('ICE Connection State:', pc.iceConnectionState);
       setCallStatus(`Connection: ${pc.iceConnectionState}`);
-      if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected') {
+      if (['failed', 'disconnected', 'closed'].includes(pc.iceConnectionState)) {
+        console.warn('Connection issue detected, attempting to reconnect...');
         endCall();
-        message.error('Connection failed or disconnected');
+        message.error('Connection failed or disconnected. Please try again.');
       }
+    };
+    pc.onicegatheringstatechange = () => {
+      console.log('ICE Gathering State:', pc.iceGatheringState);
     };
     pc.onnegotiationneeded = async () => {
       try {
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
-        console.log('Created and set local offer:', offer);
+        console.log('Created offer:', offer);
         if (socket && connectedUsers[0]) {
           socket.emit('offer', { offer: pc.localDescription, to: connectedUsers[0], from: socket.id });
         }
       } catch (err) {
-        console.error('Error during negotiation:', err);
+        console.error('Negotiation error:', err);
         message.error('Failed to negotiate call');
       }
     };
@@ -229,9 +236,8 @@ const Call = () => {
     if (!socket) return;
 
     socket.on('room-users', (users) => {
-      console.log('Received room-users:', users);
+      console.log('Room users:', users);
       setConnectedUsers(users.filter(user => user !== socket.id));
-      console.log('Updated connectedUsers:', users.filter(user => user !== socket.id));
       setCallStatus(users.length > 1 ? 'Users in room' : 'Waiting for users');
     });
 
@@ -250,7 +256,7 @@ const Call = () => {
     });
 
     socket.on('call-made', async ({ signal, from, name }) => {
-      console.log('Received call-made:', { signal, from, name });
+      console.log('Call-made:', { signal, from, name });
       setIsIncomingCall(true);
       setCallerData({ signal, from, name });
       setCallStatus('Incoming call...');
@@ -262,7 +268,7 @@ const Call = () => {
       setPeerConnection(pc);
       if (localStream) {
         localStream.getTracks().forEach(track => {
-          console.log('Adding track to peer connection:', track);
+          console.log('Adding track:', track);
           pc.addTrack(track, localStream);
         });
       }
@@ -354,7 +360,7 @@ const Call = () => {
   // Update remote video stream
   useEffect(() => {
     if (remoteStream && remoteVideoRef.current) {
-      console.log('Setting remote stream to video element:', remoteStream);
+      console.log('Setting remote stream:', remoteStream);
       remoteVideoRef.current.srcObject = remoteStream;
       remoteVideoRef.current.play().catch(e => {
         console.error('Remote video autoplay error:', e);
@@ -362,7 +368,7 @@ const Call = () => {
         remoteVideoRef.current.play().catch(err => console.error('Retry play failed:', err));
       });
     } else if (!remoteStream && remoteVideoRef.current) {
-      console.log('Clearing remote video srcObject');
+      console.log('Clearing remote video');
       remoteVideoRef.current.srcObject = null;
     }
   }, [remoteStream]);
@@ -378,7 +384,7 @@ const Call = () => {
         video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
         audio: { echoCancellation: true, noiseSuppression: true },
       });
-      console.log('Local stream obtained:', stream);
+      console.log('Local stream:', stream);
       setLocalStream(stream);
       setMediaError(null);
       if (localVideoRef.current) {
@@ -393,45 +399,43 @@ const Call = () => {
       const pc = createPeerConnection();
       setPeerConnection(pc);
       stream.getTracks().forEach(track => {
-        console.log('Adding track to peer connection:', track);
+        console.log('Adding track to peer:', track);
         pc.addTrack(track, stream);
       });
 
       socket.emit('join-room', { roomId: roomId.toLowerCase(), userId: socket.id });
       setCallStatus('Connected to room');
-      await handleStoreSocketId(socket.id); // Store socket ID when joining room
+      await handleStoreSocketId(socket.id);
     } catch (error) {
       console.error('Error joining room:', error);
       if (error.name === 'NotAllowedError') {
-        setMediaError('Camera or microphone access denied. Please allow permissions.');
-        message.error('Camera or microphone access denied. Please allow permissions.');
+        setMediaError('Camera or microphone access denied.');
+        message.error('Camera or microphone access denied.');
       } else if (error.name === 'NotFoundError') {
-        setMediaError('No camera or microphone found. Please check your devices.');
-        message.error('No camera or microphone found. Please check your devices.');
+        setMediaError('No camera or microphone found.');
+        message.error('No camera or microphone found.');
       } else {
-        setMediaError('Failed to access camera/microphone: ' + error.message);
-        message.error('Failed to access camera/microphone: ' + error.message);
+        setMediaError('Failed to access media: ' + error.message);
+        message.error('Failed to access media: ' + error.message);
       }
     }
   };
 
-  // Call user directly by socket ID (for doctors)
+  // Call user by socket ID
   const callUserBySocketId = async (targetSocketId, targetUserId) => {
     if (!peerConnection || !socket || !targetSocketId) {
-      message.error('Cannot make call: Missing peer connection or target user');
+      message.error('Cannot make call: Missing connection or target');
       return;
     }
     try {
       const offer = await peerConnection.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
       await peerConnection.setLocalDescription(offer);
       console.log('Making call with offer:', offer);
-      
       socket.emit('initiate-call', {
         callerId: currentUser.id,
         calleeId: targetUserId,
         callerName: currentUser.name || currentUser.email,
       });
-      
       setCallStatus('Calling...');
     } catch (error) {
       console.error('Error making call:', error);
@@ -442,7 +446,7 @@ const Call = () => {
   // Initiate a call
   const makeCall = async (targetUserId) => {
     if (!peerConnection || !socket || !targetUserId) {
-      message.error('Cannot make call: Missing peer connection or target user');
+      message.error('Cannot make call: Missing connection or target');
       return;
     }
     try {
@@ -457,14 +461,14 @@ const Call = () => {
     }
   };
 
-  // Answer an incoming call
+  // Answer call
   const answerCall = async () => {
     if (!callerData || !peerConnection) {
-      message.error('Cannot answer call: Missing caller data or peer connection');
+      message.error('Cannot answer call: Missing data or connection');
       return;
     }
     try {
-      console.log('Answering call with signal:', callerData.signal);
+      console.log('Answering call:', callerData.signal);
       await peerConnection.setRemoteDescription(new RTCSessionDescription(callerData.signal));
       setRemoteDescriptionSet(true);
       const answer = await peerConnection.createAnswer();
@@ -480,7 +484,7 @@ const Call = () => {
     }
   };
 
-  // Reject an incoming call
+  // Reject call
   const rejectCall = () => {
     if (socket && callerData) {
       socket.emit('reject-call', { to: callerData.from });
@@ -491,10 +495,10 @@ const Call = () => {
     setRemoteDescriptionSet(false);
     setPendingCandidates([]);
     setRemoteStream(null);
-    console.log('Call rejected, states reset');
+    console.log('Call rejected');
   };
 
-  // End the call
+  // End call
   const endCall = async () => {
     console.log('Ending call');
     if (socket && callerData) socket.emit('end-call', { to: callerData.from });
@@ -515,7 +519,7 @@ const Call = () => {
     setPendingCandidates([]);
     if (localVideoRef.current) localVideoRef.current.srcObject = null;
     if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
-    await handleLeaveCall(); // Update backend on call end
+    await handleLeaveCall();
   };
 
   // Toggle audio
@@ -525,10 +529,10 @@ const Call = () => {
       if (audioTrack) {
         audioTrack.enabled = !audioTrack.enabled;
         setIsAudioOn(audioTrack.enabled);
-        console.log('Audio track enabled:', audioTrack.enabled);
+        console.log('Audio track:', audioTrack.enabled);
         message.info(audioTrack.enabled ? 'Microphone ON' : 'Microphone OFF');
       } else {
-        console.warn('No audio track found');
+        console.warn('No audio track');
         message.error('No audio track available');
       }
     }
@@ -541,10 +545,10 @@ const Call = () => {
       if (videoTrack) {
         videoTrack.enabled = !videoTrack.enabled;
         setIsVideoOn(videoTrack.enabled);
-        console.log('Video track enabled:', videoTrack.enabled);
+        console.log('Video track:', videoTrack.enabled);
         message.info(videoTrack.enabled ? 'Camera ON' : 'Camera OFF');
       } else {
-        console.warn('No video track found');
+        console.warn('No video track');
         message.error('No video track available');
       }
     }
@@ -594,7 +598,6 @@ const Call = () => {
           </Card>
         )}
 
-        {/* Online Users Section */}
         {currentUser && !isCallActive && !isIncomingCall && (
           <Card className="mb-4 border-green-500 border-2">
             <div className="flex justify-between items-center mb-4">
@@ -670,7 +673,7 @@ const Call = () => {
                   No {currentUser?.role === 'doctor' ? 'employees' : 'doctors'} online at the moment.
                 </Paragraph>
                 <Paragraph className="text-sm text-gray-400">
-                  Make sure doctors/employees are logged in and have connected to the call service.
+                  Make sure doctors/employees are logged in and connected to the call service.
                 </Paragraph>
               </div>
             )}
@@ -692,7 +695,7 @@ const Call = () => {
               </Button>
             </div>
             <Paragraph className="text-sm text-gray-500">
-              Share the Room ID with others to start a video call!
+              Share the Room ID to start a video call!
             </Paragraph>
             <Paragraph className="text-sm text-gray-500">
               <span>Your User ID: {socket?.id || 'Not connected'}</span>
