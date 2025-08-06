@@ -3,6 +3,7 @@ import { Button, Input, Card, Typography, message, List, Avatar, Badge } from 'a
 import { UserOutlined, VideoCameraOutlined, PhoneOutlined } from '@ant-design/icons';
 import { AuthContext } from '../components/context/AuthContext';
 import { ZegoExpressEngine } from 'zego-express-engine-webrtc';
+import CryptoJS from 'crypto-js';
 
 const { Title, Paragraph } = Typography;
 
@@ -35,14 +36,19 @@ const Call = () => {
 
   // Generate ZEGOCLOUD token
   const generateToken = (userID, roomID) => {
-    const time = Math.floor(Date.now() / 1000);
-    const effectiveTimeInSeconds = 3600; // Token valid for 1 hour
-    const payload = '';
-    const hash = CryptoJS.HmacSHA256(
-      `${roomID}${userID}${time}${effectiveTimeInSeconds}${payload}`,
-      serverSecret
-    ).toString(CryptoJS.enc.Hex);
-    return `04AAAA${time}${effectiveTimeInSeconds}${userID}${roomID}${hash}`;
+    try {
+      const time = Math.floor(Date.now() / 1000);
+      const effectiveTimeInSeconds = 3600; // Token valid for 1 hour
+      const payload = '';
+      const hash = CryptoJS.HmacSHA256(
+        `${roomID}${userID}${time}${effectiveTimeInSeconds}${payload}`,
+        serverSecret
+      ).toString(CryptoJS.enc.Hex);
+      return `04AAAA${time}${effectiveTimeInSeconds}${userID}${roomID}${hash}`;
+    } catch (error) {
+      console.error('Error generating token:', error);
+      throw new Error('Failed to generate ZEGOCLOUD token');
+    }
   };
 
   // Initialize ZEGOCLOUD SDK
@@ -78,14 +84,19 @@ const Call = () => {
       console.log('Room stream update:', { roomID, updateType, streamList });
       if (updateType === 'ADD') {
         const stream = streamList[0];
-        const remoteStream = await zgInstance.startPlayingStream(stream.streamID);
-        setRemoteStream(remoteStream);
-        if (remoteVideoRef.current) {
-          remoteVideoRef.current.srcObject = remoteStream;
-          remoteVideoRef.current.play().catch(e => console.error('Remote video play error:', e));
+        try {
+          const remoteStream = await zgInstance.startPlayingStream(stream.streamID);
+          setRemoteStream(remoteStream);
+          if (remoteVideoRef.current) {
+            remoteVideoRef.current.srcObject = remoteStream;
+            remoteVideoRef.current.play().catch(e => console.error('Remote video play error:', e));
+          }
+          setIsCallActive(true);
+          setCallStatus('Call connected');
+        } catch (error) {
+          console.error('Error playing stream:', error);
+          message.error('Failed to play remote stream');
         }
-        setIsCallActive(true);
-        setCallStatus('Call connected');
       } else if (updateType === 'DELETE') {
         setRemoteStream(null);
         if (remoteVideoRef.current) {
@@ -172,15 +183,18 @@ const Call = () => {
       await fetchOnlineUsers();
     } catch (error) {
       console.error('Error joining room:', error);
-      if (error.name === 'NotAllowedError') {
+      if (error.message === 'Failed to generate ZEGOCLOUD token') {
+        setMediaError('Failed to generate authentication token. Please check your setup.');
+        message.error('Failed to generate authentication token. Please check your setup.');
+      } else if (error.name === 'NotAllowedError') {
         setMediaError('Camera or microphone access denied. Please allow permissions.');
         message.error('Camera or microphone access denied. Please allow permissions.');
       } else if (error.name === 'NotFoundError') {
         setMediaError('No camera or microphone found. Please check your devices.');
         message.error('No camera or microphone found. Please check your devices.');
       } else {
-        setMediaError('Failed to access camera/microphone: ' + error.message);
-        message.error('Failed to access camera/microphone: ' + error.message);
+        setMediaError(`Failed to join room: ${error.message}`);
+        message.error(`Failed to join room: ${error.message}`);
       }
     }
   };
@@ -198,7 +212,11 @@ const Call = () => {
       setIsCallActive(true);
     } catch (error) {
       console.error('Error making call:', error);
-      message.error('Failed to initiate call');
+      if (error.message === 'Failed to generate ZEGOCLOUD token') {
+        message.error('Failed to generate authentication token. Please check your setup.');
+      } else {
+        message.error('Failed to initiate call: ' + error.message);
+      }
     }
   };
 
@@ -290,7 +308,7 @@ const Call = () => {
 
         {mediaError && (
           <Card className="mb-4 border-red-500 border-2">
-            <Title level={4}>Media Error</Title>
+            <Title level={4}>Error</Title>
             <Paragraph className="text-red-500">{mediaError}</Paragraph>
             <Button type="primary" onClick={joinRoom}>
               Retry
