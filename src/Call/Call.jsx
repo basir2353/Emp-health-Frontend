@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useContext } from 'react';
 import io from 'socket.io-client';
-import { Button, Input, Card, Typography, message, List, Avatar, Badge } from 'antd';
+import { Button, Input, Card, Typography, message, List, Avatar, Badge, Spin } from 'antd';
 import { UserOutlined, VideoCameraOutlined, PhoneOutlined } from '@ant-design/icons';
 import { AuthContext } from '../components/context/AuthContext';
 import { storeSocketId, getOnlineUsers, getOnlineDoctors, leaveCall } from '../api/callApi';
@@ -31,8 +31,14 @@ const Call = () => {
   const [loading, setLoading] = useState(false);
   const [reconnectionAttempts, setReconnectionAttempts] = useState(0);
   const [networkStatus, setNetworkStatus] = useState('Checking...');
+  const [diagnosticInfo, setDiagnosticInfo] = useState({
+    localStream: 'Not initialized',
+    remoteStream: 'Not initialized',
+    iceState: 'N/A',
+    iceCandidates: [],
+  });
   const maxReconnectionAttempts = 3;
-  const iceGatheringTimeout = 10000; // 10 seconds
+  const iceGatheringTimeout = 10000;
 
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
@@ -52,6 +58,11 @@ const Call = () => {
         username: 'openrelayproject',
         credential: 'openrelayproject',
       },
+      {
+        urls: 'turn:relay1.express-turn.com:3478',
+        username: 'testuser',
+        credential: 'testpass',
+      },
     ],
     iceCandidatePoolSize: 10,
   };
@@ -64,6 +75,7 @@ const Call = () => {
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
       });
       console.log('Test media stream:', stream);
+      setDiagnosticInfo(prev => ({ ...prev, localStream: 'Initialized' }));
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
         localVideoRef.current.play().catch(e => console.error('Test video play error:', e));
@@ -72,6 +84,7 @@ const Call = () => {
       stream.getTracks().forEach(track => track.stop());
     } catch (error) {
       console.error('Test media error:', error);
+      setDiagnosticInfo(prev => ({ ...prev, localStream: `Error: ${error.message}` }));
       message.error('Failed to access media: ' + error.message);
     }
   };
@@ -192,6 +205,10 @@ const Call = () => {
       try {
         console.log('Adding ICE candidate:', candidate);
         await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+        setDiagnosticInfo(prev => ({
+          ...prev,
+          iceCandidates: [...prev.iceCandidates, candidate],
+        }));
       } catch (error) {
         console.error('Error adding ICE candidate:', error);
       }
@@ -208,6 +225,10 @@ const Call = () => {
       for (const candidate of pendingCandidates) {
         try {
           await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+          setDiagnosticInfo(prev => ({
+            ...prev,
+            iceCandidates: [...prev.iceCandidates, candidate],
+          }));
         } catch (error) {
           console.error('Error adding pending ICE candidate:', error);
         }
@@ -224,13 +245,34 @@ const Call = () => {
     pc.ontrack = (event) => {
       console.log('ontrack:', event);
       if (event.streams && event.streams[0]) {
-        console.log('Received remote stream:', event.streams[0]);
-        setRemoteStream(event.streams[0]);
+        const stream = event.streams[0];
+        console.log('Received remote stream:', stream);
+        const videoTracks = stream.getVideoTracks();
+        const audioTracks = stream.getAudioTracks();
+        console.log('Remote stream video tracks:', videoTracks);
+        console.log('Remote stream audio tracks:', audioTracks);
+        if (videoTracks.length === 0 && audioTracks.length > 0) {
+          message.warning('No video stream received, audio-only mode');
+        }
+        setRemoteStream(stream);
+        setDiagnosticInfo(prev => ({
+          ...prev,
+          remoteStream: `Initialized (Video: ${videoTracks.length}, Audio: ${audioTracks.length})`,
+        }));
         if (remoteVideoRef.current) {
-          remoteVideoRef.current.srcObject = event.streams[0];
+          remoteVideoRef.current.srcObject = stream;
+          remoteVideoRef.current.muted = true; // Mute to bypass autoplay restrictions
           remoteVideoRef.current.play().catch(e => {
             console.error('Remote video play error:', e);
-            message.error('Failed to play remote video');
+            message.error('Failed to play remote video: ' + e.message);
+            setDiagnosticInfo(prev => ({ ...prev, remoteStream: `Error: ${e.message}` }));
+            // Retry playback after a delay
+            setTimeout(() => {
+              remoteVideoRef.current.play().catch(err => {
+                console.error('Retry play failed:', err);
+                message.error('Retry play failed: ' + err.message);
+              });
+            }, 1000);
           });
         }
       }
@@ -243,6 +285,10 @@ const Call = () => {
           candidate: event.candidate,
           to: callerData?.from || connectedUsers[0],
         });
+        setDiagnosticInfo(prev => ({
+          ...prev,
+          iceCandidates: [...prev.iceCandidates, event.candidate],
+        }));
       }
     };
 
@@ -250,6 +296,7 @@ const Call = () => {
       console.log('ICE Connection State:', pc.iceConnectionState);
       setCallStatus(`Connection: ${pc.iceConnectionState}`);
       setNetworkStatus(`ICE: ${pc.iceConnectionState}`);
+      setDiagnosticInfo(prev => ({ ...prev, iceState: pc.iceConnectionState }));
       if (['failed', 'disconnected', 'closed'].includes(pc.iceConnectionState)) {
         console.warn('Connection issue, attempting reconnect...');
         if (reconnectionAttempts < maxReconnectionAttempts) {
@@ -284,10 +331,11 @@ const Call = () => {
       } catch (err) {
         console.error('Negotiation error:', err);
         message.error('Failed to negotiate call');
+        attemptReconnection();
       }
     };
 
-    // Set ICE gathering timeout
+    // ICE gathering timeout
     iceGatheringTimer = setTimeout(() => {
       console.warn('ICE gathering timeout, forcing completion');
       if (pc.iceGatheringState !== 'complete') {
@@ -306,7 +354,7 @@ const Call = () => {
     console.log('Attempting reconnection...');
     if (localStream && roomId && socket) {
       await endCall();
-      const backoff = Math.pow(2, reconnectionAttempts) * 1000; // Exponential backoff
+      const backoff = Math.pow(2, reconnectionAttempts) * 1000;
       setTimeout(async () => {
         await joinRoom();
         if (callerData?.from) {
@@ -353,8 +401,8 @@ const Call = () => {
       setPeerConnection(pc);
       if (localStream) {
         localStream.getTracks().forEach(track => {
-          console.log('Adding track:', track);
           if (track.readyState === 'live') {
+            console.log('Adding track:', track);
             pc.addTrack(track, localStream);
           } else {
             console.warn('Track not live:', track);
@@ -453,23 +501,34 @@ const Call = () => {
   useEffect(() => {
     if (remoteStream && remoteVideoRef.current) {
       console.log('Setting remote stream:', remoteStream);
+      const videoTracks = remoteStream.getVideoTracks();
+      if (videoTracks.length === 0) {
+        console.warn('No video tracks in remote stream');
+        message.warning('No video stream received from remote user');
+      }
       remoteVideoRef.current.srcObject = remoteStream;
+      remoteVideoRef.current.muted = true; // Mute to bypass autoplay restrictions
       remoteVideoRef.current.play().catch(e => {
-        console.error('Remote video autoplay error:', e);
-        remoteVideoRef.current.muted = true;
-        remoteVideoRef.current.play().catch(err => {
-          console.error('Retry play failed:', err);
-          message.error('Failed to play remote video');
-        });
+        console.error('Remote video play error:', e);
+        message.error('Failed to play remote video: ' + e.message);
+        setDiagnosticInfo(prev => ({ ...prev, remoteStream: `Error: ${e.message}` }));
+        // Retry playback
+        setTimeout(() => {
+          remoteVideoRef.current.play().catch(err => {
+            console.error('Retry play failed:', err);
+            message.error('Retry play failed: ' + err.message);
+          });
+        }, 1000);
       });
     } else if (!remoteStream && remoteVideoRef.current) {
       console.log('Clearing remote video');
       remoteVideoRef.current.srcObject = null;
+      setDiagnosticInfo(prev => ({ ...prev, remoteStream: 'Not initialized' }));
     }
   }, [remoteStream]);
 
   // Join room and initialize media
-  const joinRoom = async () => {
+  const joinRoom = async (retryCount = 0) => {
     if (!roomId || !socket) {
       message.error('Room ID or socket not available');
       return;
@@ -483,6 +542,11 @@ const Call = () => {
         });
       } catch (videoError) {
         console.warn('Video failed, trying audio-only:', videoError);
+        if (retryCount < 2) {
+          message.warning('Video not available, retrying...');
+          setTimeout(() => joinRoom(retryCount + 1), 1000);
+          return;
+        }
         stream = await navigator.mediaDevices.getUserMedia({
           audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
         });
@@ -493,12 +557,13 @@ const Call = () => {
       console.log('Local stream:', stream);
       setLocalStream(stream);
       setMediaError(null);
+      setDiagnosticInfo(prev => ({ ...prev, localStream: 'Initialized' }));
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
+        localVideoRef.current.muted = true;
         localVideoRef.current.play().catch(e => {
-          console.error('Local video autoplay error:', e);
-          localVideoRef.current.muted = true;
-          localVideoRef.current.play();
+          console.error('Local video play error:', e);
+          setDiagnosticInfo(prev => ({ ...prev, localStream: `Error: ${e.message}` }));
         });
       }
 
@@ -510,16 +575,21 @@ const Call = () => {
           pc.addTrack(track, stream);
         } else {
           console.warn('Track not live:', track);
+          setDiagnosticInfo(prev => ({
+            ...prev,
+            localStream: `Error: Track ${track.kind} not live`,
+          }));
         }
       });
 
       socket.emit('join-room', { roomId: roomId.toLowerCase(), userId: socket.id });
       setCallStatus('Connected to room');
+      setNetworkStatus('Connected to room');
       await handleStoreSocketId(socket.id);
       setReconnectionAttempts(0);
-      setNetworkStatus('Connected to room');
     } catch (error) {
       console.error('Error joining room:', error);
+      setDiagnosticInfo(prev => ({ ...prev, localStream: `Error: ${error.message}` }));
       if (error.name === 'NotAllowedError') {
         setMediaError('Camera or microphone access denied.');
         message.error('Camera or microphone access denied.');
@@ -549,6 +619,7 @@ const Call = () => {
         callerName: currentUser.name || currentUser.email,
       });
       setCallStatus('Calling...');
+      setNetworkStatus('Calling...');
       setReconnectionAttempts(0);
     } catch (error) {
       console.error('Error making call:', error);
@@ -569,6 +640,7 @@ const Call = () => {
       console.log('Making call with offer:', offer);
       socket.emit('call-user', { userToCall: targetUserId, signalData: offer, from: socket.id, name: userId });
       setCallStatus('Calling...');
+      setNetworkStatus('Calling...');
       setReconnectionAttempts(0);
     } catch (error) {
       console.error('Error making call:', error);
@@ -611,6 +683,7 @@ const Call = () => {
     setIsIncomingCall(false);
     setCallerData(null);
     setCallStatus('Call rejected');
+    setNetworkStatus('Disconnected');
     setRemoteDescriptionSet(false);
     setPendingCandidates([]);
     setRemoteStream(null);
@@ -637,6 +710,13 @@ const Call = () => {
     setNetworkStatus('Disconnected');
     setRemoteDescriptionSet(false);
     setPendingCandidates([]);
+    setDiagnosticInfo(prev => ({
+      ...prev,
+      localStream: 'Not initialized',
+      remoteStream: 'Not initialized',
+      iceState: 'N/A',
+      iceCandidates: [],
+    }));
     if (localVideoRef.current) localVideoRef.current.srcObject = null;
     if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
     await handleLeaveCall();
@@ -709,11 +789,27 @@ const Call = () => {
           )}
         </Card>
 
+        <Card className="mb-4 border-blue-500 border-2">
+          <Title level={4}>Diagnostics</Title>
+          <Paragraph>
+            <strong>Local Stream:</strong> {diagnosticInfo.localStream}
+          </Paragraph>
+          <Paragraph>
+            <strong>Remote Stream:</strong> {diagnosticInfo.remoteStream}
+          </Paragraph>
+          <Paragraph>
+            <strong>ICE State:</strong> {diagnosticInfo.iceState}
+          </Paragraph>
+          <Paragraph>
+            <strong>ICE Candidates:</strong> {diagnosticInfo.iceCandidates.length} received
+          </Paragraph>
+        </Card>
+
         {mediaError && (
           <Card className="mb-4 border-red-500 border-2">
             <Title level={4}>Media Error</Title>
             <Paragraph className="text-red-500">{mediaError}</Paragraph>
-            <Button type="primary" onClick={joinRoom}>
+            <Button type="primary" onClick={() => joinRoom()}>
               Retry
             </Button>
           </Card>
@@ -729,7 +825,12 @@ const Call = () => {
                 onChange={(e) => setRoomId(e.target.value.toLowerCase())}
                 className="w-64"
               />
-              <Button type="primary" onClick={joinRoom} disabled={!roomId.trim() || !socket} style={{ backgroundColor: 'black' }}>
+              <Button
+                type="primary"
+                onClick={() => joinRoom()}
+                disabled={!roomId.trim() || !socket}
+                style={{ backgroundColor: 'black' }}
+              >
                 Join
               </Button>
               <Button onClick={testMedia}>
@@ -911,12 +1012,18 @@ const Call = () => {
             <Title level={4} className="text-center">
               {currentUser?.role === 'doctor' ? 'Patient' : 'Doctor'}
             </Title>
-            <video
-              ref={remoteVideoRef}
-              autoPlay
-              playsInline
-              className="w-full h-[500px] bg-black rounded-lg object-cover border-2 border-green-500"
-            />
+            {remoteStream ? (
+              <video
+                ref={remoteVideoRef}
+                autoPlay
+                playsInline
+                className="w-full h-[500px] bg-black rounded-lg object-cover border-2 border-green-500"
+              />
+            ) : (
+              <div className="w-full h-[500px] bg-black rounded-lg flex items-center justify-center border-2 border-green-500">
+                <Spin tip="Waiting for remote video..." />
+              </div>
+            )}
             <div className="absolute bottom-2 left-2 bg-gray-800 text-white px-2 py-1 rounded text-sm">
               {remoteStream ? 'Remote User' : 'Waiting for remote video...'}
             </div>
