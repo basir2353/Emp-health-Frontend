@@ -1,10 +1,8 @@
 import React, { useState, useEffect, useRef, useContext } from 'react';
-import io from 'socket.io-client';
 import { ZegoExpressEngine } from 'zego-express-engine-webrtc';
-import { Button, Input, Card, Typography, message, List, Avatar, Badge, Spin } from 'antd';
-import { UserOutlined, VideoCameraOutlined } from '@ant-design/icons';
+import { Button, Input, Card, Typography, message, Spin } from 'antd';
+import { VideoCameraOutlined } from '@ant-design/icons';
 import { AuthContext } from '../components/context/AuthContext';
-import { storeSocketId, getOnlineUsers, getOnlineDoctors } from '../api/callApi';
 
 const { Title, Paragraph } = Typography;
 
@@ -14,27 +12,36 @@ const serverSecret = '08b17ed68b9d48ed301e32184ed7a624';
 
 const Call = () => {
   const { currentUser } = useContext(AuthContext);
-  const [socket, setSocket] = useState(null);
   const [zegoClient, setZegoClient] = useState(null);
   const [localStream, setLocalStream] = useState(null);
   const [remoteStream, setRemoteStream] = useState(null);
   const [roomId, setRoomId] = useState('');
   const [userId, setUserId] = useState('');
   const [callStatus, setCallStatus] = useState('Disconnected');
-  const [onlineUsers, setOnlineUsers] = useState([]);
-  const [onlineDoctors, setOnlineDoctors] = useState([]);
-  const [isUserOnline, setIsUserOnline] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [networkStatus, setNetworkStatus] = useState('Checking...');
+  const [isAudioOn, setIsAudioOn] = useState(true);
+  const [isVideoOn, setIsVideoOn] = useState(true);
+  const [mediaError, setMediaError] = useState(null);
   const [diagnosticInfo, setDiagnosticInfo] = useState({
     localStream: 'Not initialized',
     remoteStream: 'Not initialized',
-    socketId: 'Not connected',
     connectionState: 'N/A',
   });
 
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
+
+  // Generate unique userID
+  useEffect(() => {
+    if (currentUser?.id) {
+      setUserId(`user_${currentUser.id}`);
+    } else {
+      // Fallback to random ID if currentUser is not available
+      const randomId = `user_${Math.random().toString(36).substr(2, 9)}`;
+      setUserId(randomId);
+    }
+    console.log('Generated userID:', userId);
+    setDiagnosticInfo(prev => ({ ...prev, connectionState: `User ID: ${userId}` }));
+  }, [currentUser, userId]);
 
   // Initialize ZEGOCLOUD client
   useEffect(() => {
@@ -61,134 +68,10 @@ const Call = () => {
     };
   }, [roomId, localStream, userId]);
 
-  // Initialize Socket.IO
-  useEffect(() => {
-    const newSocket = io('https://empolyee-backedn.onrender.com/', {
-      transports: ['websocket'],
-      withCredentials: true,
-      reconnection: false, // Disable auto-reconnection to prevent address changes
-    });
-    setSocket(newSocket);
-
-    newSocket.on('connect', async () => {
-      console.log('Socket connected:', newSocket.id);
-      setUserId(newSocket.id); // Sync userId with socket.id
-      setCallStatus('Socket connected');
-      setNetworkStatus('Connected');
-      setDiagnosticInfo(prev => ({ ...prev, socketId: newSocket.id }));
-      await handleStoreSocketId(newSocket.id);
-      await fetchOnlineUsers();
-    });
-
-    newSocket.on('connect_error', (error) => {
-      console.error('Socket connect error:', error);
-      setNetworkStatus('Connection failed');
-      setDiagnosticInfo(prev => ({ ...prev, socketId: 'Connection failed', connectionState: `Error: ${error.message}` }));
-      message.error('Failed to connect to server: ' + error.message);
-    });
-
-    newSocket.on('disconnect', (reason) => {
-      console.log('Socket disconnected:', reason);
-      setNetworkStatus('Disconnected');
-      setIsUserOnline(false);
-      setDiagnosticInfo(prev => ({ ...prev, socketId: 'Disconnected', connectionState: `Disconnected: ${reason}` }));
-      message.error('Socket disconnected: ' + reason);
-    });
-
-    return () => {
-      console.log('Cleaning up socket');
-      newSocket.close();
-      if (localStream && zegoClient) {
-        zegoClient.stopPublishingStream(userId);
-        zegoClient.destroyStream(localStream);
-      }
-    };
-  }, [zegoClient, currentUser]);
-
-  // Store socket ID
-  const handleStoreSocketId = async (socketId) => {
-    if (!currentUser?.id) {
-      console.warn('No current user');
-      setDiagnosticInfo(prev => ({ ...prev, socketId: 'No current user' }));
-      return;
-    }
-    try {
-      const response = await storeSocketId(currentUser.id, socketId);
-      if (response.success) {
-        console.log('Socket ID stored:', response);
-        setIsUserOnline(true);
-        message.success('Connected to call service');
-      } else {
-        console.error('Failed to store socket ID:', response);
-        setDiagnosticInfo(prev => ({ ...prev, socketId: `Error: ${response.message}` }));
-        message.error('Failed to store socket ID');
-      }
-    } catch (error) {
-      console.error('Error storing socket ID:', error);
-      setDiagnosticInfo(prev => ({ ...prev, socketId: `Error: ${error.message}` }));
-      message.error('Failed to connect to call service: ' + error.message);
-    }
-  };
-
-  // Fetch online users
-  const fetchOnlineUsers = async () => {
-    if (!currentUser?.id) {
-      console.log('No current user');
-      return;
-    }
-    try {
-      setLoading(true);
-      if (currentUser.role === 'doctor') {
-        const response = await getOnlineUsers();
-        if (response.success) {
-          setOnlineUsers(response.data);
-          console.log('Online users:', response.data);
-        }
-      } else if (currentUser.role === 'employee') {
-        const response = await getOnlineDoctors();
-        if (response.success) {
-          setOnlineDoctors(response.data);
-          console.log('Online doctors:', response.data);
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching users:', error);
-      message.error('Failed to fetch users: ' + error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Handle socket events for room users
-  useEffect(() => {
-    if (!socket || !zegoClient) return;
-
-    socket.on('room-users', (users) => {
-      console.log('Room users:', users);
-      setDiagnosticInfo(prev => ({ ...prev, connectionState: `Room users: ${users.length}` }));
-    });
-
-    socket.on('user-connected', (newUserId) => {
-      console.log('User connected:', newUserId);
-      setDiagnosticInfo(prev => ({ ...prev, connectionState: `User connected: ${newUserId}` }));
-    });
-
-    socket.on('user-disconnected', (disconnectedUserId) => {
-      console.log('User disconnected:', disconnectedUserId);
-      setDiagnosticInfo(prev => ({ ...prev, connectionState: `User disconnected: ${disconnectedUserId}` }));
-    });
-
-    return () => {
-      socket.off('room-users');
-      socket.off('user-connected');
-      socket.off('user-disconnected');
-    };
-  }, [socket, zegoClient]);
-
   // Join room and initialize media
   const joinRoom = async () => {
-    if (!roomId || !socket || !zegoClient) {
-      message.error('Room ID, socket, or ZEGOCLOUD client not available');
+    if (!roomId || !zegoClient) {
+      message.error('Room ID or ZEGOCLOUD client not available');
       setDiagnosticInfo(prev => ({ ...prev, connectionState: 'Missing room ID or client' }));
       return;
     }
@@ -200,6 +83,7 @@ const Call = () => {
       );
       console.log('Logged into ZEGOCLOUD room:', roomId);
       setDiagnosticInfo(prev => ({ ...prev, connectionState: `Logged into room ${roomId}` }));
+      setCallStatus('Connected to room');
 
       const stream = await zegoClient.createStream({
         camera: { video: true, audio: true, videoQuality: 4 },
@@ -238,38 +122,26 @@ const Call = () => {
                 message.error(`Failed to play remote video: ${e.message}`);
               });
             }
-          }, 3000); // Increased delay to prevent play interruption
+          }, 3000); // 3-second delay to prevent play interruption
         }
       });
 
-      socket.emit('join-room', { roomId: roomId.toLowerCase(), userId: socket.id });
-      setCallStatus('Connected to room');
-      setNetworkStatus('Connected to room');
-      await handleStoreSocketId(socket.id);
+      zegoClient.on('roomUserUpdate', (roomID, updateType, userList) => {
+        console.log('Room user update:', { roomID, updateType, userList });
+        setDiagnosticInfo(prev => ({
+          ...prev,
+          connectionState: `Room update: ${updateType} - ${userList.length} users`,
+        }));
+      });
     } catch (error) {
       console.error('Error joining room:', error);
-      setDiagnosticInfo(prev => ({ ...prev, localStream: `Error: ${error.message}`, connectionState: `Error: ${error.message}` }));
+      setDiagnosticInfo(prev => ({
+        ...prev,
+        localStream: `Error: ${error.message}`,
+        connectionState: `Error: ${error.message}`,
+      }));
+      setMediaError('Failed to access media: ' + error.message);
       message.error('Failed to access media: ' + error.message);
-    }
-  };
-
-  // Call user by socket ID
-  const callUserBySocketId = async (targetSocketId, targetUserId) => {
-    if (!zegoClient || !socket || !targetSocketId) {
-      message.error('Cannot make call: Missing connection or target');
-      setDiagnosticInfo(prev => ({ ...prev, connectionState: 'Missing client or target' }));
-      return;
-    }
-    try {
-      console.log('Initiating call to:', { targetSocketId, targetUserId, callerSocketId: socket.id });
-      socket.emit('join-room', { roomId: roomId.toLowerCase(), userId: socket.id });
-      setCallStatus('Calling...');
-      setNetworkStatus('Calling...');
-      setDiagnosticInfo(prev => ({ ...prev, connectionState: `Calling ${targetSocketId}` }));
-    } catch (error) {
-      console.error('Error making call:', error);
-      setDiagnosticInfo(prev => ({ ...prev, connectionState: `Call error: ${error.message}` }));
-      message.error('Failed to initiate call: ' + error.message);
     }
   };
 
@@ -286,7 +158,6 @@ const Call = () => {
     }
     setRemoteStream(null);
     setCallStatus('Disconnected');
-    setNetworkStatus('Disconnected');
     setDiagnosticInfo(prev => ({
       ...prev,
       localStream: 'Not initialized',
@@ -294,8 +165,7 @@ const Call = () => {
       connectionState: 'Disconnected',
     }));
     if (localVideoRef.current) localVideoRef.current.srcObject = null;
-    if (remoteVideoRef.current) localVideoRef.current.srcObject = null;
-    socket.emit('leave-room', { roomId: roomId.toLowerCase(), userId: socket.id });
+    if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
   };
 
   // Toggle audio
@@ -360,10 +230,8 @@ const Call = () => {
       <header className="p-4 flex justify-between items-center">
         <Title level={3}>Video Call</Title>
         <div className="flex items-center space-x-4">
-          <span className="text-sm">Socket ID: {socket?.id || 'Not connected'}</span>
-          <span className="text-sm">ZEGO User ID: {userId || 'Not set'}</span>
-          <Badge status={isUserOnline ? 'success' : 'error'} text={isUserOnline ? 'Online' : 'Offline'} />
-          <span className="text-sm">Network: {networkStatus}</span>
+          <span className="text-sm">User ID: {userId || 'Not set'}</span>
+          <span className="text-sm">Status: {callStatus}</span>
           <Button type="primary" danger onClick={endCall}>
             Leave Call
           </Button>
@@ -389,7 +257,7 @@ const Call = () => {
         <Card className="mb-4 border-blue-500 border-2">
           <Title level={4}>Diagnostics</Title>
           <Paragraph>
-            <strong>Socket ID:</strong> {diagnosticInfo.socketId}
+            <strong>User ID:</strong> {userId}
           </Paragraph>
           <Paragraph>
             <strong>Local Stream:</strong> {diagnosticInfo.localStream}
@@ -402,7 +270,17 @@ const Call = () => {
           </Paragraph>
         </Card>
 
-        {!localStream && (
+        {mediaError && (
+          <Card className="mb-4 border-red-500 border-2">
+            <Title level={4}>Media Error</Title>
+            <Paragraph className="text-red-500">{mediaError}</Paragraph>
+            <Button type="primary" onClick={() => joinRoom()}>
+              Retry
+            </Button>
+          </Card>
+        )}
+
+        {!localStream && !mediaError && (
           <Card className="mb-4 border-blue-500 border-2">
             <Title level={4}>Join Room</Title>
             <div className="flex space-x-2 mb-2">
@@ -415,7 +293,7 @@ const Call = () => {
               <Button
                 type="primary"
                 onClick={() => joinRoom()}
-                disabled={!roomId.trim() || !socket || !zegoClient}
+                disabled={!roomId.trim() || !zegoClient}
                 style={{ backgroundColor: 'black' }}
               >
                 Join
@@ -425,82 +303,35 @@ const Call = () => {
               </Button>
             </div>
             <Paragraph className="text-sm text-gray-500">
-              Share the Room ID to connect with {currentUser?.role === 'doctor' ? 'a patient' : 'a doctor'}!
+              Share the Room ID with {currentUser?.role === 'doctor' ? 'a patient' : 'a doctor'} to start a video call!
             </Paragraph>
           </Card>
         )}
 
-        {currentUser && (
-          <Card className="mb-4 border-green-500 border-2">
-            <div className="flex justify-between items-center mb-4">
-              <Title level={4}>
-                {currentUser?.role === 'doctor' ? 'Online Patients' : 'Online Doctors'}
-              </Title>
-              <Button onClick={fetchOnlineUsers} loading={loading}>
-                Refresh
+        {localStream && (
+          <Card className="mb-4 bg-green-50">
+            <Title level={4}>Call Controls</Title>
+            <div className="flex space-x-2">
+              <Button
+                style={{ backgroundColor: 'black' }}
+                type={isAudioOn ? 'primary' : 'default'}
+                onClick={toggleAudio}
+                icon={<span>{isAudioOn ? '🎤' : '🔇'}</span>}
+              >
+                {isAudioOn ? 'Mute' : 'Unmute'}
+              </Button>
+              <Button
+                style={{ backgroundColor: 'black' }}
+                type={isVideoOn ? 'primary' : 'default'}
+                onClick={toggleVideo}
+                icon={<span>{isVideoOn ? '📹' : '📷'}</span>}
+              >
+                {isVideoOn ? 'Stop Video' : 'Start Video'}
+              </Button>
+              <Button danger onClick={endCall}>
+                End Call
               </Button>
             </div>
-            {currentUser?.role === 'doctor' && onlineUsers.length > 0 && (
-              <List
-                dataSource={onlineUsers}
-                renderItem={(user) => (
-                  <List.Item
-                    actions={[
-                      <Button
-                        type="primary"
-                        icon={<VideoCameraOutlined />}
-                        onClick={() => callUserBySocketId(user.socketId, user._id)}
-                        className="bg-green-600"
-                      >
-                        Call
-                      </Button>,
-                    ]}
-                  >
-                    <List.Item.Meta
-                      avatar={<Avatar icon={<UserOutlined />} />}
-                      title={`Patient ${user._id}`}
-                      description={`Socket ID: ${user.socketId}`}
-                    />
-                  </List.Item>
-                )}
-              />
-            )}
-            {currentUser?.role === 'employee' && onlineDoctors.length > 0 && (
-              <List
-                dataSource={onlineDoctors}
-                renderItem={(doctor) => (
-                  <List.Item
-                    actions={[
-                      <Button
-                        type="primary"
-                        icon={<VideoCameraOutlined />}
-                        onClick={() => callUserBySocketId(doctor.socketId, doctor._id)}
-                        className="bg-green-600"
-                      >
-                        Call
-                      </Button>,
-                    ]}
-                  >
-                    <List.Item.Meta
-                      avatar={<Avatar icon={<UserOutlined />} />}
-                      title={`Doctor ${doctor._id}`}
-                      description={`Socket ID: ${doctor.socketId}`}
-                    />
-                  </List.Item>
-                )}
-              />
-            )}
-            {((currentUser?.role === 'doctor' && onlineUsers.length === 0) ||
-              (currentUser?.role === 'employee' && onlineDoctors.length === 0)) && (
-              <div>
-                <Paragraph className="text-gray-500">
-                  No {currentUser?.role === 'doctor' ? 'patients' : 'doctors'} online at the moment.
-                </Paragraph>
-                <Paragraph className="text-sm text-gray-400">
-                  Make sure {currentUser?.role === 'doctor' ? 'patients' : 'doctors'} are logged in and connected.
-                </Paragraph>
-              </div>
-            )}
           </Card>
         )}
 
@@ -517,7 +348,7 @@ const Call = () => {
               className="w-full h-[500px] bg-black rounded-lg object-cover border-2 border-blue-500"
             />
             <div className="absolute bottom-2 left-2 bg-gray-800 text-white px-2 py-1 rounded text-sm">
-              You
+              You ({isVideoOn ? 'Camera On' : 'Camera Off'})
             </div>
           </div>
           <div className="relative">
