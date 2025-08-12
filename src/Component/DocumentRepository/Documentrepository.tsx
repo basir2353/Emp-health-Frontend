@@ -13,7 +13,7 @@ import {
 import axios from "axios";
 import DrAlishaKane from "../../public/images/Alisha.svg"; // Ensure the image path is correct
 
-const API_BASE_URL = "http://localhost:5000/api"; // Update with your API URL
+const API_BASE_URL = "https://empolyee-backedn.onrender.com/api"; // Update with your API URL
 
 interface User {
   name: string;

@@ -37,12 +37,12 @@ const HealthForum: React.FC = () => {
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const token = localStorage.getItem("token");
 
-  const baseURL = "http://localhost:5000/api";
+  const baseURL = "https://empolyee-backedn.onrender.com/api";
 
   // Fetch posts
   const fetchPosts = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/posts`, {
+      const res = await axios.get(`https://empolyee-backedn.onrender.com/api/posts`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setPosts(res.data.posts);
@@ -72,7 +72,7 @@ const HealthForum: React.FC = () => {
 
     try {
       const res = await axios.post(
-        `http://localhost:5000/api/posts/create`,
+        `https://empolyee-backedn.onrender.com/api/posts/create`,
         { content: postContent },
         { headers: { Authorization: `Bearer ${token}` } }
       );
