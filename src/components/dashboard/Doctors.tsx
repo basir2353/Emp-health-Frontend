@@ -16,6 +16,7 @@ interface Doctor {
   gender: string;
   new_date?: string;
   date: string;
+  breaks?: { startTime: string; endTime: string }[];
 }
 
 interface ApiDoctor {
@@ -24,7 +25,12 @@ interface ApiDoctor {
   education?: string;
   department?: string;
   experience?: string;
-  workingHours?: { start: string; end: string; date: string };
+  workingHours?: {
+    start: string;
+    end: string;
+    date?: string;
+    breaks?: { startTime: string; endTime: string; _id: string }[];
+  };
   gender?: string;
   date?: string;
   new_date?: string;
@@ -42,6 +48,10 @@ const mapApiDoctorToDoctor = (apiDoctor: ApiDoctor): Doctor => {
     new_date: apiDoctor?.workingHours?.date,
     gender: apiDoctor.gender || "other",
     date: apiDoctor.date || "2025-08-02",
+    breaks: apiDoctor.workingHours?.breaks?.map((b) => ({
+      startTime: b.startTime,
+      endTime: b.endTime,
+    })) || [],
   };
 };
 

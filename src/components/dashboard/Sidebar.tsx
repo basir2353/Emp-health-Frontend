@@ -43,13 +43,35 @@ interface Doctor {
   experience: string;
   new_date?: string;
   date: string;
+  breaks?: { startTime: string; endTime: string }[];
 }
 
 // Default avatar URL
 const DEFAULT_AVATAR = "https://cdn-icons-png.flaticon.com/512/3675/3675805.png";
 
-// Function to generate time slots based on doctor's available_hours and selected date
-const generateTimeSlots = (availableHours: string, selectedDate: string | null) => {
+// Function to normalize time slot string
+const normalizeTimeSlot = (time: string, selectedDate: string): string => {
+  let startStr: string;
+  if (time.includes(" - ")) {
+    // Already in "HH:mm - HH:mm" format
+    [startStr] = time.split(" - ");
+  } else {
+    // Assume "h:mm A" or "h:mm AM/PM"
+    const parsed = dayjs(`${selectedDate} ${time}`, "YYYY-MM-DD h:mm A");
+    if (!parsed.isValid()) return time; // Return original if invalid
+    startStr = parsed.format("HH:mm");
+  }
+  const start = dayjs(`${selectedDate} ${startStr}`, "YYYY-MM-DD HH:mm");
+  const end = start.add(1, "hour");
+  return `${start.format("HH:mm")} - ${end.format("HH:mm")}`;
+};
+
+// Function to generate time slots based on doctor's available_hours, selected date, and breaks
+const generateTimeSlots = (
+  availableHours: string,
+  selectedDate: string | null,
+  breaks: { startTime: string; endTime: string }[] = []
+) => {
   if (!availableHours || !selectedDate || !dayjs(selectedDate, "YYYY-MM-DD").isValid()) {
     console.warn("Invalid inputs:", { availableHours, selectedDate });
     return [];
@@ -76,24 +98,27 @@ const generateTimeSlots = (availableHours: string, selectedDate: string | null) 
   const isToday = selectedDateTime.isSame(currentDateTime, "day");
   const now = currentDateTime;
 
+  const breakIntervals = breaks.map((b) => ({
+    start: dayjs(`${selectedDate} ${b.startTime}`, "YYYY-MM-DD HH:mm", true).tz("Asia/Karachi"),
+    end: dayjs(`${selectedDate} ${b.endTime}`, "YYYY-MM-DD HH:mm", true).tz("Asia/Karachi"),
+  }));
+
   const slots: string[] = [];
   let current = start;
 
   while (current.isBefore(end)) {
     const slotEnd = current.add(1, "hour");
-    if (slotEnd.isAfter(end)) break;
+    const finalSlotEnd = slotEnd.isAfter(end) ? end : slotEnd;
 
-    if (!isToday || current.isAfter(now)) {
-      slots.push(`${current.format("HH:mm")} - ${slotEnd.format("HH:mm")}`);
-    }
-    current = slotEnd;
-  }
+    const overlaps = breakIntervals.some(
+      (br) => current.isBefore(br.end) && finalSlotEnd.isAfter(br.start)
+    );
 
-  if (slots.length === 0 && start.isBefore(end)) {
-    const fallbackEnd = start.add(1, "hour");
-    if (fallbackEnd.isBefore(end) || fallbackEnd.isSame(end)) {
-      return [`${start.format("HH:mm")} - ${fallbackEnd.format("HH:mm")}`];
+    if (!overlaps && (!isToday || current.isAfter(now))) {
+      slots.push(`${current.format("HH:mm")} - ${finalSlotEnd.format("HH:mm")}`);
     }
+
+    current = finalSlotEnd;
   }
 
   console.log("Generated time slots:", slots);
@@ -115,16 +140,49 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [isCancelClicked, setIsCancelClicked] = useState(false);
   const [selectedOption, setSelectedOption] = useState("");
   const [timeSlots, setTimeSlots] = useState<string[]>([]);
+  const [bookedTimes, setBookedTimes] = useState<string[]>([]);
   const [currentSelectedDate, setCurrentSelectedDate] = useState<string | null>(null); // Track the single selected date for time slots
 
-  // Generate time slots based on doctor's available_hours and current selected date
+  // Fetch appointments and generate time slots when date or doctor changes
   useEffect(() => {
     if (selectedDoctor && currentSelectedDate && dayjs(currentSelectedDate, "YYYY-MM-DD").isValid()) {
-      const slots = generateTimeSlots(selectedDoctor.available_hours, currentSelectedDate);
+      const fetchAppointments = async () => {
+        try {
+          const token = localStorage.getItem("token_real");
+          const response = await axios.get("https://empolyee-backedn.onrender.com/api/appointments", {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          });
+          const apps = response.data.appointments || []; // Corrected to access appointments array
+          const booked = apps
+            .filter(
+              (app: any) =>
+                app.doctorName === selectedDoctor.name &&
+                app.date === dayjs(currentSelectedDate).format("MMM D") &&
+                app.day === dayjs(currentSelectedDate).format("ddd")
+            )
+            .map((app: any) => normalizeTimeSlot(app.time, currentSelectedDate));
+          setBookedTimes(booked);
+        } catch (error) {
+          console.error("Error fetching appointments:", error);
+          setBookedTimes([]);
+        }
+      };
+
+      fetchAppointments();
+
+      const slots = generateTimeSlots(
+        selectedDoctor.available_hours,
+        currentSelectedDate,
+        selectedDoctor.breaks
+      );
       setTimeSlots(slots);
       setSelectedCard(null);
     } else {
       setTimeSlots([]);
+      setBookedTimes([]);
       console.warn("Cannot generate time slots: invalid doctor or date", { selectedDoctor, currentSelectedDate });
     }
   }, [selectedDoctor, currentSelectedDate]);
@@ -182,7 +240,11 @@ const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const handleCardClick = (index: number) => {
-    setSelectedCard(index);
+    if (!bookedTimes.includes(timeSlots[index])) {
+      setSelectedCard(index);
+    } else {
+      message.warning("This slot is already booked.");
+    }
   };
 
   const handleAppointmentTypeChange = (type: string) => {
@@ -224,6 +286,11 @@ const Sidebar: React.FC<SidebarProps> = ({
     const timeSlot = timeSlots[selectedCard];
     if (!timeSlot) {
       message.error("Invalid time slot selected.");
+      return;
+    }
+
+    if (bookedTimes.includes(timeSlot)) {
+      message.error("This slot is already booked. Please select another.");
       return;
     }
 
@@ -524,17 +591,26 @@ const Sidebar: React.FC<SidebarProps> = ({
           </p>
           <div className="grid grid-cols-2 gap-4">
             {timeSlots.length > 0 ? (
-              timeSlots.map((slot, index) => (
-                <div
-                  key={index}
-                  className={`flex items-center justify-center h-[44px] border border-gray-300 rounded cursor-pointer ${
-                    selectedCard === index ? "bg-sky-200" : "bg-gray-200"
-                  }`}
-                  onClick={() => handleCardClick(index)}
-                >
-                  <p className="text-sm font-medium text-black">{slot}</p>
-                </div>
-              ))
+              timeSlots.map((slot, index) => {
+                const isBooked = bookedTimes.includes(slot);
+                return (
+                  <div
+                    key={index}
+                    className={`flex items-center justify-center h-[44px] border rounded cursor-pointer ${
+                      isBooked
+                        ? "bg-red-200 text-red-800"
+                        : selectedCard === index
+                        ? "bg-sky-200"
+                        : "bg-gray-200"
+                    } ${isBooked ? "pointer-events-none" : ""}`}
+                    onClick={() => handleCardClick(index)}
+                  >
+                    <p className="text-sm font-medium text-black">
+                      {slot} {isBooked ? "(Booked)" : ""}
+                    </p>
+                  </div>
+                );
+              })
             ) : (
               <p className="text-sm text-gray-500">No available time slots</p>
             )}
