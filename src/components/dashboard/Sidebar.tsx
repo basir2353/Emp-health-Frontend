@@ -31,7 +31,7 @@ interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
   selectedDoctor: Doctor | null;
-  selectedDate: string | null; // Expected format: YYYY-MM-DD
+  selectedDates: string[] | null; // Array of allowed dates
 }
 
 interface Doctor {
@@ -41,13 +41,14 @@ interface Doctor {
   image?: string;
   available_hours: string;
   experience: string;
+  new_date?: string;
   date: string;
 }
 
 // Default avatar URL
 const DEFAULT_AVATAR = "https://cdn-icons-png.flaticon.com/512/3675/3675805.png";
 
-// Function to generate time slots based on doctor's available_hours
+// Function to generate time slots based on doctor's available_hours and selected date
 const generateTimeSlots = (availableHours: string, selectedDate: string | null) => {
   if (!availableHours || !selectedDate || !dayjs(selectedDate, "YYYY-MM-DD").isValid()) {
     console.warn("Invalid inputs:", { availableHours, selectedDate });
@@ -104,42 +105,47 @@ const Sidebar: React.FC<SidebarProps> = ({
   isOpen,
   onClose,
   selectedDoctor,
-  selectedDate,
+  selectedDates, // Now an array of allowed dates
 }) => {
   const dispatch = useDispatch();
   const [selectedCard, setSelectedCard] = useState<number | null>(null);
   const [selectedAppointmentType, setSelectedAppointmentType] = useState("Walk in");
-  const [selectedDateValue, setSelectedDateValue] = useState<Dayjs | undefined>(
-    selectedDate && dayjs(selectedDate, "YYYY-MM-DD").isValid()
-      ? dayjs(selectedDate, "YYYY-MM-DD").tz("Asia/Karachi")
-      : undefined
-  );
+  const [selectedDateValue, setSelectedDateValue] = useState<Dayjs | undefined>(undefined);
   const [Isedit, setIsedit] = useState(isedit);
   const [isCancelClicked, setIsCancelClicked] = useState(false);
   const [selectedOption, setSelectedOption] = useState("");
   const [timeSlots, setTimeSlots] = useState<string[]>([]);
+  const [currentSelectedDate, setCurrentSelectedDate] = useState<string | null>(null); // Track the single selected date for time slots
 
-  // Generate time slots based on doctor's available_hours and selected date
+  // Generate time slots based on doctor's available_hours and current selected date
   useEffect(() => {
-    if (selectedDoctor && selectedDate && dayjs(selectedDate, "YYYY-MM-DD").isValid()) {
-      const slots = generateTimeSlots(selectedDoctor.available_hours, selectedDate);
+    if (selectedDoctor && currentSelectedDate && dayjs(currentSelectedDate, "YYYY-MM-DD").isValid()) {
+      const slots = generateTimeSlots(selectedDoctor.available_hours, currentSelectedDate);
       setTimeSlots(slots);
       setSelectedCard(null);
     } else {
       setTimeSlots([]);
-      console.warn("Cannot generate time slots: invalid doctor or date", { selectedDoctor, selectedDate });
+      console.warn("Cannot generate time slots: invalid doctor or date", { selectedDoctor, currentSelectedDate });
     }
-  }, [selectedDoctor, selectedDate]);
+  }, [selectedDoctor, currentSelectedDate]);
 
-  // Update selectedDateValue when selectedDate prop changes
+  // Update selectedDateValue when selectedDates prop changes (set to first valid date initially)
   useEffect(() => {
-    if (selectedDate && dayjs(selectedDate, "YYYY-MM-DD").isValid()) {
-      setSelectedDateValue(dayjs(selectedDate, "YYYY-MM-DD").tz("Asia/Karachi"));
+    if (selectedDates && selectedDates.length > 0) {
+      const firstValidDate = selectedDates.find(date => dayjs(date, "YYYY-MM-DD").isValid());
+      if (firstValidDate) {
+        setSelectedDateValue(dayjs(firstValidDate, "YYYY-MM-DD").tz("Asia/Karachi"));
+        setCurrentSelectedDate(firstValidDate); // Set initial current date
+      } else {
+        setSelectedDateValue(undefined);
+        setCurrentSelectedDate(null);
+      }
     } else {
       setSelectedDateValue(undefined);
-      console.warn("Invalid selectedDate:", selectedDate);
+      setCurrentSelectedDate(null);
+      console.warn("No valid dates in selectedDates:", selectedDates);
     }
-  }, [selectedDate]);
+  }, [selectedDates]);
 
   // Get the day of the week for the selected date
   const getCurrentDay = () => {
@@ -149,14 +155,25 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   // Handle date selection in the calendar
   const handleDateSelect = (date: Dayjs) => {
-    setSelectedDateValue(date.tz("Asia/Karachi"));
+    const formattedDate = date.format("YYYY-MM-DD");
+    if (selectedDates?.includes(formattedDate)) {
+      setSelectedDateValue(date.tz("Asia/Karachi"));
+      setCurrentSelectedDate(formattedDate); // Update current selected date for time slots
+    }
   };
 
-  // Disable past dates and future dates beyond 30 days
+  // Disable dates not in selectedDates array, plus past dates and future beyond 30 days
   const disabledDate = (current: Dayjs) => {
     const today = dayjs().tz("Asia/Karachi").startOf("day");
     const maxDate = today.add(30, "day");
-    return current && (current < today || current > maxDate);
+    const formattedCurrent = current.format("YYYY-MM-DD");
+
+    // Disable if past, beyond 30 days, or not in selectedDates
+    return (
+      current < today ||
+      current > maxDate ||
+      !selectedDates?.includes(formattedCurrent)
+    );
   };
 
   const handelcancel = () => {

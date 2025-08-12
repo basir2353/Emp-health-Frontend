@@ -195,7 +195,7 @@ const ScheduleCalnder: React.FC = () => {
           .filter((breakItem) => breakItem.startTime && breakItem.endTime),
       };
 
-      const response = await fetch(`https://empolyee-backedn.onrender.com/${userId}/schedule`, {
+      const response = await fetch(`http://localhost:5000/${userId}/schedule`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

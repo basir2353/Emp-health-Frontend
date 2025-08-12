@@ -14,6 +14,7 @@ interface Doctor {
   experience: string;
   available_hours: string;
   gender: string;
+  new_date?: string;
   date: string;
 }
 
@@ -23,9 +24,10 @@ interface ApiDoctor {
   education?: string;
   department?: string;
   experience?: string;
-  workingHours?: { start: string; end: string };
+  workingHours?: { start: string; end: string; date: string };
   gender?: string;
   date?: string;
+  new_date?: string;
 }
 
 const mapApiDoctorToDoctor = (apiDoctor: ApiDoctor): Doctor => {
@@ -37,6 +39,7 @@ const mapApiDoctorToDoctor = (apiDoctor: ApiDoctor): Doctor => {
     available_hours: apiDoctor.workingHours
       ? `${apiDoctor.workingHours.start} - ${apiDoctor.workingHours.end}`
       : "N/A",
+    new_date: apiDoctor?.workingHours?.date,
     gender: apiDoctor.gender || "other",
     date: apiDoctor.date || "2025-08-02",
   };
@@ -49,18 +52,19 @@ export const Doctors = () => {
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
   const [selectedSpecialty, setSelectedSpecialty] = useState<string | null>(null);
   const [selectedGender, setSelectedGender] = useState<string | null>("other");
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedDates, setSelectedDates] = useState<string[] | null>(null); // Updated to array for consistency
   const [allDoctors, setAllDoctors] = useState<Doctor[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchDoctors = async () => {
       try {
-        const response = await axios.get("https://empolyee-backedn.onrender.com/api/all-doctors");
+        const response = await axios.get("http://localhost:5000/api/all-doctors");
         if (response.data && Array.isArray(response.data.doctors)) {
           const apiDoctors: ApiDoctor[] = response.data.doctors;
           const mappedDoctors = apiDoctors.map(mapApiDoctorToDoctor);
           setAllDoctors(mappedDoctors);
+          console.log(mappedDoctors, 'mappedDoctors'); // Log mappedDoctors for debugging
         } else {
           setAllDoctors([]);
         }
@@ -76,7 +80,10 @@ export const Doctors = () => {
   }, []);
 
   const handleBookAppointment = (doctor: Doctor) => {
+    console.log(doctor, 'hhh');
     setSelectedDoctor(doctor);
+    // Set selectedDates to the doctor's new_date (as an array for Sidebar compatibility)
+    setSelectedDates(doctor.new_date ? [doctor.new_date] : null);
     openSidebar();
   };
 
@@ -89,13 +96,13 @@ export const Doctors = () => {
   };
 
   const openSidebar = () => {
-    setSelectedDate(dayjs().format("YYYY-MM-DD"));
     setIsSidebarOpen(true);
   };
 
   const closeSidebar = () => {
-    setSelectedDate(dayjs().format("YYYY-MM-DD"));
     setIsSidebarOpen(false);
+    // Optionally reset selectedDates on close
+    setSelectedDates(null);
   };
 
   const handleFilterSelect = (
@@ -147,142 +154,141 @@ export const Doctors = () => {
   ];
 
   if (isLoading) {
+    return (
+      <div className="justify-start pt-2 items-center bg-gray-100 h-screen px-4">
+        <div className="flex justify-center items-center h-64">
+          <div>Loading doctors...</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="justify-start pt-2 items-center bg-gray-100 h-screen px-4">
-      <div className="flex justify-center items-center h-64">
-        <div>Loading doctors...</div>
-      </div>
-    </div>
-  );
-}
+    <div className="justify-start pt-2 items-center bg-gray-100 min-h-screen px-4 md:px-10">
+      <BreadCrumb items={breadcrumbs} />
 
-return (
-  <div className="justify-start pt-2 items-center bg-gray-100 min-h-screen px-4 md:px-10">
-    <BreadCrumb items={breadcrumbs} />
-
-    {/* Top Action Row */}
-    <div className="w-full flex justify-between items-start pt-5 max-sm:flex-col max-sm:gap-4">
-      <div
-        className="text-black flex justify-center items-center"
-        style={{
-          width: "30px",
-          height: "30px",
-          borderRadius: "50%",
-          backgroundColor: "transparent",
-          border: "1px solid black",
-          cursor: "pointer",
-        }}
-      >
-        <ArrowLeftOutlined />
-      </div>
-
-      <Button
-        type="primary"
-        block
-        onClick={openSidebar}
-        style={{ background: "black", width: "176px" }}
-        className="max-lg:w-full w-44"
-      >
-        Book Appointment
-      </Button>
-    </div>
-
-    {/* Heading + Search Row */}
-    <div className="w-full flex justify-between items-start pt-7 max-sm:flex-col max-sm:gap-3">
-      <div className="text-black text-2xl md:text-3xl font-medium ml-2 md:ml-7">
-        Available Doctors!! ({filteredDoctors.length})
-      </div>
-
-      <div className="flex gap-2 mr-2 flex-wrap max-sm:flex-col max-sm:w-full">
-        <Search placeholder="Search Location..." style={{ width: 200 }} />
-        <Button
-          type="default"
-          icon={<FilterOutlined />}
-          onClick={openFilterSidebar}
-          className="max-sm:w-full"
+      {/* Top Action Row */}
+      <div className="w-full flex justify-between items-start pt-5 max-sm:flex-col max-sm:gap-4">
+        <div
+          className="text-black flex justify-center items-center"
+          style={{
+            width: "30px",
+            height: "30px",
+            borderRadius: "50%",
+            backgroundColor: "transparent",
+            border: "1px solid black",
+            cursor: "pointer",
+          }}
         >
-          Filter
+          <ArrowLeftOutlined />
+        </div>
+
+        <Button
+          type="primary"
+          block
+          onClick={openSidebar}
+          style={{ background: "black", width: "176px" }}
+          className="max-lg:w-full w-44"
+        >
+          Book Appointment
         </Button>
       </div>
-    </div>
 
-    {/* Doctor Cards */}
-    <div className="w-full flex justify-start items-start mt-6 px-2">
-      <Row gutter={[16, 16]} className="w-full">
-        {filteredDoctors.length > 0 ? (
-          filteredDoctors.map((doctor, index) => (
-            <Col key={index} xs={24} sm={12} md={12} lg={6}>
-              <div className="w-full min-h-[280px] border border-gray-300 rounded px-4 py-4 flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center">
-                    <Avatar
-                      size={60}
-                      style={{
-                        backgroundColor: "#1890ff",
-                        border: "2px solid black",
-                      }}
-                      icon={<UserOutlined />}
-                      className="border-2 border-black"
-                    >
-                      {getInitials(doctor.name)}
-                    </Avatar>
-                    <div className="ml-3 mt-4 text-xl font-semibold">
-                      {doctor.name}
+      {/* Heading + Search Row */}
+      <div className="w-full flex justify-between items-start pt-7 max-sm:flex-col max-sm:gap-3">
+        <div className="text-black text-2xl md:text-3xl font-medium ml-2 md:ml-7">
+          Available Doctors!! ({filteredDoctors.length})
+        </div>
+
+        <div className="flex gap-2 mr-2 flex-wrap max-sm:flex-col max-sm:w-full">
+          <Search placeholder="Search Location..." style={{ width: 200 }} />
+          <Button
+            type="default"
+            icon={<FilterOutlined />}
+            onClick={openFilterSidebar}
+            className="max-sm:w-full"
+          >
+            Filter
+          </Button>
+        </div>
+      </div>
+
+      {/* Doctor Cards */}
+      <div className="w-full flex justify-start items-start mt-6 px-2">
+        <Row gutter={[16, 16]} className="w-full">
+          {filteredDoctors.length > 0 ? (
+            filteredDoctors.map((doctor, index) => (
+              <Col key={index} xs={24} sm={12} md={12} lg={6}>
+                <div className="w-full min-h-[280px] border border-gray-300 rounded px-4 py-4 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center">
+                      <Avatar
+                        size={60}
+                        style={{
+                          backgroundColor: "#1890ff",
+                          border: "2px solid black",
+                        }}
+                        icon={<UserOutlined />}
+                        className="border-2 border-black"
+                      >
+                        {getInitials(doctor.name)}
+                      </Avatar>
+                      <div className="ml-3 mt-4 text-xl font-semibold">
+                        {doctor.name}
+                      </div>
+                    </div>
+                    <div className="text-sm text-gray-500 mt-4">
+                      {doctor.profession}
+                    </div>
+                    <div className="text-sm text-gray-500 mt-2">
+                      {doctor.education}
                     </div>
                   </div>
-                  <div className="text-sm text-gray-500 mt-4">
-                    {doctor.profession}
+
+                  <div className="border-b-2 w-full my-2"></div>
+
+                  <div className="flex gap-2">
+                    <div className="text-sm text-gray-500">Experience:</div>
+                    <div>{doctor.experience}</div>
                   </div>
-                  <div className="text-sm text-gray-500 mt-2">
-                    {doctor.education}
-                  </div>
+
+                  <Button
+                    type="primary"
+                    block
+                    onClick={() => handleBookAppointment(doctor)}
+                    style={{ backgroundColor: "black" }}
+                    className="mt-4"
+                  >
+                    Book Appointment
+                  </Button>
                 </div>
-
-                <div className="border-b-2 w-full my-2"></div>
-
-                <div className="flex gap-2">
-                  <div className="text-sm text-gray-500">Experience:</div>
-                  <div>{doctor.experience}</div>
-                </div>
-
-                <Button
-                  type="primary"
-                  block
-                  onClick={() => handleBookAppointment(doctor)}
-                  style={{ backgroundColor: "black" }}
-                  className="mt-4"
-                >
-                  Book Appointment
-                </Button>
+              </Col>
+            ))
+          ) : (
+            <Col span={24}>
+              <div className="text-center text-gray-500">
+                No doctors available matching the selected filters.
               </div>
             </Col>
-          ))
-        ) : (
-          <Col span={24}>
-            <div className="text-center text-gray-500">
-              No doctors available matching the selected filters.
-            </div>
-          </Col>
-        )}
-      </Row>
+          )}
+        </Row>
+      </div>
+
+      {/* Sidebars */}
+      <Sidebar
+        isedit={false}
+        isOpen={isSidebarOpen}
+        onClose={closeSidebar}
+        selectedDoctor={selectedDoctor}
+        selectedDates={selectedDates} // Updated prop name to match SidebarProps
+      />
+      <FilterSidebar
+        isOpen={isFilterSidebarOpen}
+        onClose={closeFilterSidebar}
+        onFilterSelect={handleFilterSelect}
+      />
     </div>
-
-    {/* Sidebars */}
-    <Sidebar
-      isedit={false}
-      isOpen={isSidebarOpen}
-      onClose={closeSidebar}
-      selectedDoctor={selectedDoctor}
-      selectedDate={selectedDate}
-    />
-    <FilterSidebar
-      isOpen={isFilterSidebarOpen}
-      onClose={closeFilterSidebar}
-      onFilterSelect={handleFilterSelect}
-    />
-  </div>
-);
-
+  );
 };
 
 export default Doctors;
