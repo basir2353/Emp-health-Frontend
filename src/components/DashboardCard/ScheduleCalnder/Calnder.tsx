@@ -1,32 +1,17 @@
-import { useState, useEffect } from 'react';
-import { Calendar, Spin, Typography, Alert } from 'antd';
-import type { Dayjs } from 'dayjs';
-import dayjs from 'dayjs';
-import axios from 'axios';
-
-
-
-interface User {
-  _id: string;
-  name: string;
-  email: string;
-  role: string;
-}
+import { useState, useEffect } from "react";
+import { Spin, Typography, Alert, Button, Modal } from "antd";
+import dayjs, { Dayjs } from "dayjs";
+import axios from "axios";
 
 interface Appointment {
   _id: string;
-  day: string;
-  date: string;
-  time: string;
+  date: string; // "Aug 12"
+  time: string; // "09:00 AM"
   type: string;
   doctorName: string;
-  avatarSrc?: string;
-  user: User;
-  createdAt: string;
-  __v: number;
-  doctorId: string;
-  status?: string;
   patient: string;
+  status?: string;
+  avatarSrc?: string;
 }
 
 interface AppointmentCalendarProps {
@@ -36,261 +21,223 @@ interface AppointmentCalendarProps {
   currentMonth: string;
 }
 
-const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({ userId, userRole, selectedDoctor, currentMonth }) => {
+const timeSlots = Array.from({ length: 12 }, (_, i) =>
+  dayjs().hour(8).minute(0).add(i, "hour").format("HH:00")
+);
+
+const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
+  userId,
+  userRole,
+  selectedDoctor,
+}) => {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string>("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [selectedDate, setSelectedDate] = useState<Dayjs>(dayjs());
-  const [doctorName, setDoctorName] = useState<string | null>(null);
-  const [userName, setUserName] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"week" | "day">("week");
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [currentTimePosition, setCurrentTimePosition] = useState<number>(0);
 
   useEffect(() => {
-    const userData = localStorage.getItem("user") || localStorage.getItem("loggedInUser");
-    const token = localStorage.getItem("token");
-
-    let role: string | null = null;
-    let name: string | null = null;
-
-    if (userData) {
-      try {
-        const parsedUser = JSON.parse(userData);
-        role = parsedUser.role || null;
-        name = parsedUser.name || null;
-      } catch (e) {
-        console.error("Error parsing user data from local storage:", e);
-        setError("Failed to parse user data. Please log in again.");
-      }
-    }
-
-    console.log("Local Storage - Role:", role, "Name:", name, "Token:", token);
-
-    setUserName(name);
-
     const fetchAppointments = async () => {
+      const token = localStorage.getItem("token");
       if (!token) {
-        setError("No authentication token found. Please log in.");
+        setError("No token found");
         setLoading(false);
         return;
       }
 
-      setLoading(true);
-      try {
-        let endpoint = "https://empolyee-backedn.onrender.com/api/appointments";
-        if (role === "admin" && selectedDoctor) {
-          endpoint += `?doctorId=${selectedDoctor}`;
-        } else if (role === "doctor" && userId) {
-          endpoint += `?doctorId=${userId}`;
-        } else if (role === "employee" && userId) {
-          endpoint += `?userId=${userId}`;
-        }
+      let endpoint = "https://empolyee-backedn.onrender.com/api/appointments";
+      const role = userRole;
 
-        const response = await axios.get(endpoint, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+      if (role === "admin" && selectedDoctor) {
+        endpoint += `?doctorId=${selectedDoctor}`;
+      } else if (role === "doctor" && userId) {
+        endpoint += `?doctorId=${userId}`;
+      } else if (role === "employee" && userId) {
+        endpoint += `?userId=${userId}`;
+      }
+
+      try {
+        const res = await axios.get(endpoint, {
+          headers: { Authorization: `Bearer ${token}` },
         });
 
-        console.log("API Response:", response.data);
+        const mapped = res.data.appointments.map((appt: any) => ({
+          _id: appt._id,
+          date: appt.date,
+          time: appt.time,
+          type: appt.type,
+          doctorName: appt.doctorName,
+          patient: appt.user?.name || "-",
+          status: appt.status || "Scheduled",
+          avatarSrc: appt.avatarSrc || "https://cdn-icons-png.flaticon.com/512/3675/3675805.png", // Default avatar if not available
+        }));
 
-        const fetchedAppointments = response?.data?.appointments;
-        if (Array.isArray(fetchedAppointments)) {
-          const mappedAppointments = fetchedAppointments.map((appt: any) => ({
-            _id: appt._id,
-            day: appt.day,
-            date: appt.date,
-            time: appt.time,
-            type: appt.type,
-            doctorName: appt.doctorName,
-            avatarSrc: appt.avatarSrc || "https://cdn-icons-png.flaticon.com/512/149/149071.png",
-            patient: appt.user?.name || "-",
-            status: appt.status || "Scheduled",
-            user: appt.user,
-            createdAt: appt.createdAt,
-            __v: appt.__v,
-            doctorId: appt.doctorId,
-          }));
-
-          console.log("Mapped Appointments:", mappedAppointments);
-
-          if (role === "admin") {
-            console.log("Admin role detected: Displaying all appointments.");
-            setAppointments(mappedAppointments);
-          } else if (role === "doctor") {
-            if (name) {
-              const filteredAppointments = mappedAppointments.filter((appt: Appointment) =>
-                appt.doctorName.toLowerCase().includes(name!.toLowerCase() || "")
-              );
-              console.log("Doctor role detected - Filtered Appointments:", filteredAppointments);
-              setAppointments(filteredAppointments);
-            } else {
-              setAppointments([]);
-              setError("User name not found for doctor role.");
-            }
-          } else if (role === "employee") {
-            const filteredAppointments = mappedAppointments.filter((appt: Appointment) =>
-              appt.user?._id === userId
-            );
-            setAppointments(filteredAppointments);
-          } else {
-            setAppointments([]);
-            setError("Invalid role or user name not found.");
-          }
-        } else {
-          setAppointments([]);
-          setError("No appointments found in the response.");
-        }
-      } catch (err: any) {
-        console.error("API Error:", err);
-        setError(err?.response?.data?.message || err?.message || "Failed to fetch appointments");
+        setAppointments(mapped);
+      } catch (e: any) {
+        setError(e?.message || "Error fetching appointments");
       } finally {
         setLoading(false);
       }
     };
 
-    const fetchDoctorName = async () => {
-      if (role === "doctor" && userId) {
-        try {
-          const response = await fetch("https://empolyee-backedn.onrender.com/api/all-doctors");
-          if (!response.ok) throw new Error("Failed to fetch doctors");
-          const data = await response.json();
-          const doctor = data.doctors?.find((d: any) => d._id === userId);
-          setDoctorName(doctor?.name || null);
-        } catch (error) {
-          setDoctorName(null);
-        }
-      } else if (role === "admin" && selectedDoctor) {
-        try {
-          const response = await fetch("https://empolyee-backedn.onrender.com/api/all-doctors");
-          if (!response.ok) throw new Error("Failed to fetch doctors");
-          const data = await response.json();
-          const doctor = data.doctors?.find((d: any) => d._id === selectedDoctor);
-          setDoctorName(doctor?.name || null);
-        } catch (error) {
-          setDoctorName(null);
-        }
-      } else {
-        setDoctorName(null);
-      }
-    };
-
     fetchAppointments();
-    fetchDoctorName();
-  }, [userId, userRole, selectedDoctor]);
+  }, [userId, userRole, selectedDoctor, selectedDate]);
 
-  const parseDate = (dateStr: string): { month: number; day: number } => {
-    const [month, day] = dateStr.split(' ');
-    const monthIndex: { [key: string]: number } = {
+  const parseDate = (dateStr: string) => {
+    const [month, day] = dateStr.split(" ");
+    const months: Record<string, number> = {
       Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
       Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11,
     };
-    return { month: monthIndex[month], day: parseInt(day, 10) };
+    return dayjs().month(months[month]).date(parseInt(day, 10));
   };
 
-  const getAppointmentsForDate = (date: Dayjs): Appointment[] => {
-    return appointments.filter((appt) => {
-      const { month, day } = parseDate(appt.date);
-      return (
-        date.month() === month &&
-        date.date() === day &&
-        date.year() === new Date().getFullYear()
-      );
-    });
-  };
+  const getAppointmentsForSlot = (slot: string, date: Dayjs) =>
+    appointments.filter(
+      (appt) =>
+        parseDate(appt.date).isSame(date, "day") &&
+        appt.time.startsWith(slot)
+    );
 
-  const isPatientView = userRole === "employee";
+  const renderDayColumn = (date: Dayjs) => (
+    <div className="flex flex-col flex-1 border-l relative">
+      {timeSlots.map((slot) => {
+        const appts = getAppointmentsForSlot(slot, date);
+        return (
+          <div key={slot} className="border-b h-20 relative p-1">
+            {appts.map((appt) => (
+              <div
+                key={appt._id}
+                className="bg-blue-500 text-white text-xs rounded-lg p-2 shadow-md cursor-pointer flex items-center"
+                onClick={() => setSelectedAppointment(appt)}
+                style={{ minHeight: '60px' }}
+              >
+                <img
+                  src={appt.avatarSrc || 'https://cdn-icons-png.flaticon.com/512/3675/3675805.png'}
+                  alt="Profile"
+                  className="w-10 h-10 rounded-full mr-2"
+                />
+                <div className="flex-1">
+                  <div className="font-bold">{userRole === "employee" ? appt.doctorName : appt.patient}</div>
+                  <div>Type: {appt.type || 'Virtual'}</div>
+                  <div>{appt.time}</div>
+                </div>
+                <div className="ml-auto">
+                  <span className="bg-white text-blue-500 text-xs px-2 py-1 rounded">...</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      })}
+      {/* Red line for current time (only if today) */}
+      {date.isSame(dayjs(), "day") && (
+        <div
+          className="absolute left-0 right-0 bg-red-500 h-0.5"
+          style={{ top: `${currentTimePosition}px` }}
+        />
+      )}
+    </div>
+  );
 
-  const dateCellRender = (value: Dayjs) => {
-    const appts = getAppointmentsForDate(value);
+  const renderWeekView = () => {
+    const startOfWeek = selectedDate.startOf("week");
+    const days = Array.from({ length: 7 }, (_, i) => startOfWeek.add(i, "day"));
+
     return (
-      <div className="relative">
-        {appts.length > 0 && (
-          <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
-        )}
-        {appts.map((appt) => (
-          <div key={appt._id} className="mb-1">
-            <div className="bg-black text-white p-2 rounded-lg shadow-md items-center justify-between">
-              <div>{appt.time}</div>
-              <div className="font-bold">{isPatientView ? appt.doctorName : appt.patient}</div>
-              <div className="text-xs text-gray-400">{appt.type}</div>
+      <div className="flex flex-row h-full">
+        {/* Time Column */}
+        <div className="w-20 border-r flex flex-col">
+          {timeSlots.map((slot) => (
+            <div key={slot} className="border-b h-20 flex items-center justify-center text-xs">
+              {slot}
             </div>
+          ))}
+        </div>
+
+        {/* Days Columns */}
+        {days.map((day) => (
+          <div key={day.format("YYYY-MM-DD")} className="flex-1">
+            <div className="text-center font-bold border-b py-2 bg-gray-100">
+              {day.format("ddd DD")}
+            </div>
+            {renderDayColumn(day)}
           </div>
         ))}
       </div>
     );
   };
 
-  const onSelect = (date: Dayjs) => {
-    setSelectedDate(date);
-  };
-
-  const renderAppointmentDetails = () => {
-    const appts = getAppointmentsForDate(selectedDate);
-    if (appts.length === 0) {
-      return (
-        <Typography.Text className="text-gray-500">
-          No appointments on {selectedDate.format('MMMM D, YYYY')} for {isPatientView ? "you" : doctorName || "selected doctor"}.
-        </Typography.Text>
-      );
-    }
-    return appts.map((appt) => (
-      <div
-        key={appt._id}
-        className="bg-gray-800 text-white rounded-lg p-3 mb-4 shadow-lg flex items-center justify-between"
-        style={{ minWidth: '300px' }}
-      >
-        <div className="flex items-center">
-          <img
-            src={isPatientView ? appt.avatarSrc || "https://cdn-icons-png.flaticon.com/512/149/149071.png" : "https://cdn-icons-png.flaticon.com/512/149/149071.png"}
-            alt={`${isPatientView ? appt.doctorName : appt.patient} avatar`}
-            className="w-10 h-10 rounded-full mr-3"
-          />
-          <div>
-            <div className="font-semibold">{isPatientView ? appt.doctorName : appt.patient}</div>
-            <div className="text-sm">Type: {appt.type}</div>
-            <div className="text-sm">{appt.time}</div>
-            <div className="text-sm">Status: {appt.status}</div>
+  const renderDayView = () => (
+    <div className="flex">
+      <div className="w-20 border-r flex flex-col">
+        {timeSlots.map((slot) => (
+          <div key={slot} className="border-b h-20 flex items-center justify-center text-xs">
+            {slot}
           </div>
-        </div>
-        <div className="text-right">
-          <span className="text-xs">...</span>
-        </div>
+        ))}
       </div>
-    ));
-  };
+      {renderDayColumn(selectedDate)}
+    </div>
+  );
+
+  // Update current time position every minute
+  useEffect(() => {
+    const updatePosition = () => {
+      const startHour = 8;
+      const now = dayjs();
+      const minutesSinceStart = (now.hour() - startHour) * 60 + now.minute();
+      setCurrentTimePosition((minutesSinceStart / 60) * 80); // 80px per hour
+    };
+    updatePosition();
+    const interval = setInterval(updatePosition, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
-    <div className="w-full max-w-[95vw] mx-auto p-6">
+    <div className="p-4">
       {loading ? (
-        <div className="flex justify-center items-center h-64">
-          <Spin size="large" tip="Loading appointments..." />
-        </div>
+        <Spin size="large" />
       ) : (
         <>
-          {error && <Alert message={error} type="error" showIcon className="mb-4" />}
-          <Typography.Title level={2} className="text-center mb-6 text-blue-600">
-            {userRole === "admin" && selectedDoctor
-              ? `Appointments for ${doctorName || "Selected Doctor"}`
-              : userRole === "doctor"
-              ? `Your Appointments (${doctorName || "You"})`
-              : userRole === "employee"
-              ? "My Appointments"
-              : "Appointment Calendar"}
-          </Typography.Title>
-          <Calendar
-            dateCellRender={dateCellRender}
-            onSelect={onSelect}
-            value={selectedDate}
-            className="mb-6 rounded-lg shadow-md"
-            fullscreen
-            style={{ border: '2px solid #3b82f6', borderRadius: '8px' }}
-            validRange={[dayjs(currentMonth, "MMMM").startOf("month"), dayjs(currentMonth, "MMMM").endOf("month")]}
-          />
-          <div>
-            <Typography.Title level={4} className="mb-4 text-blue-600">
-              Appointments for {selectedDate.format('MMMM D, YYYY')}
+          {error && <Alert message={error} type="error" />}
+          <div className="flex justify-between items-center mb-4">
+            <Typography.Title level={3}>
+              {selectedDate.format("MMMM YYYY")}
             </Typography.Title>
-            {renderAppointmentDetails()}
+            <div className="flex gap-2">
+              <Button onClick={() => setSelectedDate(selectedDate.subtract(1, "week"))}>
+                Previous
+              </Button>
+              <Button onClick={() => setSelectedDate(selectedDate.add(1, "week"))}>
+                Next
+              </Button>
+              <Button onClick={() => setViewMode("day")}>Day View</Button>
+              <Button onClick={() => setViewMode("week")}>Week View</Button>
+            </div>
           </div>
+          {viewMode === "week" ? renderWeekView() : renderDayView()}
+
+          {/* Appointment Details Modal */}
+          <Modal
+            open={!!selectedAppointment}
+            onCancel={() => setSelectedAppointment(null)}
+            footer={null}
+            title="Appointment Details"
+          >
+            {selectedAppointment && (
+              <div>
+                <p><b>Time:</b> {selectedAppointment.time}</p>
+                <p><b>Date:</b> {selectedAppointment.date}</p>
+                <p><b>Doctor:</b> {selectedAppointment.doctorName}</p>
+                <p><b>Patient:</b> {selectedAppointment.patient}</p>
+                <p><b>Type:</b> {selectedAppointment.type}</p>
+                <p><b>Status:</b> {selectedAppointment.status}</p>
+              </div>
+            )}
+          </Modal>
         </>
       )}
     </div>
