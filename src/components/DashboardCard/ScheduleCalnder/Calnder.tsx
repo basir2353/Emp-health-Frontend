@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import { Calendar, Spin, Typography, Alert } from 'antd';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
+import axios from 'axios';
+
+
 
 interface User {
   _id: string;
@@ -17,22 +20,13 @@ interface Appointment {
   time: string;
   type: string;
   doctorName: string;
-  avatarSrc: string;
+  avatarSrc?: string;
   user: User;
   createdAt: string;
   __v: number;
   doctorId: string;
-}
-
-interface ApiResponse {
-  appointments: Appointment[];
-}
-
-interface Doctor {
-  _id: string;
-  name: string;
-  email: string;
-  // Add other fields if needed
+  status?: string;
+  patient: string;
 }
 
 interface AppointmentCalendarProps {
@@ -48,46 +42,128 @@ const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({ userId, userR
   const [error, setError] = useState<string>("");
   const [selectedDate, setSelectedDate] = useState<Dayjs>(dayjs());
   const [doctorName, setDoctorName] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchAppointments = async () => {
+    const userData = localStorage.getItem("user") || localStorage.getItem("loggedInUser");
+    const token = localStorage.getItem("token");
+
+    let role: string | null = null;
+    let name: string | null = null;
+
+    if (userData) {
       try {
-        setLoading(true);
-        setError("");
-        const endpoint =
-          userRole === "admin" && selectedDoctor
-            ? `https://empolyee-backedn.onrender.com/api/appointments?doctorId=${selectedDoctor}`
-            : userRole === "doctor"
-            ? `https://empolyee-backedn.onrender.com/api/appointments?doctorId=${userId}`
-            : "https://empolyee-backedn.onrender.com/api/appointments";
-        const response = await fetch(endpoint);
-        if (!response.ok) throw new Error("Failed to fetch appointments");
-        const data: ApiResponse = await response.json();
-        setAppointments(data.appointments || []);
+        const parsedUser = JSON.parse(userData);
+        role = parsedUser.role || null;
+        name = parsedUser.name || null;
+      } catch (e) {
+        console.error("Error parsing user data from local storage:", e);
+        setError("Failed to parse user data. Please log in again.");
+      }
+    }
+
+    console.log("Local Storage - Role:", role, "Name:", name, "Token:", token);
+
+    setUserName(name);
+
+    const fetchAppointments = async () => {
+      if (!token) {
+        setError("No authentication token found. Please log in.");
         setLoading(false);
-      } catch (error: any) {
-        setError(error.message);
+        return;
+      }
+
+      setLoading(true);
+      try {
+        let endpoint = "https://empolyee-backedn.onrender.com/api/appointments";
+        if (role === "admin" && selectedDoctor) {
+          endpoint += `?doctorId=${selectedDoctor}`;
+        } else if (role === "doctor" && userId) {
+          endpoint += `?doctorId=${userId}`;
+        } else if (role === "employee" && userId) {
+          endpoint += `?userId=${userId}`;
+        }
+
+        const response = await axios.get(endpoint, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        console.log("API Response:", response.data);
+
+        const fetchedAppointments = response?.data?.appointments;
+        if (Array.isArray(fetchedAppointments)) {
+          const mappedAppointments = fetchedAppointments.map((appt: any) => ({
+            _id: appt._id,
+            day: appt.day,
+            date: appt.date,
+            time: appt.time,
+            type: appt.type,
+            doctorName: appt.doctorName,
+            avatarSrc: appt.avatarSrc || "https://cdn-icons-png.flaticon.com/512/149/149071.png",
+            patient: appt.user?.name || "-",
+            status: appt.status || "Scheduled",
+            user: appt.user,
+            createdAt: appt.createdAt,
+            __v: appt.__v,
+            doctorId: appt.doctorId,
+          }));
+
+          console.log("Mapped Appointments:", mappedAppointments);
+
+          if (role === "admin") {
+            console.log("Admin role detected: Displaying all appointments.");
+            setAppointments(mappedAppointments);
+          } else if (role === "doctor") {
+            if (name) {
+              const filteredAppointments = mappedAppointments.filter((appt: Appointment) =>
+                appt.doctorName.toLowerCase().includes(name!.toLowerCase() || "")
+              );
+              console.log("Doctor role detected - Filtered Appointments:", filteredAppointments);
+              setAppointments(filteredAppointments);
+            } else {
+              setAppointments([]);
+              setError("User name not found for doctor role.");
+            }
+          } else if (role === "employee") {
+            const filteredAppointments = mappedAppointments.filter((appt: Appointment) =>
+              appt.user?._id === userId
+            );
+            setAppointments(filteredAppointments);
+          } else {
+            setAppointments([]);
+            setError("Invalid role or user name not found.");
+          }
+        } else {
+          setAppointments([]);
+          setError("No appointments found in the response.");
+        }
+      } catch (err: any) {
+        console.error("API Error:", err);
+        setError(err?.response?.data?.message || err?.message || "Failed to fetch appointments");
+      } finally {
         setLoading(false);
       }
     };
 
     const fetchDoctorName = async () => {
-      if (userRole === "doctor" && userId) {
+      if (role === "doctor" && userId) {
         try {
           const response = await fetch("https://empolyee-backedn.onrender.com/api/all-doctors");
           if (!response.ok) throw new Error("Failed to fetch doctors");
           const data = await response.json();
-          const doctor = data.doctors?.find((d: Doctor) => d._id === userId);
+          const doctor = data.doctors?.find((d: any) => d._id === userId);
           setDoctorName(doctor?.name || null);
         } catch (error) {
           setDoctorName(null);
         }
-      } else if (userRole === "admin" && selectedDoctor) {
+      } else if (role === "admin" && selectedDoctor) {
         try {
           const response = await fetch("https://empolyee-backedn.onrender.com/api/all-doctors");
           if (!response.ok) throw new Error("Failed to fetch doctors");
           const data = await response.json();
-          const doctor = data.doctors?.find((d: Doctor) => d._id === selectedDoctor);
+          const doctor = data.doctors?.find((d: any) => d._id === selectedDoctor);
           setDoctorName(doctor?.name || null);
         } catch (error) {
           setDoctorName(null);
@@ -121,6 +197,8 @@ const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({ userId, userR
     });
   };
 
+  const isPatientView = userRole === "employee";
+
   const dateCellRender = (value: Dayjs) => {
     const appts = getAppointmentsForDate(value);
     return (
@@ -132,7 +210,7 @@ const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({ userId, userR
           <div key={appt._id} className="mb-1">
             <div className="bg-black text-white p-2 rounded-lg shadow-md items-center justify-between">
               <div>{appt.time}</div>
-              <div className="font-bold">{appt.doctorName}</div>
+              <div className="font-bold">{isPatientView ? appt.doctorName : appt.patient}</div>
               <div className="text-xs text-gray-400">{appt.type}</div>
             </div>
           </div>
@@ -150,7 +228,7 @@ const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({ userId, userR
     if (appts.length === 0) {
       return (
         <Typography.Text className="text-gray-500">
-          No appointments on {selectedDate.format('MMMM D, YYYY')} for {doctorName || "selected doctor"}.
+          No appointments on {selectedDate.format('MMMM D, YYYY')} for {isPatientView ? "you" : doctorName || "selected doctor"}.
         </Typography.Text>
       );
     }
@@ -162,14 +240,15 @@ const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({ userId, userR
       >
         <div className="flex items-center">
           <img
-            src={appt.avatarSrc || "/images/default-doctor.svg"}
-            alt={`${appt.doctorName} avatar`}
+            src={isPatientView ? appt.avatarSrc || "https://cdn-icons-png.flaticon.com/512/149/149071.png" : "https://cdn-icons-png.flaticon.com/512/149/149071.png"}
+            alt={`${isPatientView ? appt.doctorName : appt.patient} avatar`}
             className="w-10 h-10 rounded-full mr-3"
           />
           <div>
-            <div className="font-semibold">{appt.doctorName}</div>
+            <div className="font-semibold">{isPatientView ? appt.doctorName : appt.patient}</div>
             <div className="text-sm">Type: {appt.type}</div>
             <div className="text-sm">{appt.time}</div>
+            <div className="text-sm">Status: {appt.status}</div>
           </div>
         </div>
         <div className="text-right">
@@ -193,6 +272,8 @@ const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({ userId, userR
               ? `Appointments for ${doctorName || "Selected Doctor"}`
               : userRole === "doctor"
               ? `Your Appointments (${doctorName || "You"})`
+              : userRole === "employee"
+              ? "My Appointments"
               : "Appointment Calendar"}
           </Typography.Title>
           <Calendar

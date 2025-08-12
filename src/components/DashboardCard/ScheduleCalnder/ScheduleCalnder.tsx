@@ -10,7 +10,6 @@ import {
   Button,
   Col,
   Flex,
-  Image,
   Row,
   Space,
   Typography,
@@ -20,7 +19,7 @@ import {
   Select,
 } from "antd";
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import axios from "axios";
 import AppointmentCalendar from "./Calnder";
 import UploadManualPopUp from "./UploadManualPopUp";
 import dayjs from "dayjs";
@@ -33,22 +32,6 @@ interface Doctor {
   specialty?: string;
   qualification?: string;
   avatarSrc?: string;
-}
-
-interface Appointment {
-  _id: string;
-  doctorName: string;
-  doctorImage?: string;
-  doctorSpecialty?: string;
-  doctorQualification?: string;
-  user: {
-    name: string;
-  } | null;
-  type: string;
-  date: string;
-  time: string;
-  status?: string;
-  doctorId: string;
 }
 
 interface ScheduleData {
@@ -64,10 +47,8 @@ interface ScheduleData {
 
 const ScheduleCalnder: React.FC = () => {
   const [isPopupOpen, setIsPopupOpen] = useState(false);
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [selectedDoctor, setSelectedDoctor] = useState<string | null>(null);
-  const [selectedAppointment, setSelectedAppointment] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
@@ -76,54 +57,75 @@ const ScheduleCalnder: React.FC = () => {
   const [currentMonth, setCurrentMonth] = useState(dayjs().format("MMMM"));
 
   useEffect(() => {
-    const userStr = localStorage.getItem("user");
-    try {
-      if (userStr) {
-        const userObj = JSON.parse(userStr);
-        setUserId(userObj?.id || userObj?._id || null);
-        setUserRole(userObj?.role || null);
-        setUserName(userObj?.name || null);
-      } else {
-        setUserId(null);
-        setUserRole(null);
-        setUserName(null);
+    const userStr = localStorage.getItem("user") || localStorage.getItem("loggedInUser");
+    const token = localStorage.getItem("token");
+
+    let role: string | null = null;
+    let name: string | null = null;
+    let id: string | null = null;
+
+    if (userStr) {
+      try {
+        const parsedUser = JSON.parse(userStr);
+        role = parsedUser.role || null;
+        name = parsedUser.name || null;
+        id = parsedUser.id || parsedUser._id || null;
+      } catch (e) {
+        console.error("Error parsing user data from local storage:", e);
+        setError("Failed to parse user data. Please log in again.");
       }
-    } catch (e) {
-      setUserId(null);
-      setUserRole(null);
-      setUserName(null);
     }
+
+    console.log("Local Storage - Role:", role, "Name:", name, "ID:", id, "Token:", token);
+
+    setUserId(id);
+    setUserRole(role);
+    setUserName(name);
   }, []);
 
   useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setError("No authentication token found. Please log in.");
+      return;
+    }
+
     const fetchDoctors = async () => {
       if (userRole === "admin") {
         setLoading(true);
         try {
-          const res = await fetch("https://empolyee-backedn.onrender.com/api/all-doctors");
-          if (!res.ok) throw new Error("Failed to fetch doctors");
-          const data = await res.json();
-          setDoctors(data.doctors || []);
-          if (!selectedDoctor && data.doctors?.length > 0) {
-            setSelectedDoctor(data.doctors[0]._id);
+          const res = await axios.get("https://empolyee-backedn.onrender.com/api/all-doctors", {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+          console.log("Doctors API Response:", res.data);
+          setDoctors(res.data.doctors || []);
+          if (!selectedDoctor && res.data.doctors?.length > 0) {
+            setSelectedDoctor(res.data.doctors[0]._id);
           }
         } catch (err: any) {
-          setError(err.message);
+          console.error("Error fetching doctors:", err);
+          setError(err?.response?.data?.message || err?.message || "Failed to fetch doctors");
         } finally {
           setLoading(false);
         }
       } else if (userRole === "doctor" && userId && !userName) {
         setLoading(true);
         try {
-          const res = await fetch("https://empolyee-backedn.onrender.com/api/all-doctors");
-          if (!res.ok) throw new Error("Failed to fetch doctors");
-          const data = await res.json();
-          const doctor = data.doctors?.find((d: Doctor) => d._id === userId);
+          const res = await axios.get("https://empolyee-backedn.onrender.com/api/all-doctors", {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+          console.log("Doctors API Response for Doctor:", res.data);
+          const doctor = res.data.doctors?.find((d: Doctor) => d._id === userId);
           if (doctor?.name) {
             setUserName(doctor.name);
           }
         } catch (err: any) {
-          setError(err.message);
+          console.error("Error fetching doctor name:", err);
+          setError(err?.response?.data?.message || err?.message || "Failed to fetch doctor name");
         } finally {
           setLoading(false);
         }
@@ -132,41 +134,6 @@ const ScheduleCalnder: React.FC = () => {
 
     fetchDoctors();
   }, [userRole, userId, userName]);
-
-  useEffect(() => {
-    const fetchAppointments = async () => {
-      setLoading(true);
-      setError("");
-      setSelectedAppointment(null);
-      const endpoint =
-        userRole === "admin" && selectedDoctor
-          ? `https://empolyee-backedn.onrender.com/api/appointments?doctorId=${selectedDoctor}`
-          : userRole === "doctor" && userId
-          ? `https://empolyee-backedn.onrender.com/api/appointments?doctorId=${userId}`
-          : "https://empolyee-backedn.onrender.com/api/appointments";
-
-      try {
-        const res = await fetch(endpoint);
-        if (!res.ok) throw new Error("Failed to fetch appointments");
-        const data = await res.json();
-        const sorted = (data.appointments || []).sort((a: Appointment, b: Appointment) => {
-          const dateA = new Date(`${a.date} ${a.time}`);
-          const dateB = new Date(`${b.date} ${b.time}`);
-          return dateA.getTime() - dateB.getTime();
-        });
-        setAppointments(sorted);
-        if (userRole === "admin" && sorted.length > 0) {
-          setSelectedAppointment(sorted[0]._id);
-        }
-      } catch (err: any) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchAppointments();
-  }, [userId, userRole, selectedDoctor]);
 
   const openPopup = () => {
     setIsPopupOpen(true);
@@ -177,6 +144,7 @@ const ScheduleCalnder: React.FC = () => {
   };
 
   const handleScheduleSubmit = async (scheduleData: ScheduleData) => {
+    const token = localStorage.getItem("token");
     if (!userId) {
       setError("User ID not found");
       return;
@@ -195,19 +163,23 @@ const ScheduleCalnder: React.FC = () => {
           .filter((breakItem) => breakItem.startTime && breakItem.endTime),
       };
 
-      const response = await fetch(`https://empolyee-backedn.onrender.com/${userId}/schedule`, {
-        method: "POST",
+      console.log("Submitting schedule data:", formattedData);
+
+      const response = await axios.post(`https://empolyee-backedn.onrender.com/${userId}/schedule`, formattedData, {
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(formattedData),
       });
 
-      if (!response.ok) throw new Error("Failed to update schedule");
+      console.log("Schedule submit response:", response.data);
+
+      if (response.status !== 200) throw new Error("Failed to update schedule");
       message.success("Schedule updated successfully");
       closePopup();
     } catch (err: any) {
-      setError(err.message);
+      console.error("Error submitting schedule:", err);
+      setError(err?.response?.data?.message || err?.message || "Failed to update schedule");
     }
   };
 
@@ -223,6 +195,9 @@ const ScheduleCalnder: React.FC = () => {
     if (userRole === "admin" && selectedDoctor) {
       return doctors.find((d) => d._id === selectedDoctor)?.name || "Selected Doctor";
     }
+    if (userRole === "employee") {
+      return "You";
+    }
     return "Please select a doctor";
   };
 
@@ -231,8 +206,8 @@ const ScheduleCalnder: React.FC = () => {
       <Breadcrumb
         items={[
           { title: "Home" },
-          { title: <a href="">Health</a> },
-          { title: <a href="">Schedule</a> },
+          { title: <a href="/health">Health</a> },
+          { title: <a href="/health/schedule">Schedule</a> },
         ]}
       />
 
@@ -256,37 +231,41 @@ const ScheduleCalnder: React.FC = () => {
                 allowClear
               />
             )}
-            <Button
-              type="default"
-              onClick={openPopup}
-              style={{
-                width: "165px",
-                height: "36px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <UploadOutlined style={{ marginRight: "5px" }} />
-              Upload Schedule
-            </Button>
-            <Button
-              type="primary"
-              onClick={openPopup}
-              style={{
-                width: "165px",
-                height: "36px",
-                backgroundColor: "black",
-                borderColor: "black",
-                color: "white",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <PlusOutlined style={{ marginRight: "5px" }} />
-              Manual Upload
-            </Button>
+            {(userRole === "admin" || userRole === "doctor") && (
+              <>
+                <Button
+                  type="default"
+                  onClick={openPopup}
+                  style={{
+                    width: "165px",
+                    height: "36px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <UploadOutlined style={{ marginRight: "5px" }} />
+                  Upload Schedule
+                </Button>
+                <Button
+                  type="primary"
+                  onClick={openPopup}
+                  style={{
+                    width: "165px",
+                    height: "36px",
+                    backgroundColor: "black",
+                    borderColor: "black",
+                    color: "white",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <PlusOutlined style={{ marginRight: "5px" }} />
+                  Manual Upload
+                </Button>
+              </>
+            )}
           </Flex>
         </Col>
       </Row>
@@ -296,80 +275,14 @@ const ScheduleCalnder: React.FC = () => {
           <Space>
             <div className="flex flex-col items-start">
               <div className="flex flex-col items-start rounded-md px-2 py-2">
-                {loading && <Spin tip="Loading appointments..." />}
+                {loading && <Spin tip="Loading..." />}
                 {error && <Alert message={error} type="error" showIcon />}
-                {userRole === "doctor" && !loading && (
+                {(userRole === "doctor" || userRole === "admin" || userRole === "employee") && !loading && (
                   <div className="border rounded-md p-4 w-full text-center">
                     <Text className="text-lg font-semibold">
-                      {getDoctorName()} - {appointments.length} Appointments
+                      {getDoctorName()}
                     </Text>
                   </div>
-                )}
-                {userRole === "admin" && !loading && (
-                  <>
-                    {appointments.length === 0 && (
-                      <div className="border rounded-md p-4 w-full text-center bg-gray-100">
-                        <Text className="text-gray-500">
-                          No appointments found for {getDoctorName()}.
-                        </Text>
-                      </div>
-                    )}
-                    {appointments.length > 0 && (
-                      <>
-                        <Select
-                          placeholder="Select an appointment"
-                          style={{ width: "100%", marginBottom: 16 }}
-                          onChange={(value) => setSelectedAppointment(value || null)}
-                          value={selectedAppointment}
-                          options={appointments.map((appt) => ({
-                            value: appt._id,
-                            label: `${appt.date} ${appt.time} - ${appt.user?.name || "Unknown Patient"} (${appt.type})`,
-                          }))}
-                          allowClear
-                        />
-                        {selectedAppointment ? (
-                          appointments
-                            .filter((appt) => appt._id === selectedAppointment)
-                            .map((appt, idx) => (
-                              <div
-                                key={idx}
-                                className="flex items-center mb-4 py-2 px-3 border rounded-md w-full"
-                              >
-                                <div className="w-[60px] h-[60px] rounded-full overflow-hidden mr-3 border-2">
-                                  <Image
-                                    src={appt.doctorImage || "/images/default-doctor.svg"}
-                                    alt={appt.doctorName}
-                                    className="object-cover w-full h-full"
-                                  />
-                                </div>
-                                <div className="flex flex-col items-start">
-                                  <h3 className="text-lg font-bold text-black">
-                                    {appt.doctorName}{" "}
-                                    <span className="font-normal text-base">
-                                      ({appt.doctorSpecialty || appt.type})
-                                    </span>
-                                  </h3>
-                                  <p className="font-normal text-base leading-6 text-gray-500">
-                                    {appt.doctorQualification || ""}
-                                  </p>
-                                  <p className="font-normal text-base text-gray-700 mt-1">
-                                    Patient: {appt.user?.name || "Unknown Patient"} <br />
-                                    Date: {appt.date} | Time: {appt.time}
-                                  </p>
-                                  <p className="text-gray-500 mt-1">Status: {appt.status || "N/A"}</p>
-                                </div>
-                              </div>
-                            ))
-                        ) : (
-                          <div className="border rounded-md p-4 w-full text-center bg-gray-100">
-                            <Text className="text-gray-500">
-                              Please select an appointment for {getDoctorName()}.
-                            </Text>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </>
                 )}
                 {userRole === null && !loading && (
                   <div className="border rounded-md p-4 w-full text-center bg-gray-100">
