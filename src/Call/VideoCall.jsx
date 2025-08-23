@@ -33,22 +33,37 @@ function VideoCall({ socket, currentCall, user, onEndCall }) {
         if (localVideoRef.current) localVideoRef.current.srcObject = localStream;
 
         // 2. Create RTCPeerConnection
-        const peerConnection = new RTCPeerConnection({
-          iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
-        });
+      const peerConnection = new RTCPeerConnection({
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },  // STUN
+    {
+      urls: 'relay1.expressturn.com:3480', // Free TURN example
+      username: '000000002071258649',
+      credential: 'y3B2VaE1XPQUgUATPuIxeHuDHqU='
+    }
+  ],
+});
+
         peerConnectionRef.current = peerConnection;
 
         // Add local tracks to peer connection
         localStream.getTracks().forEach((track) => peerConnection.addTrack(track, localStream));
 
-        // When remote track arrives
-        peerConnection.ontrack = (event) => {
-          if (remoteVideoRef.current) {
-            remoteVideoRef.current.srcObject = event.streams[0];
-            setRemoteStreamReceived(true);
-            setConnectionStatus('Connected');
-          }
-        };
+peerConnection.ontrack = (event) => {
+  if (remoteVideoRef.current && !remoteVideoRef.current.srcObject) {
+    remoteVideoRef.current.srcObject = event.streams[0];
+    remoteVideoRef.current.play().catch(err => console.warn("Play error:", err));
+  }
+  setRemoteStreamReceived(true);
+  setConnectionStatus('Connected');
+};
+
+
+if (remoteVideoRef.current) {
+  remoteVideoRef.current.play().catch(err => {
+    console.warn("Play interrupted:", err);
+  });
+}
 
         // Listen for ICE candidates and send to remote peer via socket
         peerConnection.onicecandidate = (event) => {
