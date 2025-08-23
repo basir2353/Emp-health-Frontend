@@ -50,39 +50,24 @@ function VideoCall({ socket, currentCall, user, onEndCall }) {
         localStream.getTracks().forEach((track) => peerConnection.addTrack(track, localStream));
 
 peerConnection.ontrack = (event) => {
-  console.log("🎥 Remote track received:", event.streams);
+  console.log("🎥 Received remote stream:", event.streams[0]);
+  if (remoteVideoRef.current && !remoteVideoRef.current.srcObject) {
+    console.log("📺 Setting remote stream to video element:", event.streams[0]);
+    remoteVideoRef.current.srcObject = event.streams[0];
 
-  if (remoteVideoRef.current) {
-    if (remoteVideoRef.current.srcObject !== event.streams[0]) {
-      console.log("✅ Setting remote stream");
-      remoteVideoRef.current.srcObject = event.streams[0];
-    }
-
-    remoteVideoRef.current
-      .play()
-      .then(() => console.log("▶ Remote video playing"))
-      .catch(err => console.warn("⚠ Remote video play error:", err));
+    remoteVideoRef.current.play().then(() => {
+      console.log("▶ Remote video started playing successfully");
+    }).catch(err => {
+      console.warn("❌ Remote video play error:", err);
+    });
   }
-
   setRemoteStreamReceived(true);
   setConnectionStatus('Connected');
 };
 
 
 
-if (remoteVideoRef.current) {
-  remoteVideoRef.current.play().catch(err => {
-    console.warn("Play interrupted:", err);
-  });
-}
 
-
-
-if (remoteVideoRef.current) {
-  remoteVideoRef.current.play().catch(err => {
-    console.warn("Play interrupted:", err);
-  });
-}
 
         // Listen for ICE candidates and send to remote peer via socket
     // Listen for ICE candidates and send to remote peer via socket
