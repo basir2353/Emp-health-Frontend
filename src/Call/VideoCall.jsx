@@ -50,13 +50,32 @@ function VideoCall({ socket, currentCall, user, onEndCall }) {
         localStream.getTracks().forEach((track) => peerConnection.addTrack(track, localStream));
 
 peerConnection.ontrack = (event) => {
-  if (remoteVideoRef.current && !remoteVideoRef.current.srcObject) {
-    remoteVideoRef.current.srcObject = event.streams[0];
-    remoteVideoRef.current.play().catch(err => console.warn("Play error:", err));
+  console.log("🎥 Remote track received:", event.streams);
+
+  if (remoteVideoRef.current) {
+    if (remoteVideoRef.current.srcObject !== event.streams[0]) {
+      console.log("✅ Setting remote stream");
+      remoteVideoRef.current.srcObject = event.streams[0];
+    }
+
+    remoteVideoRef.current
+      .play()
+      .then(() => console.log("▶ Remote video playing"))
+      .catch(err => console.warn("⚠ Remote video play error:", err));
   }
+
   setRemoteStreamReceived(true);
   setConnectionStatus('Connected');
 };
+
+
+
+if (remoteVideoRef.current) {
+  remoteVideoRef.current.play().catch(err => {
+    console.warn("Play interrupted:", err);
+  });
+}
+
 
 
 if (remoteVideoRef.current) {
@@ -71,7 +90,7 @@ peerConnection.onicecandidate = (event) => {
   if (event.candidate) {
     console.log("🔍 New ICE candidate:", event.candidate);
 
-    // Check candidate type (host, srflx, relay)
+    // Detect type of ICE candidate
     const candidateType = event.candidate.type || event.candidate.candidate.split(" ")[7];
     if (candidateType === "host") {
       console.log("✅ Using HOST candidate (same network / LAN)");
@@ -81,6 +100,7 @@ peerConnection.onicecandidate = (event) => {
       console.log("🚀 Using TURN RELAY candidate (media going via relay server)");
     }
 
+    // Send candidate to remote peer
     socket.emit("ice-candidate", {
       candidate: event.candidate,
       callId: currentCall.callId,
@@ -89,19 +109,28 @@ peerConnection.onicecandidate = (event) => {
           ? currentCall.calleeSocketId || currentCall.callee?.socketId
           : currentCall.callerSocketId || currentCall.caller?.socketId,
     });
+  } else {
+    console.log("❌ ICE gathering finished (no more candidates)");
   }
 };
 
 
+
         // Connection state changes
-        peerConnection.onconnectionstatechange = () => {
-          const state = peerConnection.connectionState;
-          setConnectionStatus(state.charAt(0).toUpperCase() + state.slice(1));
-          if (state === 'disconnected' || state === 'failed' || state === 'closed') {
-            // End call if connection lost
-            onEndCall();
-          }
-        };
+      peerConnection.onconnectionstatechange = () => {
+  const state = peerConnection.connectionState;
+  console.log("📡 Connection state changed:", state);
+  setConnectionStatus(state.charAt(0).toUpperCase() + state.slice(1));
+
+  if (state === 'connected') {
+    console.log("🎉 PeerConnection established successfully!");
+  }
+  if (state === 'disconnected' || state === 'failed' || state === 'closed') {
+    console.warn("⚠ Connection lost! Ending call...");
+    onEndCall();
+  }
+};
+
 
         // 3. Signaling logic: Offer/Answer depending on role
 
@@ -119,7 +148,7 @@ peerConnection.onicecandidate = (event) => {
         // 4. Start call timer on connection
         callTimer = setInterval(() => setCallDuration((prev) => prev + 1), 1000);
       } catch (err) {
-        setConnectionStatus(Error: ${err.message});
+        setConnectionStatus(`Error: ${err.message}`);
       }
     };
 
@@ -128,24 +157,49 @@ peerConnection.onicecandidate = (event) => {
     // Socket listeners for signaling:
 
     // When receiving offer (doctor side)
-    socket.on('offer', async ({ offer, callId, caller }) => {
-      if (callId !== currentCall.callId) return;
+ // When receiving offer
+socket.on('offer', async ({ offer, callId, caller }) => {
+  console.log("📩 Offer received:", offer);
 
-      if (user.role === 'doctor') {
-        const pc = peerConnectionRef.current;
-        await pc.setRemoteDescription(new RTCSessionDescription(offer));
+  if (callId !== currentCall.callId) return;
+  if (user.role === 'doctor') {
+    const pc = peerConnectionRef.current;
+    await pc.setRemoteDescription(new RTCSessionDescription(offer));
 
-        // Create answer
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
 
-        socket.emit('answer', {
-          callId,
-          answer,
-          target: caller,
-        });
-      }
-    });
+    console.log("📤 Sending answer:", answer);
+    socket.emit('answer', { callId, answer, target: caller });
+  }
+});
+
+// When receiving answer
+socket.on('answer', async ({ answer, callId }) => {
+  console.log("📩 Answer received:", answer);
+
+  if (callId !== currentCall.callId) return;
+  if (user.role === 'employee') {
+    const pc = peerConnectionRef.current;
+    await pc.setRemoteDescription(new RTCSessionDescription(answer));
+    console.log("✅ Remote description set with answer");
+  }
+});
+
+// When receiving ICE candidate
+socket.on('ice-candidate', async ({ candidate, callId }) => {
+  console.log("📩 ICE candidate received:", candidate);
+
+  if (callId !== currentCall.callId) return;
+  try {
+    const pc = peerConnectionRef.current;
+    await pc.addIceCandidate(new RTCIceCandidate(candidate));
+    console.log("✅ ICE candidate added successfully");
+  } catch (err) {
+    console.error('❌ Error adding received ICE candidate', err);
+  }
+});
+
 
     // When receiving answer (employee side)
     socket.on('answer', async ({ answer, callId }) => {
@@ -212,7 +266,7 @@ peerConnection.onicecandidate = (event) => {
   const formatDuration = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return ${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')};
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
   // Get other participant's name for display
