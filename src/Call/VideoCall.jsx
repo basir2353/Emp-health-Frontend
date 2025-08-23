@@ -7,10 +7,13 @@ import {
   VideoCameraOutlined,
   PhoneOutlined,
 } from '@ant-design/icons';
+import { log } from 'console';
 
 const { Title, Text } = Typography;
 
 function VideoCall({ socket, currentCall, user, onEndCall }) {
+  console.log("this is new updated cide");
+  
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const peerConnectionRef = useRef(null);
