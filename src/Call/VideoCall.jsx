@@ -66,18 +66,32 @@ if (remoteVideoRef.current) {
 }
 
         // Listen for ICE candidates and send to remote peer via socket
-        peerConnection.onicecandidate = (event) => {
-          if (event.candidate) {
-            socket.emit('ice-candidate', {
-              candidate: event.candidate,
-              callId: currentCall.callId,
-              target:
-                user.role === 'employee'
-                  ? currentCall.calleeSocketId || currentCall.callee?.socketId
-                  : currentCall.callerSocketId || currentCall.caller?.socketId,
-            });
-          }
-        };
+    // Listen for ICE candidates and send to remote peer via socket
+peerConnection.onicecandidate = (event) => {
+  if (event.candidate) {
+    console.log("🔍 New ICE candidate:", event.candidate);
+
+    // Check candidate type (host, srflx, relay)
+    const candidateType = event.candidate.type || event.candidate.candidate.split(" ")[7];
+    if (candidateType === "host") {
+      console.log("✅ Using HOST candidate (same network / LAN)");
+    } else if (candidateType === "srflx") {
+      console.log("🌍 Using STUN candidate (public IP direct connection)");
+    } else if (candidateType === "relay") {
+      console.log("🚀 Using TURN RELAY candidate (media going via relay server)");
+    }
+
+    socket.emit("ice-candidate", {
+      candidate: event.candidate,
+      callId: currentCall.callId,
+      target:
+        user.role === "employee"
+          ? currentCall.calleeSocketId || currentCall.callee?.socketId
+          : currentCall.callerSocketId || currentCall.caller?.socketId,
+    });
+  }
+};
+
 
         // Connection state changes
         peerConnection.onconnectionstatechange = () => {
@@ -105,7 +119,7 @@ if (remoteVideoRef.current) {
         // 4. Start call timer on connection
         callTimer = setInterval(() => setCallDuration((prev) => prev + 1), 1000);
       } catch (err) {
-        setConnectionStatus(`Error: ${err.message}`);
+        setConnectionStatus(Error: ${err.message});
       }
     };
 
@@ -198,7 +212,7 @@ if (remoteVideoRef.current) {
   const formatDuration = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    return ${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')};
   };
 
   // Get other participant's name for display
