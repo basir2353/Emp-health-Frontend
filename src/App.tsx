@@ -1,5 +1,5 @@
 import React, { useContext } from "react";
-import { Route, BrowserRouter as Router, Routes, Navigate } from "react-router-dom";
+import { Route, BrowserRouter as Router, Routes, Navigate, useParams } from "react-router-dom";
 import Callchat from "./Component/ChatBox/CallChat/Callchat";
 import MessagingSection from "./Component/ChatBox/Massage";
 import UserMassage from "./Component/ChatBox/userMasaageBox/UserMassage";
@@ -42,13 +42,29 @@ import Call from "./Call/Call";
 import CallTest from "./Call/CallTest";
 import ForgetPassword from "./Component/Login/ForgetPassword";
 import ResetPassword from "./Component/Login/ResetPassword";
+import VideoRoom from "./Call/VideoRoom";
+
+type RoomWrapperProps = {
+  user: {
+    id: string;
+    name: string;
+  };
+};
+
+function RoomWrapper({ user }: RoomWrapperProps) {
+  const { id } = useParams();
+  return <VideoRoom roomID={id} user={user} />;
+}
+const currentUser = { id: "123", name: "Hashir" };
 const App: React.FC = () => (
+  
   <div className="App mx-auto">
     <div>
       <Router>
         <Routes>
           {/* Auth Routes */}
           {/* Register */}
+          <Route path="/room/:id" element={<RoomWrapper user={currentUser} />} />
           <Route path="/register" element={<RegisterForm />} />
           <Route path='/forget-password' element={<ForgetPassword/>}/>
           <Route path="/reset-password/:token" element={<ResetPassword />} />

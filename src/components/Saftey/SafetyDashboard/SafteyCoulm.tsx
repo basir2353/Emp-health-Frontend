@@ -150,6 +150,8 @@ const SafetyBox: React.FC = () => {
 
   const canModify = user.role === "admin" || user.role === "doctor";
   const isAdmin = user.role === "admin";
+  const isDoctor = user.role === "doctor";
+
   const userEmail = user.email;
 
   const fetchReports = useCallback(async () => {
@@ -227,6 +229,8 @@ const SafetyBox: React.FC = () => {
 
   const fetchNotificationsForAdmin = useCallback(
     async (daata: any) => {
+      console.log("hello i'm here");
+
       try {
         console.log(daata, "this data");
         const email = daata?.reportedBy?.email;
@@ -253,12 +257,21 @@ const SafetyBox: React.FC = () => {
         );
         console.log(response, "thi888");
         const isDeny = newNotifications.find((notif) => notif?.deny);
-        if (isDeny) {
+        const extractIsDeny = newNotifications.some(
+          (element) => element?.deny === true
+        );
+
+        console.log(extractIsDeny, "this is realDeny");
+
+        if (extractIsDeny) {
           handleViewNotification();
           SetIsDeny(true);
+          console.log(deny, "this eny");
         } else {
           const notificationToShow = unreadNotification || newNotifications[0];
           setNotificationMessage(notificationToShow?.message || "");
+          SetIsDeny(false);
+
           setIdentityPopupVisible(!!notificationToShow);
         }
       } catch (error: any) {
@@ -556,89 +569,89 @@ const SafetyBox: React.FC = () => {
 
   const [userName, setUserName] = useState<string>("");
 
-// 👇 state add karo
-// State
-const [viewNotificationUI, setViewNotificationUI] = useState<React.ReactNode>(null);
+  // 👇 state add karo
+  // State
+  const [viewNotificationUI, setViewNotificationUI] =
+    useState<React.ReactNode>(null);
 
-// Function to open notification view
-const handleViewNotification = () => {
-  message.info(`${userName} Viewing notification...`);
+  // Function to open notification view
+  const handleViewNotification = () => {
+    message.info(`${userName} Viewing notification...`);
 
-  setViewNotificationUI(
-    <>
-      {!isAdmin ? (
-        notificationMessage ? (
-          <Card
-            style={{
-              width: 280,
-              padding: "10px 16px",
-              backgroundColor: "#FFFFFF",
-              boxShadow: "0px 2px 8px rgba(0, 0, 0, 0.15)",
-              borderRadius: 8,
-              display: "flex",
-              alignItems: "center",
-              flexDirection: "column",
-            }}
-          >
-            <div
+    setViewNotificationUI(
+      <>
+        {!isAdmin ? (
+          notificationMessage ? (
+            <Card
               style={{
+                width: 280,
+                padding: "10px 16px",
+                backgroundColor: "#FFFFFF",
+                boxShadow: "0px 2px 8px rgba(0, 0, 0, 0.15)",
+                borderRadius: 8,
                 display: "flex",
                 alignItems: "center",
-                width: "100%",
+                flexDirection: "column",
               }}
             >
-              <ExclamationCircleOutlined
+              <div
                 style={{
-                  color: "#FFA500",
-                  fontSize: 20,
-                  marginRight: 5,
+                  display: "flex",
+                  alignItems: "center",
+                  width: "100%",
                 }}
-              />
-              <span style={{ flexGrow: 1, fontSize: 14 }}>
-                {notificationMessage}
-              </span>
-            </div>
-            <div
-              style={{
-                display: "flex",
-                gap: "8px",
-                marginTop: "10px",
-              }}
-            >
-              <Button
-                type="primary"
-                style={{
-                  backgroundColor: "#000000",
-                  borderColor: "#000000",
-                  borderRadius: 8,
-                }}
-                onClick={() => handleSend(selectedIncident)}
               >
-                Approve
-              </Button>
-              <Button
-                type="default"
+                <ExclamationCircleOutlined
+                  style={{
+                    color: "#FFA500",
+                    fontSize: 20,
+                    marginRight: 5,
+                  }}
+                />
+                <span style={{ flexGrow: 1, fontSize: 14 }}>
+                  {notificationMessage}
+                </span>
+              </div>
+              <div
                 style={{
-                  backgroundColor: "#FFFFFF",
-                  borderColor: "#D9D9D9",
-                  borderRadius: 8,
+                  display: "flex",
+                  gap: "8px",
+                  marginTop: "10px",
                 }}
-                onClick={() => handleNotSend(selectedIncident)}
               >
-                Deny
-              </Button>
-            </div>
-          </Card>
+                <Button
+                  type="primary"
+                  style={{
+                    backgroundColor: "#000000",
+                    borderColor: "#000000",
+                    borderRadius: 8,
+                  }}
+                  onClick={() => handleSend(selectedIncident)}
+                >
+                  Approve
+                </Button>
+                <Button
+                  type="default"
+                  style={{
+                    backgroundColor: "#FFFFFF",
+                    borderColor: "#D9D9D9",
+                    borderRadius: 8,
+                  }}
+                  onClick={() => handleNotSend(selectedIncident)}
+                >
+                  Deny
+                </Button>
+              </div>
+            </Card>
+          ) : (
+            <span>No notifications available.</span>
+          )
         ) : (
-          <span>No notifications available.</span>
-        )
-      ) : (
-        <span>Admin view goes here</span>
-      )}
-    </>
-  );
-};
-
+          <span>Admin view goes here</span>
+        )}
+      </>
+    );
+  };
 
   const handleEyeClick = async (incident: Incident) => {
     console.log(incident, "this is ");
@@ -647,7 +660,7 @@ const handleViewNotification = () => {
     setUserName(incident?.reportedBy?.name || "");
     setSidebarVisible(true);
     setShowAnonymousSection(true); // Reset the anonymous section visibility
-    if (isAdmin) {
+    if (isAdmin || isDoctor) {
       await fetchNotificationsForAdmin(incident);
     } else {
       await fetchNotifications(incident);
@@ -698,25 +711,31 @@ const handleViewNotification = () => {
   const sortedReports = [...allIncidents].sort((a, b) =>
     a.incidentID.localeCompare(b.incidentID)
   );
-  
-  const [DenyNotif, setIsDenying] = useState(false);
 
-  useEffect(() => {
-    if (notif[0]?.deny === true) {
-      console.log(DenyNotif);
-      console.log(notif[0]?.deny);
-      
-      setIsDenying(true);
-      console.log('after',DenyNotif);
-      
-    } else {
-      setIsDenying(false);
-    }
-    // Optionally keep the logs for debugging
-    console.log(notif[0]?.deny);
-    console.log(notif?.length, "this length");
-    console.log(notif, "this is notifications");
-  }, [notif]);
+  // const [DenyNotif, setIsDenying] = useState(false);
+  // console.log(notif[0]?.deny, "uupdtaed");
+
+  // useEffect(() => {
+  //   if (notif[0]?.deny === true) {
+  //     console.log(DenyNotif);
+  //     console.log(notif[0]?.deny);
+
+  //     setIsDenying(true);
+  //     console.log("after", DenyNotif);
+  //   } else {
+  //     setIsDenying(false);
+  //   }
+  //   // Optionally keep the logs for debugging
+  //   console.log(notif[0]?.deny);
+  //   console.log(notif?.length, "this length");
+  //   console.log(notif, "this is notifications");
+  // }, [notif]);
+
+  // useEffect(()=>{
+  //   setIsDenying(true);
+  // },[])
+  //   console.log('after',DenyNotif);
+
   return (
     <div className="px-9">
       <div className="flex max-lg:flex-col items-center justify-between p-2">
@@ -1011,7 +1030,9 @@ const handleViewNotification = () => {
                                       borderColor: "#D9D9D9",
                                       borderRadius: 8,
                                     }}
-                                    onClick={() => handleNotSend(selectedIncident)}
+                                    onClick={() =>
+                                      handleNotSend(selectedIncident)
+                                    }
                                   >
                                     Deny
                                   </Button>
@@ -1020,14 +1041,20 @@ const handleViewNotification = () => {
                             ) : (
                               <span>No notifications available.</span>
                             )
-                          ) : DenyNotif ? (
-                            <Button type="primary" danger disabled>
-                              Rejected
+                          ) : deny ? (
+                            <Button
+                              disabled
+                              className="!bg-white !text-black !cursor-not-allowed px-6 py-2 rounded-lg shadow-md flex items-center gap-2"
+                            >
+                              <span className="text-xl">❌</span>
+                              Identity request is denied by the reporter
                             </Button>
                           ) : notif.length > 0 ? (
                             <Button disabled>Notification Received</Button>
                           ) : (
-                            <Button onClick={handleAskForIdentity}>Ask for Identity</Button>
+                            <Button onClick={handleAskForIdentity}>
+                              Ask for Identity
+                            </Button>
                           )}
                         </>
                       )}

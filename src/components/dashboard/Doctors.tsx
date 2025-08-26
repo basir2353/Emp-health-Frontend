@@ -6,6 +6,8 @@ import Sidebar from "./Sidebar";
 import FilterSidebar from "./FilterSidebar";
 import axios from "axios";
 import dayjs from "dayjs";
+import isSameOrBefore from "dayjs/plugin/isSameOrBefore";
+
 
 interface Doctor {
   name: string;
@@ -65,6 +67,7 @@ export const Doctors = () => {
   const [selectedDates, setSelectedDates] = useState<string[] | null>(null); // Updated to array for consistency
   const [allDoctors, setAllDoctors] = useState<Doctor[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+dayjs.extend(isSameOrBefore);
 
   useEffect(() => {
     const fetchDoctors = async () => {
@@ -89,13 +92,31 @@ export const Doctors = () => {
     fetchDoctors();
   }, []);
 
-  const handleBookAppointment = (doctor: Doctor) => {
-    console.log(doctor, 'hhh');
-    setSelectedDoctor(doctor);
-    // Set selectedDates to the doctor's new_date (as an array for Sidebar compatibility)
-    setSelectedDates(doctor.new_date ? [doctor.new_date] : null);
-    openSidebar();
-  };
+const handleBookAppointment = (doctor: Doctor) => {
+  console.log(doctor, 'hhh');
+  setSelectedDoctor(doctor);
+
+  if (doctor.new_date) {
+    const startDate = dayjs(doctor.new_date, "YYYY-MM-DD");
+    const endOfMonth = startDate.endOf("month");
+
+    // Generate allowed dates (from new_date till month end)
+    const allowedDates: string[] = [];
+    let current = startDate.clone();
+
+    while (current.isSameOrBefore(endOfMonth, "day")) {
+      allowedDates.push(current.format("YYYY-MM-DD"));
+      current = current.add(1, "day");
+    }
+
+    setSelectedDates(allowedDates);
+  } else {
+    setSelectedDates(null);
+  }
+
+  openSidebar();
+};
+
 
   const openFilterSidebar = () => {
     setIsFilterSidebarOpen(true);
