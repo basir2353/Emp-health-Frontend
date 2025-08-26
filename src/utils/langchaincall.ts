@@ -2,7 +2,7 @@ import axios from "axios";
 
 // Your GROQ API key (replace or set via env)
 const GROQ_API_KEY: string | undefined =
-  process.env.GROQ_API_KEY || "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";
+  process.env.GROQ_API_KEY || "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";
 
 const MODEL = "llama3-8b-8192"; // You can also try "mixtral-8x7b-32768"
 

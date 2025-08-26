@@ -196,21 +196,17 @@ const SafetyBox: React.FC = () => {
             params: { rep_id },
           }
         );
-        console.log(response, "thttths");
-        setNotif(response?.data?.notifications);
+        setNotif(response?.data?.notifications || []);
         const newNotifications: Notification[] =
           response.data.notifications || [];
-        // setNotifications(newNotifications);
 
         const unreadNotification = newNotifications.find(
           (notif) => !notif.read
         );
-        const isDeny = newNotifications.find((notif) => notif?.deny);
+        const isDeny = newNotifications.some((notif) => notif?.deny);
         if (isDeny) {
           const notificationToShow = unreadNotification || newNotifications[0];
-          console.log(notificationToShow, "this is show");
-
-          setNotificationMessage("you have already notify to admin");
+          setNotificationMessage("You have already notified the admin");
           setIdentityPopupVisible(!!notificationToShow);
         } else {
           const notificationToShow = unreadNotification || newNotifications[0];
@@ -229,10 +225,7 @@ const SafetyBox: React.FC = () => {
 
   const fetchNotificationsForAdmin = useCallback(
     async (daata: any) => {
-      console.log("hello i'm here");
-
       try {
-        console.log(daata, "this data");
         const email = daata?.reportedBy?.email;
         const rep_id = daata?._id;
 
@@ -255,18 +248,13 @@ const SafetyBox: React.FC = () => {
         const unreadNotification = newNotifications.find(
           (notif) => !notif.read
         );
-        console.log(response, "thi888");
-        const isDeny = newNotifications.find((notif) => notif?.deny);
         const extractIsDeny = newNotifications.some(
           (element) => element?.deny === true
         );
 
-        console.log(extractIsDeny, "this is realDeny");
-
         if (extractIsDeny) {
           handleViewNotification();
           SetIsDeny(true);
-          console.log(deny, "this eny");
         } else {
           const notificationToShow = unreadNotification || newNotifications[0];
           setNotificationMessage(notificationToShow?.message || "");
@@ -450,7 +438,6 @@ const SafetyBox: React.FC = () => {
       }
 
       const userId = selectedIncident?.reportedBy?.email;
-      console.log(selectedIncident, "this is selected");
       if (!userId) {
         message.error("User email not found");
         return;
@@ -461,7 +448,7 @@ const SafetyBox: React.FC = () => {
         {
           message: `${
             user.name || "Admin"
-          } has pinged you to provide your identity for incident ${
+          } has requested your identity for incident ${
             selectedIncident?.incidentID
           }.`,
           timestamp: new Date().toISOString(),
@@ -475,7 +462,7 @@ const SafetyBox: React.FC = () => {
         }
       );
 
-      message.success("Notification sent to user");
+      message.success("Identity request sent to user");
     } catch (error: any) {
       console.error("Failed to send identity request:", error);
       message.error(
@@ -485,8 +472,6 @@ const SafetyBox: React.FC = () => {
   };
 
   const handleSend = async (selectedIncident: Incident | null) => {
-    console.log(selectedIncident, "this is data");
-
     try {
       const token = localStorage.getItem("token_real");
       if (!token) {
@@ -507,9 +492,9 @@ const SafetyBox: React.FC = () => {
           userEmail
         )}/notify_admin`,
         {
-          message: `${
-            user.name || "Admin"
-          } has pinged you to provide your identity for incident ${
+          message: `User ${
+            userName || "Reporter"
+          } has approved the identity request for incident ${
             selectedIncident?.incidentID
           }.`,
           timestamp: new Date().toISOString(),
@@ -524,12 +509,15 @@ const SafetyBox: React.FC = () => {
         }
       );
 
+      // Also update identity status
+      await handleIdentityResponse(true);
+
       message.success("Notification sent to Admin");
       message.success(`${userName} has been approved`);
     } catch (error: any) {
-      console.error("Failed to send identity request:", error);
+      console.error("Failed to send identity approval:", error);
       message.error(
-        error.response?.data?.message || "Failed to send identity request"
+        error.response?.data?.message || "Failed to send identity approval"
       );
     }
   };
@@ -537,7 +525,6 @@ const SafetyBox: React.FC = () => {
   const handleNotSend = async (data: any) => {
     setShowAnonymousSection(false);
     try {
-      console.log(data, "this data");
       const email = data?.reportedBy?.email;
       const rep_id = data?._id;
 
@@ -546,7 +533,7 @@ const SafetyBox: React.FC = () => {
         return;
       }
 
-      const response = await axios.put(
+      await axios.put(
         `https://empolyee-backedn.onrender.com/api/${email}/deny`,
         {},
         {
@@ -555,9 +542,9 @@ const SafetyBox: React.FC = () => {
         }
       );
 
-      const newNotifications: Notification[] =
-        response.data.notifications || [];
-      setNotifications(newNotifications);
+      // Also update identity status to declined
+      await handleIdentityResponse(false);
+
       setNotificationMessage("Success: notification deleted");
     } catch (error: any) {
       console.error(error);
@@ -569,8 +556,7 @@ const SafetyBox: React.FC = () => {
 
   const [userName, setUserName] = useState<string>("");
 
-  // 👇 state add karo
-  // State
+  // State for view notification UI (not rendered yet, keeping as is)
   const [viewNotificationUI, setViewNotificationUI] =
     useState<React.ReactNode>(null);
 
@@ -654,9 +640,7 @@ const SafetyBox: React.FC = () => {
   };
 
   const handleEyeClick = async (incident: Incident) => {
-    console.log(incident, "this is ");
     setSelectedIncident(incident);
-    // Fix: Handle undefined name by providing fallback
     setUserName(incident?.reportedBy?.name || "");
     setSidebarVisible(true);
     setShowAnonymousSection(true); // Reset the anonymous section visibility
@@ -711,30 +695,6 @@ const SafetyBox: React.FC = () => {
   const sortedReports = [...allIncidents].sort((a, b) =>
     a.incidentID.localeCompare(b.incidentID)
   );
-
-  // const [DenyNotif, setIsDenying] = useState(false);
-  // console.log(notif[0]?.deny, "uupdtaed");
-
-  // useEffect(() => {
-  //   if (notif[0]?.deny === true) {
-  //     console.log(DenyNotif);
-  //     console.log(notif[0]?.deny);
-
-  //     setIsDenying(true);
-  //     console.log("after", DenyNotif);
-  //   } else {
-  //     setIsDenying(false);
-  //   }
-  //   // Optionally keep the logs for debugging
-  //   console.log(notif[0]?.deny);
-  //   console.log(notif?.length, "this length");
-  //   console.log(notif, "this is notifications");
-  // }, [notif]);
-
-  // useEffect(()=>{
-  //   setIsDenying(true);
-  // },[])
-  //   console.log('after',DenyNotif);
 
   return (
     <div className="px-9">
@@ -1049,7 +1009,7 @@ const SafetyBox: React.FC = () => {
                               <span className="text-xl">❌</span>
                               Identity request is denied by the reporter
                             </Button>
-                          ) : notif.length > 0 ? (
+                          ) : notifications.length > 0 ? (
                             <Button disabled>Notification Received</Button>
                           ) : (
                             <Button onClick={handleAskForIdentity}>
@@ -1101,7 +1061,8 @@ const SafetyBox: React.FC = () => {
               </div>
               {canModify &&
                 selectedIncident?.reportedBy &&
-                !selectedIncident.anonymous && (
+                (!selectedIncident.anonymous ||
+                  selectedIncident.identityStatus === "provided") && (
                   <div className="mt-4 mb-4">
                     <h2 className="text-base mb-1 font-semibold">
                       Reported By
