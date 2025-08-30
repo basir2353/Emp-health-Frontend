@@ -4,10 +4,11 @@ import { Button, Input, Card, Typography, message, List, Avatar, Badge } from 'a
 import { UserOutlined, VideoCameraOutlined, PhoneOutlined } from '@ant-design/icons';
 import { AuthContext } from '../components/context/AuthContext';
 import { storeSocketId, getOnlineUsers, getOnlineDoctors, leaveCall } from '../api/callApi';
-
+import { useNavigate } from 'react-router-dom';
 const { Title, Paragraph } = Typography;
 
 const Call = () => {
+   const navigate = useNavigate();
   const { currentUser } = useContext(AuthContext);
   const [socket, setSocket] = useState(null);
   const [localStream, setLocalStream] = useState(null);
@@ -369,50 +370,55 @@ const Call = () => {
 
   // Join room and initialize media
   const joinRoom = async () => {
+
     if (!roomId || !socket) {
       message.error('Room ID or socket not available');
       return;
     }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
-        audio: { echoCancellation: true, noiseSuppression: true },
-      });
-      console.log('Local stream obtained:', stream);
-      setLocalStream(stream);
-      setMediaError(null);
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = stream;
-        localVideoRef.current.play().catch(e => {
-          console.error('Local video autoplay error:', e);
-          localVideoRef.current.muted = true;
-          localVideoRef.current.play();
-        });
-      }
+   navigate(`/room/${roomId}`);
+      console.log(roomId,'this is Socket', socket);
+    
+     
+    // try {
+    //   const stream = await navigator.mediaDevices.getUserMedia({
+    //     video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+    //     audio: { echoCancellation: true, noiseSuppression: true },
+    //   });
+    //   console.log('Local stream obtained:', stream);
+    //   setLocalStream(stream);
+    //   setMediaError(null);
+    //   if (localVideoRef.current) {
+    //     localVideoRef.current.srcObject = stream;
+    //     localVideoRef.current.play().catch(e => {
+    //       console.error('Local video autoplay error:', e);
+    //       localVideoRef.current.muted = true;
+    //       localVideoRef.current.play();
+    //     });
+    //   }
 
-      const pc = createPeerConnection();
-      setPeerConnection(pc);
-      stream.getTracks().forEach(track => {
-        console.log('Adding track to peer connection:', track);
-        pc.addTrack(track, stream);
-      });
+    //   const pc = createPeerConnection();
+    //   setPeerConnection(pc);
+    //   stream.getTracks().forEach(track => {
+    //     console.log('Adding track to peer connection:', track);
+    //     pc.addTrack(track, stream);
+    //   });
 
-      socket.emit('join-room', { roomId: roomId.toLowerCase(), userId: socket.id });
-      setCallStatus('Connected to room');
-      await handleStoreSocketId(socket.id); // Store socket ID when joining room
-    } catch (error) {
-      console.error('Error joining room:', error);
-      if (error.name === 'NotAllowedError') {
-        setMediaError('Camera or microphone access denied. Please allow permissions.');
-        message.error('Camera or microphone access denied. Please allow permissions.');
-      } else if (error.name === 'NotFoundError') {
-        setMediaError('No camera or microphone found. Please check your devices.');
-        message.error('No camera or microphone found. Please check your devices.');
-      } else {
-        setMediaError('Failed to access camera/microphone: ' + error.message);
-        message.error('Failed to access camera/microphone: ' + error.message);
-      }
-    }
+    //   socket.emit('join-room', { roomId: roomId.toLowerCase(), userId: socket.id });
+    //   setCallStatus('Connected to room');
+    //   await handleStoreSocketId(socket.id); // Store socket ID when joining room
+    // } catch (error) {
+    //   console.error('Error joining room:', error);
+    //   if (error.name === 'NotAllowedError') {
+    //     setMediaError('Camera or microphone access denied. Please allow permissions.');
+    //     message.error('Camera or microphone access denied. Please allow permissions.');
+    //   } else if (error.name === 'NotFoundError') {
+    //     setMediaError('No camera or microphone found. Please check your devices.');
+    //     message.error('No camera or microphone found. Please check your devices.');
+    //   } else {
+    //     setMediaError('Failed to access camera/microphone: ' + error.message);
+    //     message.error('Failed to access camera/microphone: ' + error.message);
+    //   }
+    // }
   };
 
   // Call user directly by socket ID (for doctors)

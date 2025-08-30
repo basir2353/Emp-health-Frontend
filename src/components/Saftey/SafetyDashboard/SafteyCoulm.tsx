@@ -454,7 +454,7 @@ const [adminMessage, setAdminMessage] = useState<string | null>(null);
       }
 
       await axios.post(
-        `https://empolyee-backedn.onrender.com/api/${userId}/notify`,
+        `http://localhost:5000/api/${userId}/notify`,
         {
           message: `${
             user.name || "Admin"
@@ -499,7 +499,7 @@ const handleSend = async (selectedIncident: Incident | null) => {
     const adminMessage = `${user.name} employee approve report`;
 
     await axios.post(
-      `https://empolyee-backedn.onrender.com/api/${encodeURIComponent(
+      `http://localhost:5000/api/${encodeURIComponent(
         userEmail
       )}/notify_admin`,
       {
