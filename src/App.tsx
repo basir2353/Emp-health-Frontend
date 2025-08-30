@@ -42,20 +42,8 @@ import Call from "./Call/Call";
 import CallTest from "./Call/CallTest";
 import ForgetPassword from "./Component/Login/ForgetPassword";
 import ResetPassword from "./Component/Login/ResetPassword";
-import VideoRoom from "./Call/VideoRoom";
+import RoomWrapper from "./Call/RoomWrapper";
 
-type RoomWrapperProps = {
-  user: {
-    id: string;
-    name: string;
-  };
-};
-
-function RoomWrapper({ user }: RoomWrapperProps) {
-  const { id } = useParams();
-  return <VideoRoom roomID={id} user={user} />;
-}
-const currentUser = { id: "123", name: "Hashir" };
 const App: React.FC = () => (
   
   <div className="App mx-auto">
@@ -64,7 +52,7 @@ const App: React.FC = () => (
         <Routes>
           {/* Auth Routes */}
           {/* Register */}
-          <Route path="/room/:id" element={<RoomWrapper user={currentUser} />} />
+           <Route path="/room/:id" element={<RoomWrapper />} />
           <Route path="/register" element={<RegisterForm />} />
           <Route path='/forget-password' element={<ForgetPassword/>}/>
           <Route path="/reset-password/:token" element={<ResetPassword />} />

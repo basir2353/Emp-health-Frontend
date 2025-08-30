@@ -1,5 +1,5 @@
 import { Editor, Frame, Element } from "@craftjs/core";
-import { createMuiTheme } from "@material-ui/core";
+import { createTheme } from '@material-ui/core/styles'
 import { ThemeProvider } from "@material-ui/core/styles";
 import { Viewport, RenderNode } from "./craft-js/editor";
 import { Text } from "./craft-js/selectors";
@@ -12,7 +12,7 @@ import { Poll } from "./craft-js/selectors/Poll";
 import { ReactQuill } from "./craft-js/selectors/ReactQuill";
 import "./style.css";
 
-const theme = createMuiTheme({
+const theme = createTheme({
   typography: {
     fontFamily: [
       "acumin-pro",

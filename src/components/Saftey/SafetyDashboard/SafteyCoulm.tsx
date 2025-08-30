@@ -59,6 +59,7 @@ interface Notification {
   timestamp: string;
   read: boolean;
   deny: boolean;
+  admin_message?: string; 
 }
 
 const { Column } = Table;
@@ -196,17 +197,21 @@ const SafetyBox: React.FC = () => {
             params: { rep_id },
           }
         );
-        setNotif(response?.data?.notifications || []);
+        console.log(response, "thttths");
+        setNotif(response?.data?.notifications);
         const newNotifications: Notification[] =
           response.data.notifications || [];
+        // setNotifications(newNotifications);
 
         const unreadNotification = newNotifications.find(
           (notif) => !notif.read
         );
-        const isDeny = newNotifications.some((notif) => notif?.deny);
+        const isDeny = newNotifications.find((notif) => notif?.deny);
         if (isDeny) {
           const notificationToShow = unreadNotification || newNotifications[0];
-          setNotificationMessage("You have already notified the admin");
+          console.log(notificationToShow, "this is show");
+
+          setNotificationMessage("you have already notify to admin");
           setIdentityPopupVisible(!!notificationToShow);
         } else {
           const notificationToShow = unreadNotification || newNotifications[0];
@@ -222,17 +227,18 @@ const SafetyBox: React.FC = () => {
     },
     [userEmail]
   );
-
+const [adminMessage, setAdminMessage] = useState<string | null>(null);
   const fetchNotificationsForAdmin = useCallback(
     async (daata: any) => {
+      console.log("hello i'm here");
+
       try {
+        console.log(daata, "this data");
         const email = daata?.reportedBy?.email;
         const rep_id = daata?._id;
 
         const token = localStorage.getItem("token_real");
-        if (!token || !userEmail) {
-          return;
-        }
+    
 
         const response = await axios.get(
           `https://empolyee-backedn.onrender.com/api/${email}/notifications_admin`,
@@ -244,17 +250,20 @@ const SafetyBox: React.FC = () => {
         const newNotifications: Notification[] =
           response.data.notifications || [];
         setNotifications(newNotifications);
-
+         const foundAdminMsg:any = newNotifications.find(n => n.admin_message)?.admin_message;
+        setAdminMessage(foundAdminMsg);
+         const extractIsDeny = newNotifications.some(
+          (element) => element?.deny === true
+        );
         const unreadNotification = newNotifications.find(
           (notif) => !notif.read
         );
-        const extractIsDeny = newNotifications.some(
-          (element) => element?.deny === true
-        );
+        console.log(extractIsDeny, "this is realDeny");
 
         if (extractIsDeny) {
           handleViewNotification();
           SetIsDeny(true);
+          console.log(deny, "this eny");
         } else {
           const notificationToShow = unreadNotification || newNotifications[0];
           setNotificationMessage(notificationToShow?.message || "");
@@ -438,19 +447,18 @@ const SafetyBox: React.FC = () => {
       }
 
       const userId = selectedIncident?.reportedBy?.email;
+      console.log(selectedIncident, "this is selected");
       if (!userId) {
         message.error("User email not found");
         return;
       }
 
       await axios.post(
-        `https://empolyee-backedn.onrender.com/api/${userId}/notify`,
+        `http://localhost:5000/api/${userId}/notify`,
         {
           message: `${
             user.name || "Admin"
-          } has requested your identity for incident ${
-            selectedIncident?.incidentID
-          }.`,
+          } is asking for your identity`,
           timestamp: new Date().toISOString(),
           reportId: selectedIncident?._id,
         },
@@ -462,7 +470,7 @@ const SafetyBox: React.FC = () => {
         }
       );
 
-      message.success("Identity request sent to user");
+      message.success("Notification sent to user");
     } catch (error: any) {
       console.error("Failed to send identity request:", error);
       message.error(
@@ -471,92 +479,98 @@ const SafetyBox: React.FC = () => {
     }
   };
 
-  const handleSend = async (selectedIncident: Incident | null) => {
-    try {
-      const token = localStorage.getItem("token_real");
-      if (!token) {
-        message.error("Authentication token missing");
-        return;
-      }
+const handleSend = async (selectedIncident: Incident | null) => {
+  try {
+    const token = localStorage.getItem("token_real");
+    if (!token) {
+      message.error("Authentication token missing");
+      return;
+    }
 
-      const userEmail = selectedIncident?.reportedBy?.email;
-      const userName = selectedIncident?.reportedBy?.name;
+    const userEmail = selectedIncident?.reportedBy?.email;
+    const userName = selectedIncident?.reportedBy?.name;
 
-      if (!userEmail) {
-        message.error("User email not found");
-        return;
-      }
+    if (!userEmail) {
+      message.error("User email not found");
+      return;
+    }
 
-      await axios.post(
-        `https://empolyee-backedn.onrender.com/api/${encodeURIComponent(
-          userEmail
-        )}/notify_admin`,
-        {
-          message: `User ${
-            userName || "Reporter"
-          } has approved the identity request for incident ${
-            selectedIncident?.incidentID
-          }.`,
-          timestamp: new Date().toISOString(),
-          userName: userName,
-          reportId: selectedIncident?._id,
+    // Compose the admin message
+    const adminMessage = `${user.name} employee approve report`;
+
+    await axios.post(
+      `http://localhost:5000/api/${encodeURIComponent(
+        userEmail
+      )}/notify_admin`,
+      {
+        message: `${
+          user.name || "Employee"
+        } has approved the identity request for incident ${
+          selectedIncident?.incidentID
+        }.`,
+        admin_message: adminMessage,
+        timestamp: new Date().toISOString(),
+        userName: userName,
+        reportId: selectedIncident?._id,
+      },
+      {
+        headers: {
+          "x-auth-token": token,
+          "Content-Type": "application/json",
         },
-        {
-          headers: {
-            "x-auth-token": token,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      // Also update identity status
-      await handleIdentityResponse(true);
-
-      message.success("Notification sent to Admin");
-      message.success(`${userName} has been approved`);
-    } catch (error: any) {
-      console.error("Failed to send identity approval:", error);
-      message.error(
-        error.response?.data?.message || "Failed to send identity approval"
-      );
-    }
-  };
-
-  const handleNotSend = async (data: any) => {
-    setShowAnonymousSection(false);
-    try {
-      const email = data?.reportedBy?.email;
-      const rep_id = data?._id;
-
-      const token = localStorage.getItem("token_real");
-      if (!token || !userEmail) {
-        return;
       }
+    );
 
-      await axios.put(
-        `https://empolyee-backedn.onrender.com/api/${email}/deny`,
-        {},
-        {
-          headers: { "x-auth-token": token },
-          params: { rep_id },
-        }
-      );
+    message.success("Notification sent to Admin");
+    message.success(`${userName} has been approved`);
+    // Set the notification message so user sees "you have already notify to admin"
+    setNotificationMessage("you have already notify to admin");
+  } catch (error: any) {
+    console.error("Failed to send identity request:", error);
+    message.error(
+      error.response?.data?.message || "Failed to send identity request"
+    );
+  }
+};
 
-      // Also update identity status to declined
-      await handleIdentityResponse(false);
 
-      setNotificationMessage("Success: notification deleted");
-    } catch (error: any) {
-      console.error(error);
-      message.error(
-        error?.response?.data?.message || "Error deleting notification"
-      );
+const handleNotSend = async (data: any) => {
+  setShowAnonymousSection(false);
+  try {
+    const email = data?.reportedBy?.email;
+    const rep_id = data?._id;
+
+    const token = localStorage.getItem("token_real");
+    if (!token || !userEmail) {
+      return;
     }
-  };
+
+    const response = await axios.put(
+      `https://empolyee-backedn.onrender.com/api/${email}/deny`,
+      {},
+      {
+        headers: { "x-auth-token": token },
+        params: { rep_id },
+      }
+    );
+
+    const newNotifications: Notification[] =
+      response.data.notifications || [];
+    setNotifications(newNotifications);
+    // Set the notification message so user sees "you have already notify to admin"
+    setNotificationMessage("you have already notify to admin");
+  } catch (error: any) {
+    console.error(error);
+    message.error(
+      error?.response?.data?.message || "Error deleting notification"
+    );
+  }
+};
 
   const [userName, setUserName] = useState<string>("");
 
-  // State for view notification UI (not rendered yet, keeping as is)
+  // 👇 state add karo
+  // State
   const [viewNotificationUI, setViewNotificationUI] =
     useState<React.ReactNode>(null);
 
@@ -570,7 +584,7 @@ const SafetyBox: React.FC = () => {
           notificationMessage ? (
             <Card
               style={{
-                width: 280,
+                width: 480,
                 padding: "10px 16px",
                 backgroundColor: "#FFFFFF",
                 boxShadow: "0px 2px 8px rgba(0, 0, 0, 0.15)",
@@ -640,7 +654,10 @@ const SafetyBox: React.FC = () => {
   };
 
   const handleEyeClick = async (incident: Incident) => {
+    console.log(incident, "this is ");
+    SetIsDeny(false);
     setSelectedIncident(incident);
+    // Fix: Handle undefined name by providing fallback
     setUserName(incident?.reportedBy?.name || "");
     setSidebarVisible(true);
     setShowAnonymousSection(true); // Reset the anonymous section visibility
@@ -696,6 +713,161 @@ const SafetyBox: React.FC = () => {
     a.incidentID.localeCompare(b.incidentID)
   );
 
+  // const [DenyNotif, setIsDenying] = useState(false);
+  // console.log(notif[0]?.deny, "uupdtaed");
+
+  // useEffect(() => {
+  //   if (notif[0]?.deny === true) {
+  //     console.log(DenyNotif);
+  //     console.log(notif[0]?.deny);
+
+  //     setIsDenying(true);
+  //     console.log("after", DenyNotif);
+  //   } else {
+  //     setIsDenying(false);
+  //   }
+  //   // Optionally keep the logs for debugging
+  //   console.log(notif[0]?.deny);
+  //   console.log(notif?.length, "this length");
+  //   console.log(notif, "this is notifications");
+  // }, [notif]);
+
+  // useEffect(()=>{
+  //   setIsDenying(true);
+  // },[])
+  //   console.log('after',DenyNotif);
+
+
+//  notifcation for admin and doctor 
+const renderAdminDoctorView = () => {
+  if (deny) {
+    return (
+      <Button
+        disabled
+        className="!bg-white !text-black !cursor-not-allowed px-6 py-2 rounded-lg shadow-md flex items-center gap-2"
+      >
+        <CloseCircleOutlined style={{ color: "#ff4d4f", fontSize: 20 }} />
+        Identity request is denied by the reporter
+      </Button>
+    );
+  }
+
+  // Show admin_message if exists
+  if (adminMessage) {
+    return (
+      <Card
+        style={{
+          width: 280,
+          padding: "10px 16px",
+          backgroundColor: "#F6FFED",
+          boxShadow: "0px 2px 8px rgba(0, 0, 0, 0.15)",
+          borderRadius: 8,
+          display: "flex",
+          alignItems: "center",
+        }}
+      >
+        <CheckCircleOutlined
+          style={{
+            color: "#52C41A",
+            fontSize: 20,
+            marginRight: 5,
+          }}
+        />
+        <span style={{ flexGrow: 1, fontSize: 14 }}>
+          {adminMessage}
+        </span>
+      </Card>
+    );
+  }
+
+  if (notif.length > 0) {
+    return <Button disabled>Notification Received</Button>;
+  }
+
+  return (
+    <Button
+      className="border-[#ff4d4f] text-[#ff4d4f] w-full sm:w-[80%] md:w-[60%] text-center"
+      onClick={handleAskForIdentity}
+    >
+      Ask for Identity
+    </Button>
+  );
+};
+
+//  notifcation for only user 
+const renderUserView = () => {
+  return notificationMessage ? (
+    <Card
+      style={{
+        width: 280,
+        padding: "10px 16px",
+        backgroundColor: "#FFFFFF",
+        boxShadow: "0px 2px 8px rgba(0, 0, 0, 0.15)",
+        borderRadius: 8,
+        display: "flex",
+        alignItems: "center",
+        flexDirection: "column",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          width: "100%",
+        }}
+      >
+        <ExclamationCircleOutlined
+          style={{
+            color: "#FFA500",
+            fontSize: 20,
+            marginRight: 5,
+          }}
+        />
+        <span style={{ flexGrow: 1, fontSize: 14 }}>
+          {notificationMessage}
+        </span>
+      </div>
+      {/* Only show buttons if message is NOT "you have already notify to admin" */}
+      {notificationMessage !== "you have already notify to admin" && (
+        <div
+          style={{
+            display: "flex",
+            gap: "8px",
+            marginTop: "10px",
+          }}
+        >
+          <Button
+            type="primary"
+            style={{
+              backgroundColor: "#000000",
+              borderColor: "#000000",
+              borderRadius: 8,
+            }}
+            onClick={() => handleSend(selectedIncident)}
+          >
+            Approve
+          </Button>
+          <Button
+            type="default"
+            style={{
+              backgroundColor: "#FFFFFF",
+              borderColor: "#D9D9D9",
+              borderRadius: 8,
+            }}
+            onClick={() => handleNotSend(selectedIncident)}
+          >
+            Deny
+          </Button>
+        </div>
+      )}
+    </Card>
+  ) : (
+    <span>No notifications available.</span>
+  );
+};
+
+
+  
   return (
     <div className="px-9">
       <div className="flex max-lg:flex-col items-center justify-between p-2">
@@ -932,91 +1104,7 @@ const SafetyBox: React.FC = () => {
                           </span>
                         </Card>
                       ) : (
-                        <>
-                          {!isAdmin ? (
-                            notificationMessage ? (
-                              <Card
-                                style={{
-                                  width: 280,
-                                  padding: "10px 16px",
-                                  backgroundColor: "#FFFFFF",
-                                  boxShadow: "0px 2px 8px rgba(0, 0, 0, 0.15)",
-                                  borderRadius: 8,
-                                  display: "flex",
-                                  alignItems: "center",
-                                  flexDirection: "column",
-                                }}
-                              >
-                                <div
-                                  style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    width: "100%",
-                                  }}
-                                >
-                                  <ExclamationCircleOutlined
-                                    style={{
-                                      color: "#FFA500",
-                                      fontSize: 20,
-                                      marginRight: 5,
-                                    }}
-                                  />
-                                  <span style={{ flexGrow: 1, fontSize: 14 }}>
-                                    {notificationMessage}
-                                  </span>
-                                </div>
-                                <div
-                                  style={{
-                                    display: "flex",
-                                    gap: "8px",
-                                    marginTop: "10px",
-                                  }}
-                                >
-                                  <Button
-                                    type="primary"
-                                    style={{
-                                      backgroundColor: "#000000",
-                                      borderColor: "#000000",
-                                      borderRadius: 8,
-                                    }}
-                                    onClick={() => handleSend(selectedIncident)}
-                                  >
-                                    Approve
-                                  </Button>
-                                  <Button
-                                    type="default"
-                                    style={{
-                                      backgroundColor: "#FFFFFF",
-                                      borderColor: "#D9D9D9",
-                                      borderRadius: 8,
-                                    }}
-                                    onClick={() =>
-                                      handleNotSend(selectedIncident)
-                                    }
-                                  >
-                                    Deny
-                                  </Button>
-                                </div>
-                              </Card>
-                            ) : (
-                              <span>No notifications available.</span>
-                            )
-                          ) : deny ? (
-                            <Button
-                              disabled
-                              className="!bg-white !text-black !cursor-not-allowed px-6 py-2 rounded-lg shadow-md flex items-center gap-2"
-                            >
-                              <span className="text-xl">❌</span>
-                              Identity request is denied by the reporter
-                            </Button>
-                          ) : notifications.length > 0 ? (
-                            <Button disabled>Notification Received</Button>
-                          ) : (
-                            <Button onClick={handleAskForIdentity}>
-                              Ask for Identity
-                            </Button>
-                          )}
-                        </>
+                       <>{(isAdmin || isDoctor) ? renderAdminDoctorView() : renderUserView()}</>
                       )}
                     </>
                   )}
@@ -1061,8 +1149,7 @@ const SafetyBox: React.FC = () => {
               </div>
               {canModify &&
                 selectedIncident?.reportedBy &&
-                (!selectedIncident.anonymous ||
-                  selectedIncident.identityStatus === "provided") && (
+                !selectedIncident.anonymous && (
                   <div className="mt-4 mb-4">
                     <h2 className="text-base mb-1 font-semibold">
                       Reported By

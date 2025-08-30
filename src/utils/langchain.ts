@@ -2,7 +2,7 @@ import axios from "axios";
 import { data } from "./constants";
 
 const GROQ_API_KEY: string | undefined =
-  process.env.GROQ_API_KEY || "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"; // Replace with your real key
+  process.env.GROQ_API_KEY || "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"; // Replace with your real key
 
 const MODEL = "llama3-8b-8192"; // Free and strong, other option: "mixtral-8x7b-32768"
 
