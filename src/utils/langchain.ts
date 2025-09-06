@@ -1,13 +1,14 @@
 import axios from "axios";
-import { ChatGroq } from "@langchain/groq";
+import { ChatOpenAI } from "@langchain/openai";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { StringOutputParser } from "@langchain/core/output_parsers";
 
-const GROQ_API_KEY: string | undefined =
-  process.env.GROQ_API_KEY ||
-  "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"; // Replace with your real key
+const OPENROUTER_API_KEY: string | undefined =
+  process.env.OPENROUTER_API_KEY ||
+  "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"; // Replace with your real key
 
-const MODEL = "llama-3.3-70b-versatile";
+// Example OpenRouter model
+const MODEL = "meta-llama/llama-3-70b-instruct";
 
 // Navigation data
 const navigation = [
@@ -17,17 +18,20 @@ const navigation = [
       "How can I schedule an appointment?",
       "Book a doctor's appointment",
     ],
-    response: "You can book an appointment [here](https://emp-health-frontend.vercel.app/health/appointments).",
+    response:
+      "You can book an appointment [here](https://emp-health-frontend.vercel.app/health/appointments).",
     link: "https://emp-health-frontend.vercel.app/health/appointments",
   },
   {
     category: ["Show me the list of doctors", "I want to see doctors", "Doctors available"],
-    response: "You can view the list of doctors [here](https://emp-health-frontend.vercel.app/health/doctors).",
+    response:
+      "You can view the list of doctors [here](https://emp-health-frontend.vercel.app/health/doctors).",
     link: "https://emp-health-frontend.vercel.app/health/doctors",
   },
   {
     category: ["Go to Dashboard", "Show me the dashboard", "Open dashboard"],
-    response: "You can access the dashboard [here](https://emp-health-frontend.vercel.app/health).",
+    response:
+      "You can access the dashboard [here](https://emp-health-frontend.vercel.app/health).",
     link: "https://emp-health-frontend.vercel.app/health",
   },
   {
@@ -37,12 +41,14 @@ const navigation = [
   },
   {
     category: ["Show wellness courses", "I want to see wellness content", "Go to wellness"],
-    response: "You can access the wellness section [here](https://emp-health-frontend.vercel.app/wellness).",
+    response:
+      "You can access the wellness section [here](https://emp-health-frontend.vercel.app/wellness).",
     link: "https://emp-health-frontend.vercel.app/wellness",
   },
   {
     category: ["Show safety dashboard", "Open safety section", "Go to safety"],
-    response: "You can view the safety dashboard [here](https://emp-health-frontend.vercel.app/safety).",
+    response:
+      "You can view the safety dashboard [here](https://emp-health-frontend.vercel.app/safety).",
     link: "https://emp-health-frontend.vercel.app/safety",
   },
   {
@@ -51,17 +57,20 @@ const navigation = [
       "Admin schedule appointment",
       "Schedule appointment for doctor",
     ],
-    response: "You can schedule an appointment [here](https://emp-health-frontend.vercel.app/health/admin-schedule-appointments).",
+    response:
+      "You can schedule an appointment [here](https://emp-health-frontend.vercel.app/health/admin-schedule-appointments).",
     link: "https://emp-health-frontend.vercel.app/health/admin-schedule-appointments",
   },
   {
     category: ["Schedule appointment for doctor"],
-    response: "You can schedule an appointment [here](https://emp-health-frontend.vercel.app/health/doctor-schedule-appointments).",
+    response:
+      "You can schedule an appointment [here](https://emp-health-frontend.vercel.app/health/doctor-schedule-appointments).",
     link: "https://emp-health-frontend.vercel.app/health/doctor-schedule-appointments",
   },
   {
     category: ["Show notifications", "Go to notifications", "Open notification section"],
-    response: "You can view notifications [here](https://emp-health-frontend.vercel.app/health/notification).",
+    response:
+      "You can view notifications [here](https://emp-health-frontend.vercel.app/health/notification).",
     link: "https://emp-health-frontend.vercel.app/health/notification",
   },
   {
@@ -70,7 +79,8 @@ const navigation = [
       "Go to insurance section",
       "I want to see insurance information",
     ],
-    response: "You can view insurance information [here](https://emp-health-frontend.vercel.app/health/insurance).",
+    response:
+      "You can view insurance information [here](https://emp-health-frontend.vercel.app/health/insurance).",
     link: "https://emp-health-frontend.vercel.app/health/insurance",
   },
 ];
@@ -89,7 +99,9 @@ function cleanResponse(text: string): string {
 // Fetch doctors from the API
 async function fetchDoctors(): Promise<any[]> {
   try {
-    const response = await axios.get("https://empolyee-backedn.onrender.com/api/all-doctors");
+    const response = await axios.get(
+      "https://empolyee-backedn.onrender.com/api/all-doctors"
+    );
     return response.data;
   } catch (error) {
     console.error("Error fetching doctors:", error);
@@ -103,22 +115,25 @@ export const conversationalBot = async (input: string): Promise<string> => {
       return "Please provide a valid input query.";
     }
 
-    if (!GROQ_API_KEY) {
-      throw new Error("GROQ API key missing.");
+    if (!OPENROUTER_API_KEY) {
+      throw new Error("OpenRouter API key missing.");
     }
 
     // Fetch doctors dynamically
     const doctors = await fetchDoctors();
 
-    // Initialize LangChain Groq model
-    const llm = new ChatGroq({
-      apiKey: GROQ_API_KEY,
+    // Initialize LangChain with OpenRouter model
+    const llm = new ChatOpenAI({
+      openAIApiKey: OPENROUTER_API_KEY,
       model: MODEL,
       temperature: 0.7,
       maxTokens: 512,
+      configuration: {
+        baseURL: "https://openrouter.ai/api/v1",
+      },
     });
 
-    // Create prompt template with proper structure
+    // Create prompt template
     const prompt = ChatPromptTemplate.fromMessages([
       [
         "system",
@@ -136,10 +151,10 @@ Provide concise and accurate responses. For navigation queries, return the appro
     // Create chain
     const chain = prompt.pipe(llm).pipe(new StringOutputParser());
 
-    // Invoke the chain with user input
+    // Invoke chain with user input
     let botMessage = await chain.invoke({ input });
 
-    // Clean the response
+    // Clean response
     botMessage = cleanResponse(botMessage);
 
     if (!botMessage) {
@@ -154,7 +169,7 @@ Provide concise and accurate responses. For navigation queries, return the appro
       return `Bad Request: ${JSON.stringify(error.response.data, null, 2)}`;
     }
     if (error?.response?.status === 401) {
-      return "Authentication failed. Please check your GROQ API key.";
+      return "Authentication failed. Please check your OpenRouter API key.";
     }
     if (error?.response?.status === 429) {
       return "Rate limit exceeded. Please try again later.";

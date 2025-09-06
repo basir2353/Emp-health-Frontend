@@ -9,6 +9,7 @@ import {
   message,
   Select,
   Spin,
+  Input,
 } from "antd";
 import {
   ArrowUpOutlined,
@@ -125,6 +126,15 @@ const SafetyBox: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [notif, setNotif] = useState<Notification[]>([]);
   const [notificationMessage, setNotificationMessage] = useState<string>("");
+  const [logEntry, setLogEntry] = useState('');
+
+  const handleLogSubmit = () => {
+    if (logEntry.trim()) {
+      // Logic to handle log submission, e.g., API call or updating state
+      console.log('New log entry:', logEntry);
+      setLogEntry(''); // Clear input after submission
+    }
+  };
   const [showAnonymousSection, setShowAnonymousSection] =
     useState<boolean>(true);
   const user = useMemo((): User => {
@@ -1163,45 +1173,62 @@ const renderUserView = () => {
             </>
           )}
 
-          {activeTab === "ActivityLog" && (
-            <div className="mt-4 pb-4 gap-3">
-              <h2 className="text-lg font-semibold">Investigation Logs</h2>
-              {selectedIncident?.key.startsWith("r-") ? (
-                <div className="flex items-center justify-center h-32">
-                  <p>No activity logs yet for this report.</p>
-                </div>
-              ) : (
-                <>
-                  <div className="flex items-center mt-4">
-                    <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center">
-                      <img
-                        src={DrAkhtar}
-                        alt="Avatar"
-                        className="w-full h-full object-cover rounded-full"
-                      />
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="ml-2">
-                        <span className="text-black font-bold text-base">
-                          John Doe
-                        </span>{" "}
-                        added a new entry
-                      </span>
-                      <span className="ml-2">{selectedIncident?.dateTime}</span>
-                    </div>
-                  </div>
-                  <div className="mt-3 ml-10">
-                    <Tag className="mt-5 space-x-8 w-[428px] h-[52px]">
-                      <span className="text-base inline-block max-w-full">
-                        Started the investigation based on the evidence provided{" "}
-                        <br /> by the reported.
-                      </span>
-                    </Tag>
-                  </div>
-                  <div className="w-2 border-l-2 absolute border-black h-[98px] ml-4 -mt-[69px]"></div>
-                </>
-              )}
+          {activeTab === 'ActivityLog' && (
+      <div className="mt-4 pb-4 gap-3">
+        <h2 className="text-lg font-semibold">Investigation Logs</h2>
+        {/* Input Bar */}
+  
+        {selectedIncident?.key.startsWith('r-') ? (
+          <div className="flex items-center justify-center h-32">
+            <p>No activity logs yet for this report.</p>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center mt-4">
+              <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center">
+                <img
+                  src={DrAkhtar}
+                  alt="Avatar"
+                  className="w-full h-full object-cover rounded-full"
+                />
+              </div>
+              <div className="flex flex-col">
+                <span className="ml-2">
+                  <span className="text-black font-bold text-base">John Doe</span>{' '}
+                  added a new entry
+                </span>
+                <span className="ml-2">{selectedIncident?.dateTime}</span>
+              </div>
             </div>
+            <div className="mt-3 ml-10">
+              <Tag className="mt-5 space-x-8 w-[428px] h-[52px]">
+                <span className="text-base inline-block max-w-full">
+                  Started the investigation based on the evidence provided <br /> by the reported.
+                </span>
+              </Tag>
+            </div>
+            <div className="w-2 border-l-2 absolute border-black h-[98px] ml-4 -mt-[69px]"></div>
+          </>
+          
+        )}
+              <div className="mt-4 flex items-center gap-3">
+          <Input
+            placeholder="Add a new log entry"
+            value={logEntry}
+            onChange={(e) => setLogEntry(e.target.value)}
+            onPressEnter={handleLogSubmit}
+            className="w-full max-w-[428px] h-[52px] text-base"
+            style={{ borderRadius: '8px' }} // Optional: Match Ant Design styling
+          />
+          <Button
+
+            onClick={handleLogSubmit}
+            className=" text-white px-4 py-2 rounded-lgtransition"
+          >
+            Submit
+          </Button>
+        </div>
+        </div>
           )}
         </div>
       </Drawer>

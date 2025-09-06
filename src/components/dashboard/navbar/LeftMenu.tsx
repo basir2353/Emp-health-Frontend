@@ -218,7 +218,7 @@ const LeftMenu = (props: any) => {
         ),
       },
       {
-        key: "polls_admin",
+        key: "forum_admin",
         label: (
           <div className="h-auto mt-4" onClick={() => navigate("/wellness/poll")}>
             <div className="font-medium text-sm leading-3">Polls (Admin)</div>
@@ -227,7 +227,18 @@ const LeftMenu = (props: any) => {
             </div>
           </div>
         ),
-      }
+      },
+      {
+      key: "polls_admin",
+      label: (
+        <div className="h-auto mt-4" onClick={() => navigate("/wellness/forum")}>
+          <div className="font-medium text-sm leading-3">Forum (Admin)</div>
+          <div className="font-normal text-sm leading-5 mt-2 w-full h-full text-wrap text-[#64748B]">
+            View all the forum posts you have created and their engagement.
+          </div>
+        </div>
+      ),
+    }
     );
   }
 

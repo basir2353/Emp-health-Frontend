@@ -16,7 +16,7 @@ interface Post {
   hashtags?: string[];
 }
 
-export interface BlockedPost {
+interface BlockedPost {
   _id?: string;
   author: string;
   content: string;
@@ -36,34 +36,41 @@ const HealthForum: React.FC = () => {
 
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const token = localStorage.getItem("token");
+  const isAdmin = user.role === "admin";
 
   const baseURL = "https://empolyee-backedn.onrender.com/api";
 
-  // Fetch posts
+  // Fetch posts from API
   const fetchPosts = async () => {
     try {
-      const res = await axios.get(`https://empolyee-backedn.onrender.com/api/posts`, {
+      const res = await axios.get(`${baseURL}/posts`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setPosts(res.data.posts);
+      const fetchedPosts = res.data.posts;
+      const blockedPostIds = blockedPosts.map((post) => post._id);
+      const filteredPosts = fetchedPosts.filter(
+        (post: Post) => !blockedPostIds.includes(post._id)
+      );
+      setPosts(filteredPosts);
     } catch (err) {
       console.error("Error fetching posts:", err);
       message.error("Failed to load posts");
     }
   };
 
-  // Fetch blocked posts (admin only)
-  const fetchBlockedPosts = async () => {
-    if (user.role !== "admin") return;
-    try {
-      const res = await axios.get(`${baseURL}/posts/blocked`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setBlockedPosts(res.data.posts);
-    } catch (err) {
-      console.error("Error fetching blocked posts:", err);
-      message.error("Failed to load blocked posts");
+  // Load blocked posts from localStorage
+  const loadBlockedPosts = () => {
+    if (!isAdmin) return;
+    const storedBlockedPosts = localStorage.getItem("blockedPosts");
+    if (storedBlockedPosts) {
+      setBlockedPosts(JSON.parse(storedBlockedPosts));
     }
+  };
+
+  // Save blocked posts to localStorage
+  const saveBlockedPosts = (updatedBlockedPosts: BlockedPost[]) => {
+    localStorage.setItem("blockedPosts", JSON.stringify(updatedBlockedPosts));
+    setBlockedPosts(updatedBlockedPosts);
   };
 
   // Create new post
@@ -72,13 +79,12 @@ const HealthForum: React.FC = () => {
 
     try {
       const res = await axios.post(
-        `https://empolyee-backedn.onrender.com/api/posts/create`,
+        `${baseURL}/posts/create`,
         { content: postContent },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-
-      dispatch(addPost(res.data.post)); // optional, if you want Redux to have it
-      setPosts((prev) => [res.data.post, ...prev]); // update local list instantly
+      dispatch(addPost(res.data.post));
+      setPosts((prev) => [res.data.post, ...prev]);
       message.success("Post created successfully");
       setPostContent("");
     } catch (err) {
@@ -87,12 +93,74 @@ const HealthForum: React.FC = () => {
     }
   };
 
+  // Block a post
+  const handleBlockPost = (postId: string) => {
+    if (!isAdmin) return;
+
+    const postToBlock = posts.find((post) => post._id === postId);
+    if (postToBlock) {
+      setPosts((prev) => prev.filter((post) => post._id !== postId));
+      const newBlockedPost: BlockedPost = {
+        _id: postToBlock._id,
+        author: postToBlock.username,
+        content: postToBlock.content,
+        avatarUrl: postToBlock.avatarUrl,
+        hashtags: postToBlock.hashtags,
+      };
+      const updatedBlockedPosts = [...blockedPosts, newBlockedPost];
+      saveBlockedPosts(updatedBlockedPosts);
+      message.success("Post blocked successfully");
+    }
+  };
+
+  // Unblock a post
+  const handleUnblockPost = (postId: string) => {
+    const postToUnblock = blockedPosts.find((post) => post._id === postId);
+    if (postToUnblock) {
+      const updatedBlockedPosts = blockedPosts.filter((post) => post._id !== postId);
+      saveBlockedPosts(updatedBlockedPosts);
+      const restoredPost: Post = {
+        _id: postToUnblock._id,
+        username: postToUnblock.author,
+        content: postToUnblock.content,
+        avatarUrl: postToUnblock.avatarUrl || ProfileImage,
+        likes: 0,
+        hashtags: postToUnblock.hashtags,
+      };
+      setPosts((prev) => [restoredPost, ...prev]);
+      message.success("Post unblocked successfully");
+    }
+  };
+
+  // Like a post
+  const handleLikePost = async (postId: string) => {
+    try {
+      await axios.post(
+        `${baseURL}/posts/like/${postId}`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setPosts((prev) =>
+        prev.map((post) =>
+          post._id === postId ? { ...post, likes: post.likes + 1 } : post
+        )
+      );
+      message.success("Post liked!");
+    } catch (err) {
+      console.error("Error liking post:", err);
+      message.error("Failed to like post");
+    }
+  };
+
   const openSidebar = (post: BlockedPost) => {
     setSelectedPost(post);
     setSidebarVisible(true);
   };
 
-  const closeSidebar = () => setSidebarVisible(false);
+  const closeSidebar = () => {
+    setSelectedPost(null); // Reset selectedPost
+    setSidebarVisible(false);
+  };
 
   const renderPosts = () => {
     return posts.map((post, index) => (
@@ -101,7 +169,7 @@ const HealthForum: React.FC = () => {
           <Image
             src={post.avatarUrl || ProfileImage}
             alt="Profile"
-            className="w-96 h-96 object-cover"
+            className="w-12 h-12 object-cover rounded-full"
           />
           <div>
             <div className="font-semibold">{post.username}</div>
@@ -111,10 +179,23 @@ const HealthForum: React.FC = () => {
                 {tag}{" "}
               </span>
             ))}
-            <div className="flex mt-2 text-pink-700">
-              <HeartOutlined className="mr-2" />
+            <div className="flex mt-2 text-pink-700 items-center">
+              <HeartOutlined
+                className="mr-2 cursor-pointer"
+                onClick={() => post._id && handleLikePost(post._id)}
+              />
               <span>{post.likes}</span>
             </div>
+            {isAdmin && (
+              <Button
+                type="default"
+                className="mt-2"
+                style={{ color: "red", borderColor: "red" }}
+                onClick={() => post._id && handleBlockPost(post._id)}
+              >
+                Block Post
+              </Button>
+            )}
           </div>
         </div>
       </Card>
@@ -123,7 +204,7 @@ const HealthForum: React.FC = () => {
 
   useEffect(() => {
     fetchPosts();
-    fetchBlockedPosts();
+    loadBlockedPosts();
   }, []);
 
   return (
@@ -181,46 +262,50 @@ const HealthForum: React.FC = () => {
             {renderPosts()}
           </div>
 
-          {/* Blocked posts */}
-          <div className="bg-white rounded-lg shadow h-[280px] overflow-auto">
-            {blockedPosts.map((post) => (
-              <Card key={post._id} className="mb-4 p-4">
-                <div className="flex flex-col">
-                  <div className="text-xl font-bold mb-2">
-                    Blocked Posts{" "}
-                    <span className="font-normal text-sm">(Admin only)</span>
-                  </div>
-                  <div className="flex items-start">
-                    <Avatar src={post.avatarUrl} className="mr-4 w-40" />
-                    <div>
-                      <div className="font-semibold text-lg">
-                        {post.author}
-                      </div>
-                      <div className="text-gray-700">{post.content}</div>
-                      <div className="text-blue-600">
-                        {post.hashtags?.map((tag, idx) => (
-                          <span key={idx}>{tag} </span>
-                        ))}
+          {/* Blocked Posts (Admin Only) */}
+          {isAdmin && (
+            <div className="bg-white rounded-lg shadow h-[280px] overflow-auto">
+              <div className="text-xl font-bold mb-2 px-4 pt-4">
+                Blocked Posts <span className="font-normal text-sm">(Admin only)</span>
+              </div>
+              {blockedPosts.map((post) => (
+                <Card key={post._id} className="mb-4 p-4">
+                  <div className="flex flex-col">
+                    <div className="flex items-start">
+                      <Avatar
+                        src={post.avatarUrl || ProfileImage}
+                        className="mr-4 w-12 h-12 rounded-full"
+                      />
+                      <div>
+                        <div className="font-semibold text-lg">{post.author}</div>
+                        <div className="text-gray-700">{post.content}</div>
+                        <div className="text-blue-600">
+                          {post.hashtags?.map((tag, idx) => (
+                            <span key={idx}>{tag} </span>
+                          ))}
+                        </div>
                       </div>
                     </div>
+                    <Button
+                      type="default"
+                      className="mt-4"
+                      style={{ width: "107px", marginLeft: "50px" }}
+                      onClick={() => openSidebar(post)}
+                    >
+                      View Post
+                    </Button>
                   </div>
-                  <Button
-                    type="default"
-                    className="mt-4"
-                    style={{ width: "107px", marginLeft: "50px" }}
-                    onClick={() => openSidebar(post)}
-                  >
-                    View Post
-                  </Button>
-                </div>
-              </Card>
-            ))}
-          </div>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
         <PostSidebar
           visible={sidebarVisible}
           onClose={closeSidebar}
-          post={selectedPost!}
+          post={selectedPost}
+          isAdmin={isAdmin}
+          onUnblock={handleUnblockPost}
         />
       </div>
     </div>
