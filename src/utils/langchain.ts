@@ -1,176 +1,113 @@
+import { Groq } from "groq-sdk";
 import axios from "axios";
 
-// Backend base URL
-const BASE_URL = "https://employee-backend.onrender.com";
+// ===================== Groq SDK =====================
+const groq = new Groq({ 
+  apiKey: "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",
+  dangerouslyAllowBrowser: true
+});
+
+// ===================== Static Navigation Data =====================
+const data = {
+  navigation: [
+    {
+      category: ["book appointment", "schedule appointment", "appointment slot", "reserve doctor"],
+      response: "You can book a medical appointment at https://emp-health-frontend.vercel.app/health/appointments"
+    },
+    {
+      category: ["list doctors", "show doctors", "available doctors", "specialists", "physicians"],
+      response: "You can view our list of doctors at https://emp-health-frontend.vercel.app/health/doctors"
+    },
+    {
+      category: ["hospital info", "clinic info", "contact hospital", "clinic contact"],
+      response: "Find hospital or clinic information at https://emp-health-frontend.vercel.app/health/contact"
+    },
+    {
+      category: ["services", "medical services", "available services"],
+      response: "Check the medical services we provide at https://emp-health-frontend.vercel.app/health/services"
+    },
+    {
+      category: ["health tips", "medical advice", "wellness tips"],
+      response: "Read health tips and advice at https://emp-health-frontend.vercel.app/health/tips"
+    }
+  ]
+};
+
+// ===================== Fetch Doctors Function =====================
+const fetchDoctors = async (): Promise<{ name: string; specialty: string }[]> => {
+  try {
+    const res = await axios.get("https://empolyee-backedn.onrender.com/api/all-doctors", {
+      timeout: 5000, // 5-second timeout to avoid hanging
+      headers: { Accept: "application/json" } // Ensure JSON response
+    });
+    // Validate response and map to expected format
+    if (Array.isArray(res.data.doctors)) {
+      return res.data.doctors.map((doc: any) => ({
+        name: doc.name || "Unknown Doctor",
+        specialty: doc.department || "General Physician"
+      }));
+    }
+    console.warn("Unexpected response format from /api/all-doctors:", res.data);
+    return [];
+  } catch (err: any) {
+    console.error("Error fetching doctors:", err.message);
+    if (err.response?.status === 404) {
+      console.error("Endpoint not found: /api/all-doctors. Check backend configuration.");
+    } else if (err.code === "ECONNABORTED") {
+      console.error("Request to /api/all-doctors timed out.");
+    }
+    // Fallback mock data for testing
+    return [
+      { name: "Dr. John Doe", specialty: "Cardiology" },
+      { name: "Dr. Jane Smith", specialty: "Pediatrics" }
+    ];
+  }
+};
 
 // ===================== Conversational Bot =====================
-export const conversationalBot = async (input: string) => {
+export const conversationalBot = async (input: string): Promise<string> => {
   const lowerInput = input.toLowerCase();
 
-  // Check for doctor-related queries
-  const doctorKeywords = ["available doctors", "list of doctors", "show doctors", "who are the doctors"];
-  if (doctorKeywords.some(keyword => lowerInput.includes(keyword))) {
+  // Doctor queries
+  const doctorKeywords = ["available doctor", "available doctors", "list doctor", "list doctors", "show doctor", "show doctors", "specialist", "specialists", "physician", "physicians", "doc", "docs"];
+  if (doctorKeywords.some(k => lowerInput.includes(k))) {
     const doctors = await fetchDoctors();
     if (doctors.length > 0) {
-      const doctorList = doctors.map(doc => `${doc.name} - ${doc.specialty}`).join(", ");
-      return `Here are the available doctors: ${doctorList}. You can view more details [here](https://emp-health-frontend.vercel.app/health/doctors).`;
-    } else {
-      return "No doctors are available at the moment. Please try again later or visit [here](https://emp-health-frontend.vercel.app/health/doctors) for more information.";
+      const doctorList = doctors.map(d => `${d.name} (${d.specialty})`).join(", ");
+      return `Available doctors: ${doctorList}. View more at https://emp-health-frontend.vercel.app/health/doctors`;
     }
+    return "No doctors available right now. Please try again later or visit https://emp-health-frontend.vercel.app/health/doctors";
   }
 
-  // Check for appointment-related queries
-  const appointmentKeywords = ["available appointments", "show appointments", "list appointments", "appointment times"];
-  if (appointmentKeywords.some(keyword => lowerInput.includes(keyword))) {
-    const appointments = await fetchAppointments();
-    if (appointments.length > 0) {
-      const appointmentList = appointments.map(apt => `${apt.doctorName} - ${apt.time}`).join(", ");
-      return `Here are the available appointments: ${appointmentList}. You can book an appointment [here](https://emp-health-frontend.vercel.app/health/appointments).`;
-    } else {
-      return "No appointments are available at the moment. Please try again later or visit [here](https://emp-health-frontend.vercel.app/health/appointments) for more information.";
-    }
-  }
-
-  // Check navigation data for matching categories
+  // Navigation shortcuts
   for (const nav of data.navigation) {
     if (nav.category.some(cat => lowerInput.includes(cat.toLowerCase()))) {
       return nav.response;
     }
   }
 
-  // Call backend proxy for general medical queries
+  // ===================== Groq Chat Fallback =====================
   try {
-    const response = await axios.post(
-      `${BASE_URL}/api/hf-chat`,
-      { input },
-      {
-        headers: { "Content-Type": "application/json" },
-        timeout: 60000, // 60-second timeout
-      }
-    );
-    return response.data.message || "Sorry, I couldn’t generate a response.";
-  } catch (error) {
-    console.error("Error calling backend API:", error);
-    return "Sorry, I couldn’t generate a response.";
-  }
-};
+    let finalResponse = "";
+    const chatCompletion = await groq.chat.completions.create({
+      messages: [{ role: "user", content: input }],
+      model: "openai/gpt-oss-20b",
+      temperature: 0.7,
+      max_completion_tokens: 2048,
+      top_p: 0.95,
+      stream: true
+    });
 
-// ===================== Static Navigation Data =====================
-export const data = {
-  navigation: [
-    {
-      category: [
-        "I want to book an appointment",
-        "How can I schedule an appointment?",
-        "Book a doctor's appointment",
-      ],
-      response:
-        "You can book an appointment [here](https://emp-health-frontend.vercel.app/health/appointments).",
-      link: "https://emp-health-frontend.vercel.app/health/appointments",
-    },
-    {
-      category: ["Show me the list of doctors", "I want to see doctors", "Doctors available"],
-      response:
-        "You can view the list of doctors [here](https://emp-health-frontend.vercel.app/health/doctors).",
-      link: "https://emp-health-frontend.vercel.app/health/doctors",
-    },
-    {
-      category: ["Go to Dashboard", "Show me the dashboard", "Open dashboard"],
-      response:
-        "You can access the dashboard [here](https://emp-health-frontend.vercel.app/health).",
-      link: "https://emp-health-frontend.vercel.app/health",
-    },
-    {
-      category: ["Open chat", "Go to my inbox", "I want to send a message"],
-      response:
-        "You can open your inbox [here](https://emp-health-frontend.vercel.app/inbox).",
-      link: "https://emp-health-frontend.vercel.app/inbox",
-    },
-    {
-      category: ["Show me wellness courses", "I want to see wellness content", "Go to wellness"],
-      response:
-        "You can access the wellness section [here](https://emp-health-frontend.vercel.app/wellness).",
-      link: "https://emp-health-frontend.vercel.app/wellness",
-    },
-    {
-      category: ["Show safety dashboard", "Open safety section", "Go to safety"],
-      response:
-        "You can view the safety dashboard [here](https://emp-health-frontend.vercel.app/safety).",
-      link: "https://emp-health-frontend.vercel.app/safety",
-    },
-    {
-      category: [
-        "I want to schedule an appointment for an admin",
-        "Admin schedule appointment",
-        "Schedule appointment for doctor",
-      ],
-      response:
-        "You can schedule an appointment [here](https://emp-health-frontend.vercel.app/health/admin-schedule-appointments).",
-      link: "https://emp-health-frontend.vercel.app/health/admin-schedule-appointments",
-    },
-    {
-      category: ["Schedule appointment for doctor"],
-      response:
-        "You can schedule an appointment [here](https://emp-health-frontend.vercel.app/health/doctor-schedule-appointments).",
-      link: "https://emp-health-frontend.vercel.app/health/doctor-schedule-appointments",
-    },
-    {
-      category: ["Show notifications", "Go to notifications", "Open notification section"],
-      response:
-        "You can view notifications [here](https://emp-health-frontend.vercel.app/health/notification).",
-      link: "https://emp-health-frontend.vercel.app/health/notification",
-    },
-    {
-      category: ["Show insurance details", "Go to insurance section", "I want to see insurance information"],
-      response:
-        "You can view insurance information [here](https://emp-health-frontend.vercel.app/health/insurance).",
-      link: "https://emp-health-frontend.vercel.app/health/insurance",
-    },
-  ],
-};
+    for await (const chunk of chatCompletion) {
+      finalResponse += chunk.choices[0]?.delta?.content || "";
+      if (finalResponse.length > 400) break; // Limit response length
+    }
 
-// ===================== Fetch Doctors =====================
-export const fetchDoctors = async () => {
-  try {
-    const res = await axios.get(`${BASE_URL}/api/all-doctors`);
-    if (!Array.isArray(res.data)) {
-      console.error("Unexpected response format: res.data is not an array", res.data);
-      return [];
-    }
-    return res.data; // doctors array
-  } catch (error) {
-    if (axios.isAxiosError(error)) {
-      console.error("Error fetching doctors:", {
-        message: error.message,
-        status: error.response?.status,
-        data: error.response?.data,
-      });
-    } else {
-      console.error("Unexpected error fetching doctors:", error);
-    }
-    return [];
-  }
-};
-
-// ===================== Fetch Appointments =====================
-export const fetchAppointments = async () => {
-  try {
-    const res = await axios.get(`${BASE_URL}/api/appointments`);
-    if (!Array.isArray(res.data)) {
-      console.error("Unexpected response format: res.data is not an array", res.data);
-      return [];
-    }
-    return res.data; // appointments array
-  } catch (error) {
-    if (axios.isAxiosError(error)) {
-      console.error("Error fetching appointments:", {
-        message: error.message,
-        status: error.response?.status,
-        data: error.response?.data,
-      });
-    } else {
-      console.error("Unexpected error fetching appointments:", error);
-    }
-    return [];
+    // Truncate final response to max 400 characters
+    finalResponse = finalResponse.slice(0, 400).replace(/\*|\[|\]|\(|\)/g, "");
+    return finalResponse || "Sorry, I could not generate a response.";
+  } catch (err) {
+    console.error("Groq SDK error:", err);
+    return "Sorry, I could not generate a response.";
   }
 };
