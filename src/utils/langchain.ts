@@ -151,12 +151,16 @@ export const fetchDoctors = async () => {
       return [];
     }
     return res.data; // doctors array
-  } catch (error) {
-    console.error("Error fetching doctors:", {
-      message: error.message,
-      status: error.response?.status,
-      data: error.response?.data,
-    });
+  } catch (error: unknown) {
+    if (axios.isAxiosError(error)) {
+      console.error("Error fetching doctors:", {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+      });
+    } else {
+      console.error("Unexpected error fetching doctors:", error);
+    }
     return [];
   }
 };
@@ -170,16 +174,16 @@ export const fetchAppointments = async () => {
       return [];
     }
     return res.data; // appointments array
-  } catch (error) {
-    console.error("Error fetching appointments:", {
-      message: error.message,
-      status: error.response?.status,
-      data: error.response?.data,
-    });
+  } catch (error: unknown) {
+    if (axios.isAxiosError(error)) {
+      console.error("Error fetching appointments:", {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+      });
+    } else {
+      console.error("Unexpected error fetching appointments:", error);
+    }
     return [];
   }
 };
-
-
-
-
