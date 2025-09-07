@@ -1,11 +1,8 @@
-import OpenAI from "openai";
 import axios from "axios";
 
 // ⚠️ For testing only — replace with your actual key
-const client = new OpenAI({
-  apiKey: "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", // 🔒 replace with env var in production
-  dangerouslyAllowBrowser: true, // frontend se call karne ke liye
-});
+const HF_API_KEY = "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";
+const HF_MODEL = "mistralai/Mistral-7B-Instruct-v0.2"; // A chat/instruct model that works well for conversational tasks
 
 // ===================== Conversational Bot =====================
 export const conversationalBot = async (input: string) => {
@@ -42,30 +39,39 @@ export const conversationalBot = async (input: string) => {
     }
   }
 
-  // Fallback to OpenAI for general medical queries
-  const completion = await client.chat.completions.create({
-    model: "gpt-4o-mini", // or "gpt-4o", "gpt-3.5-turbo"
-    messages: [
-      {
-        role: "system",
-        content: `You are a highly experienced and empathetic medical doctor.
+  // Fallback to Hugging Face Inference API for general medical queries
+  const systemPrompt = `You are a highly experienced and empathetic medical doctor.
 Your primary goal is to help users navigate the services provided on a website using the provided data,
 and to provide accurate medical advice, diagnose symptoms, and suggest treatments while maintaining a compassionate tone.
-Use the provided data for navigation questions and your medical knowledge for general queries.`,
+Use the provided data for navigation questions and your medical knowledge for general queries.`;
+
+  const prompt = `<s>[INST] ${systemPrompt} ${input} [/INST]`;
+
+  try {
+    const response = await axios.post(
+      `https://api-inference.huggingface.co/models/${HF_MODEL}`,
+      {
+        inputs: prompt,
+        parameters: {
+          max_new_tokens: 400,
+          temperature: 0.7,
+          return_full_text: false, // Only return the generated response
+        },
       },
       {
-        role: "user",
-        content: input,
-      },
-    ],
-    temperature: 0.7,
-    max_tokens: 400,
-  });
+        headers: {
+          Authorization: `Bearer ${HF_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
-  const botMessage =
-    completion.choices[0].message?.content ||
-    "Sorry, I couldn’t generate a response.";
-  return botMessage.trim();
+    const botMessage = response.data[0]?.generated_text?.trim() || "Sorry, I couldn’t generate a response.";
+    return botMessage;
+  } catch (error) {
+    console.error("Error calling Hugging Face API:", error);
+    return "Sorry, I couldn’t generate a response.";
+  }
 };
 
 // ===================== Static Navigation Data =====================
