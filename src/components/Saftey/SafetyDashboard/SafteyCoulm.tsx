@@ -127,6 +127,7 @@ const SafetyBox: React.FC = () => {
   const [notif, setNotif] = useState<Notification[]>([]);
   const [notificationMessage, setNotificationMessage] = useState<string>("");
   const [logEntry, setLogEntry] = useState('');
+  const [notificationsLoading, setNotificationsLoading] = useState<boolean>(false);
 
   const handleLogSubmit = () => {
     if (logEntry.trim()) {
@@ -665,17 +666,24 @@ const handleNotSend = async (data: any) => {
 
   const handleEyeClick = async (incident: Incident) => {
     console.log(incident, "this is ");
+    setNotificationsLoading(true);
+    setNotif([]);
+    setNotifications([]);
+    setAdminMessage(null);
+    setNotificationMessage("");
+    setIdentityPopupVisible(false);
     SetIsDeny(false);
-    setSelectedIncident(incident);
+    setShowAnonymousSection(true); // Reset the anonymous section visibility
     // Fix: Handle undefined name by providing fallback
     setUserName(incident?.reportedBy?.name || "");
+    setSelectedIncident(incident);
     setSidebarVisible(true);
-    setShowAnonymousSection(true); // Reset the anonymous section visibility
     if (isAdmin || isDoctor) {
       await fetchNotificationsForAdmin(incident);
     } else {
       await fetchNotifications(incident);
     }
+    setNotificationsLoading(false);
   };
 
   const transformReports = useMemo(() => {
@@ -1114,7 +1122,9 @@ const renderUserView = () => {
                           </span>
                         </Card>
                       ) : (
-                       <>{(isAdmin || isDoctor) ? renderAdminDoctorView() : renderUserView()}</>
+                       <Spin spinning={notificationsLoading}>
+                        <>{(isAdmin || isDoctor) ? renderAdminDoctorView() : renderUserView()}</>
+                       </Spin>
                       )}
                     </>
                   )}

@@ -84,7 +84,7 @@ export const DashboardLayout: React.FC<LayoutProps> = ({ children }) => {
   const handleOk = () => setIsModalVisible(false);
   const handleCancel = () => setIsModalVisible(false);
 
-  const handleVisibleChange = (isVisible: any) => {
+  const handleVisibleChange = (isVisible: boolean) => {
     if (isVisible && !closed) setVisible(true);
   };
 
@@ -102,7 +102,7 @@ export const DashboardLayout: React.FC<LayoutProps> = ({ children }) => {
     return `${hours}:${minutes < 10 ? "0" : ""}${minutes} ${ampm}`;
   };
 
-  const sendMessage = async (e: any) => {
+  const sendMessage = async () => {
     if (!inputMsg.trim()) return;
 
     const time = getCurrentTime();
@@ -132,9 +132,7 @@ export const DashboardLayout: React.FC<LayoutProps> = ({ children }) => {
   };
 
   const handleMoodClick = async (mood: string) => {
-    setIsModalVisible(true);
-    setVisible(false);
-    setClosed(true);
+    showModal();
 
     const time = getCurrentTime();
     setMessages((prev) => [
@@ -165,7 +163,7 @@ export const DashboardLayout: React.FC<LayoutProps> = ({ children }) => {
   const popoverContent = (
     <div className="bg-[#69C0FF] text-white">
       <div className="flex justify-between items-center w-96 h-full">
-        <h3 className="text-lg">How's your day going?</h3>
+        <h3 className="text-lg">{"How's your day going?"}</h3>
         <Button
           type="text"
           className="border-2 border-white flex justify-center items-center rounded-full w-4"
@@ -187,8 +185,6 @@ export const DashboardLayout: React.FC<LayoutProps> = ({ children }) => {
       </div>
     </div>
   );
-
-  const messageInput = (e: any) => setInputMsg(e.target.value);
 
   return (
     <div style={{ position: "relative" }}>
@@ -235,15 +231,15 @@ export const DashboardLayout: React.FC<LayoutProps> = ({ children }) => {
             <input
               type="text"
               value={inputMsg}
-              onChange={messageInput}
+              onChange={(e) => setInputMsg(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") sendMessage(e);
+                if (e.key === "Enter") sendMessage();
               }}
               placeholder="Type a message"
               className="w-[95%] h-full p-4 mr-2 border-2 outline-black"
             />
             <button
-              onClick={(e) => sendMessage(e)}
+              onClick={sendMessage}
               className="h-full bg-black text-white w-[6%] flex justify-center items-center rounded"
             >
               <img src={SendArrow} alt="" className="h-6" />

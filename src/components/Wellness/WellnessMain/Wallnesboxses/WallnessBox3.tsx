@@ -10,6 +10,11 @@ const WallnessBox3: React.FC = () => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    // Load responses from localStorage on component mount
+    const savedResponses = localStorage.getItem("pollResponses");
+    if (savedResponses) {
+      setResponses(JSON.parse(savedResponses));
+    }
     fetchPolls();
   }, []);
 
@@ -27,10 +32,13 @@ const WallnessBox3: React.FC = () => {
   };
 
   const handleChange = (pollId: number, e: RadioChangeEvent) => {
-    setResponses((prev) => ({
-      ...prev,
+    const newResponses = {
+      ...responses,
       [pollId]: e.target.value,
-    }));
+    };
+    setResponses(newResponses);
+    // Save the response to localStorage
+    localStorage.setItem("pollResponses", JSON.stringify(newResponses));
   };
 
   const menu = (
@@ -78,6 +86,7 @@ const WallnessBox3: React.FC = () => {
                 <Radio.Group
                   onChange={(e) => handleChange(poll.id || poll._id, e)}
                   value={responses[poll.id || poll._id]}
+                  disabled={!!responses[poll.id || poll._id]} // Disable if a response is already selected
                 >
                   {poll.choices?.map((choice: any, index: number) => (
                     <Radio key={index} value={typeof choice === 'string' ? choice : choice.text}>
