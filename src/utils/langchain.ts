@@ -1,8 +1,7 @@
 import axios from "axios";
 
-// ⚠️ For testing only — replace with your actual key
-const HF_API_KEY = "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";
-const HF_MODEL = "mistralai/Mistral-7B-Instruct-v0.2"; // A chat/instruct model that works well for conversational tasks
+// Backend base URL
+const BASE_URL = "https://employee-backend.onrender.com";
 
 // ===================== Conversational Bot =====================
 export const conversationalBot = async (input: string) => {
@@ -39,37 +38,19 @@ export const conversationalBot = async (input: string) => {
     }
   }
 
-  // Fallback to Hugging Face Inference API for general medical queries
-  const systemPrompt = `You are a highly experienced and empathetic medical doctor.
-Your primary goal is to help users navigate the services provided on a website using the provided data,
-and to provide accurate medical advice, diagnose symptoms, and suggest treatments while maintaining a compassionate tone.
-Use the provided data for navigation questions and your medical knowledge for general queries.`;
-
-  const prompt = `<s>[INST] ${systemPrompt} ${input} [/INST]`;
-
+  // Call backend proxy for general medical queries
   try {
     const response = await axios.post(
-      `https://api-inference.huggingface.co/models/${HF_MODEL}`,
+      `${BASE_URL}/api/hf-chat`,
+      { input },
       {
-        inputs: prompt,
-        parameters: {
-          max_new_tokens: 400,
-          temperature: 0.7,
-          return_full_text: false, // Only return the generated response
-        },
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${HF_API_KEY}`,
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
+        timeout: 60000, // 60-second timeout
       }
     );
-
-    const botMessage = response.data[0]?.generated_text?.trim() || "Sorry, I couldn’t generate a response.";
-    return botMessage;
+    return response.data.message || "Sorry, I couldn’t generate a response.";
   } catch (error) {
-    console.error("Error calling Hugging Face API:", error);
+    console.error("Error calling backend API:", error);
     return "Sorry, I couldn’t generate a response.";
   }
 };
@@ -151,13 +132,13 @@ export const data = {
 // ===================== Fetch Doctors =====================
 export const fetchDoctors = async () => {
   try {
-    const res = await axios.get("https://employee-backend.onrender.com/api/all-doctors");
+    const res = await axios.get(`${BASE_URL}/api/all-doctors`);
     if (!Array.isArray(res.data)) {
       console.error("Unexpected response format: res.data is not an array", res.data);
       return [];
     }
     return res.data; // doctors array
-  } catch (error: unknown) {
+  } catch (error) {
     if (axios.isAxiosError(error)) {
       console.error("Error fetching doctors:", {
         message: error.message,
@@ -174,13 +155,13 @@ export const fetchDoctors = async () => {
 // ===================== Fetch Appointments =====================
 export const fetchAppointments = async () => {
   try {
-    const res = await axios.get("https://employee-backend.onrender.com/api/appointments");
+    const res = await axios.get(`${BASE_URL}/api/appointments`);
     if (!Array.isArray(res.data)) {
       console.error("Unexpected response format: res.data is not an array", res.data);
       return [];
     }
     return res.data; // appointments array
-  } catch (error: unknown) {
+  } catch (error) {
     if (axios.isAxiosError(error)) {
       console.error("Error fetching appointments:", {
         message: error.message,
