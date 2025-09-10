@@ -87,6 +87,19 @@ export const getOnlineDoctors = async () => {
   }
 };
 
+// Get all doctors
+export const getAllDoctors = async () => {
+  try {
+    console.log('Calling getAllDoctors API...');
+    const response = await callApi.get('https://empolyee-backedn.onrender.com/api/all-doctors');
+    console.log('getAllDoctors response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching all doctors:', error.response?.data || error.message);
+    throw error;
+  }
+};
+
 // Get call history
 export const getCallHistory = async () => {
   try {

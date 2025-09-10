@@ -28,6 +28,7 @@
     "antd": "^5.14.0",
     "axios": "^1.6.8",
     "axios-retry": "^4.5.0",
+    "caniuse-lite": "^1.0.30001741",
     "crypto-js": "^4.2.0",
     "dayjs": "^1.11.13",
     "framer-motion": "^12.12.1",

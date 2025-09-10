@@ -118,6 +118,7 @@ const handleBookAppointment = (doctor: Doctor) => {
 };
 
 
+
   const openFilterSidebar = () => {
     setIsFilterSidebarOpen(true);
   };

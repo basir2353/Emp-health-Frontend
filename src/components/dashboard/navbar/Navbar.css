@@ -78,27 +78,35 @@
 }
 
 /* Responsive styles */
-@media (max-width: 767px) {
+@media (max-width: 1024px) {
   .menu__container {
-    justify-content: flex-end;
+    justify-content: space-between;
   }
 
-  .menu_left,
-  .menu_right {
+  .menu_left {
     display: none;
   }
 
   .menu__mobile-button {
     display: block;
   }
+}
+
+@media (max-width: 768px) {
+  .menu {
+    padding: 16px 12px;
+  }
+
+  .menu__container {
+    justify-content: flex-end;
+  }
+
+  .menu_right {
+    display: none;
+  }
 
   .menu__logo {
     width: 120px;
-  }
-
-  .menu__container .ant-menu-item,
-  .menu__container .ant-menu-submenu-title {
-    padding: 1px 20px;
   }
 
   .App-logo {
@@ -106,10 +114,9 @@
   }
 }
 
-/* Smaller screens */
-@media (max-width: 480px) {
+@media (max-width: 640px) {
   .menu {
-    padding: 15px 10px;
+    padding: 12px 8px;
   }
 
   .menu__logo {
@@ -118,5 +125,24 @@
 
   .App-logo {
     height: 28px;
+  }
+
+  .menu__container .ant-menu-item,
+  .menu__container .ant-menu-submenu-title {
+    padding: 4px 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .menu {
+    padding: 10px 6px;
+  }
+
+  .menu__logo {
+    width: 80px;
+  }
+
+  .App-logo {
+    height: 24px;
   }
 }

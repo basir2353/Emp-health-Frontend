@@ -3,46 +3,50 @@ import React from "react";
 
 function StatsCard() {
   return (
-    <Card bordered={false} className="w-full max-w-md mt-3 bg-white p-4">
-      <div className="text-neutral-400 text-xl sm:text-2xl font-normal leading-loose">
+    <Card 
+      bordered={false} 
+      className="w-full bg-white rounded-lg shadow-lg"
+      bodyStyle={{ padding: '24px' }}
+    >
+      <h3 className="text-gray-500 text-xl font-normal mb-6">
         Basic Stats
-      </div>
+      </h3>
 
-      <div className="flex flex-col sm:flex-row justify-between items-start gap-4 sm:gap-6">
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col">
-            <span className="text-black text-opacity-90 text-sm font-normal leading-snug">
+      <div className="grid grid-cols-2 gap-6">
+        <div className="space-y-4">
+          <div>
+            <div className="text-gray-600 text-sm font-normal mb-1">
               Current Enrollments
-            </span>
-            <span className="text-black text-opacity-90 text-xl sm:text-2xl font-normal leading-loose">
+            </div>
+            <div className="text-black text-2xl font-normal">
               0
-            </span>
+            </div>
           </div>
-          <div className="flex flex-col">
-            <span className="text-black text-opacity-90 text-sm font-normal leading-snug">
+          <div>
+            <div className="text-gray-600 text-sm font-normal mb-1">
               Acquired Points
-            </span>
-            <span className="text-black text-opacity-90 text-xl sm:text-2xl font-normal leading-loose">
+            </div>
+            <div className="text-black text-2xl font-normal">
               120
-            </span>
+            </div>
           </div>
         </div>
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col">
-            <span className="text-black text-opacity-90 text-sm font-normal leading-snug">
+        <div className="space-y-4">
+          <div>
+            <div className="text-gray-600 text-sm font-normal mb-1">
               Work Life Balance Score
-            </span>
-            <span className="text-black text-opacity-90 text-xl sm:text-2xl font-normal leading-loose">
+            </div>
+            <div className="text-black text-2xl font-normal">
               60
-            </span>
+            </div>
           </div>
-          <div className="flex flex-col">
-            <span className="text-black text-opacity-90 text-sm font-normal leading-snug">
+          <div>
+            <div className="text-gray-600 text-sm font-normal mb-1">
               Completed Courses
-            </span>
-            <span className="text-black text-opacity-90 text-xl sm:text-2xl font-normal leading-loose">
+            </div>
+            <div className="text-black text-2xl font-normal">
               2
-            </span>
+            </div>
           </div>
         </div>
       </div>

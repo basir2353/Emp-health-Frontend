@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef, useContext } from 'react';
 import io from 'socket.io-client';
 import { Button, Input, Card, Typography, message, List, Avatar, Badge } from 'antd';
-import { UserOutlined, VideoCameraOutlined, PhoneOutlined } from '@ant-design/icons';
+import { UserOutlined, PhoneOutlined } from '@ant-design/icons';
 import { AuthContext } from '../components/context/AuthContext';
-import { storeSocketId, getOnlineUsers, getOnlineDoctors, leaveCall } from '../api/callApi';
+import { storeSocketId, getOnlineUsers, getOnlineDoctors, leaveCall, getAllDoctors } from '../api/callApi';
 import { useNavigate } from 'react-router-dom';
 const { Title, Paragraph } = Typography;
 
@@ -25,9 +25,10 @@ const Call = () => {
   const [isVideoOn, setIsVideoOn] = useState(true);
   const [pendingCandidates, setPendingCandidates] = useState([]);
   const [remoteDescriptionSet, setRemoteDescriptionSet] = useState(false);
-  const [mediaError, setMediaError] = useState(null);
+  const [mediaError] = useState(null);
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [onlineDoctors, setOnlineDoctors] = useState([]);
+  const [allDoctors, setAllDoctors] = useState([]);
   const [isUserOnline, setIsUserOnline] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -82,6 +83,20 @@ const Call = () => {
     }
   };
 
+  // Fetch all doctors from API
+  const fetchAllDoctors = async () => {
+    try {
+      const response = await getAllDoctors();
+      if (response.doctors) {
+        setAllDoctors(response.doctors);
+        console.log('Fetched all doctors:', response.doctors);
+      }
+    } catch (error) {
+      console.error('Error fetching all doctors:', error);
+      message.error('Failed to fetch doctors list');
+    }
+  };
+
   // Fetch online users based on current user role
   const fetchOnlineUsers = async () => {
     if (!currentUser?.id) {
@@ -129,6 +144,7 @@ const Call = () => {
       console.log('Socket connected:', newSocket.id);
       setCallStatus('Socket connected');
       await handleStoreSocketId(newSocket.id);
+      await fetchAllDoctors();
       await fetchOnlineUsers();
     });
 
@@ -556,6 +572,18 @@ const Call = () => {
     }
   };
 
+  // Get doctor name by ID
+  const getDoctorNameById = (doctorId) => {
+    const doctor = allDoctors.find(doc => doc._id === doctorId);
+    return doctor ? doctor.name : `Doctor ${doctorId}`;
+  };
+
+  // Navigate to room with socket ID
+  const navigateToRoom = (socketId) => {
+    const lowercaseSocketId = socketId.toLowerCase();
+    navigate(`/room/${lowercaseSocketId}`);
+  };
+
   // Refresh online users
   const refreshOnlineUsers = () => {
     fetchOnlineUsers();
@@ -652,7 +680,7 @@ const Call = () => {
                       <Button 
                         type="primary" 
                         icon={<PhoneOutlined />}
-                        onClick={() => callUserBySocketId(doctor.socketId, doctor._id)}
+                        onClick={() => navigateToRoom(doctor.socketId)}
                         className="bg-green-600"
                       >
                         Call
@@ -661,8 +689,8 @@ const Call = () => {
                   >
                     <List.Item.Meta
                       avatar={<Avatar icon={<UserOutlined />} />}
-                      title={`Doctor ${doctor._id}`}
-                      description={`Socket ID: ${doctor.socketId}`}
+                      title={getDoctorNameById(doctor._id)}
+                      description={`Socket ID: ${doctor.socketId} | Department: ${allDoctors.find(doc => doc._id === doctor._id)?.department || 'N/A'}`}
                     />
                   </List.Item>
                 )}
