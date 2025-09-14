@@ -133,4 +133,43 @@ export const updateCallStatus = async (callId, status) => {
   }
 };
 
+// Get all appointments
+export const getAllAppointments = async () => {
+  try {
+    console.log('Calling getAllAppointments API...');
+    const response = await callApi.get('https://empolyee-backedn.onrender.com/api/appointments');
+    console.log('getAllAppointments response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching appointments:', error.response?.data || error.message);
+    throw error;
+  }
+};
+
+// Get user appointments (for employees)
+export const getUserAppointments = async (userId) => {
+  try {
+    console.log('Calling getUserAppointments API for user:', userId);
+    const response = await callApi.get(`https://empolyee-backedn.onrender.com/api/appointments/user/${userId}`);
+    console.log('getUserAppointments response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching user appointments:', error.response?.data || error.message);
+    throw error;
+  }
+};
+
+// Get doctor appointments
+export const getDoctorAppointments = async (doctorId) => {
+  try {
+    console.log('Calling getDoctorAppointments API for doctor:', doctorId);
+    const response = await callApi.get(`https://empolyee-backedn.onrender.com/api/appointments/doctor/${doctorId}`);
+    console.log('getDoctorAppointments response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching doctor appointments:', error.response?.data || error.message);
+    throw error;
+  }
+};
+
 export default callApi; 

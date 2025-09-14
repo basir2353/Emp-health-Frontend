@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef, useContext } from 'react';
 import io from 'socket.io-client';
 import { Button, Input, Card, Typography, message, List, Avatar, Badge } from 'antd';
-import { UserOutlined, PhoneOutlined } from '@ant-design/icons';
+import { UserOutlined, PhoneOutlined, CopyOutlined } from '@ant-design/icons';
 import { AuthContext } from '../components/context/AuthContext';
-import { storeSocketId, getOnlineUsers, getOnlineDoctors, leaveCall, getAllDoctors } from '../api/callApi';
+import { storeSocketId, getOnlineUsers, getOnlineDoctors, leaveCall, getAllDoctors, getAllAppointments } from '../api/callApi';
+import UserAppointments from './UserAppointments';
+import DoctorAppointments from './DoctorAppointments';
 import { useNavigate } from 'react-router-dom';
 const { Title, Paragraph } = Typography;
 
@@ -386,55 +388,12 @@ const Call = () => {
 
   // Join room and initialize media
   const joinRoom = async () => {
-
     if (!roomId || !socket) {
       message.error('Room ID or socket not available');
       return;
     }
-   navigate(`/room/${roomId}`);
-      console.log(roomId,'this is Socket', socket);
-    
-     
-    // try {
-    //   const stream = await navigator.mediaDevices.getUserMedia({
-    //     video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
-    //     audio: { echoCancellation: true, noiseSuppression: true },
-    //   });
-    //   console.log('Local stream obtained:', stream);
-    //   setLocalStream(stream);
-    //   setMediaError(null);
-    //   if (localVideoRef.current) {
-    //     localVideoRef.current.srcObject = stream;
-    //     localVideoRef.current.play().catch(e => {
-    //       console.error('Local video autoplay error:', e);
-    //       localVideoRef.current.muted = true;
-    //       localVideoRef.current.play();
-    //     });
-    //   }
-
-    //   const pc = createPeerConnection();
-    //   setPeerConnection(pc);
-    //   stream.getTracks().forEach(track => {
-    //     console.log('Adding track to peer connection:', track);
-    //     pc.addTrack(track, stream);
-    //   });
-
-    //   socket.emit('join-room', { roomId: roomId.toLowerCase(), userId: socket.id });
-    //   setCallStatus('Connected to room');
-    //   await handleStoreSocketId(socket.id); // Store socket ID when joining room
-    // } catch (error) {
-    //   console.error('Error joining room:', error);
-    //   if (error.name === 'NotAllowedError') {
-    //     setMediaError('Camera or microphone access denied. Please allow permissions.');
-    //     message.error('Camera or microphone access denied. Please allow permissions.');
-    //   } else if (error.name === 'NotFoundError') {
-    //     setMediaError('No camera or microphone found. Please check your devices.');
-    //     message.error('No camera or microphone found. Please check your devices.');
-    //   } else {
-    //     setMediaError('Failed to access camera/microphone: ' + error.message);
-    //     message.error('Failed to access camera/microphone: ' + error.message);
-    //   }
-    // }
+    navigate(`/room/${roomId}`);
+    console.log(roomId,'this is Socket', socket);
   };
 
   // Call user directly by socket ID (for doctors)
@@ -589,12 +548,38 @@ const Call = () => {
     fetchOnlineUsers();
   };
 
+  // Copy to clipboard function
+  const copyToClipboard = async (text, label) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      message.success(`${label} copied to clipboard!`);
+    } catch (error) {
+      console.error('Failed to copy:', error);
+      message.error('Failed to copy to clipboard');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col font-sans">
       <header className="p-4 flex justify-between items-center">
         <Title level={3}>Video Call</Title>
         <div className="flex items-center space-x-4">
-          <span className="text-sm">User ID: {socket?.id || 'Not connected'}</span>
+          {currentUser?.role !== 'employee' && (
+            <div className="flex items-center space-x-2">
+              <span className="text-sm">User ID: {socket?.id || 'Not connected'}</span>
+              {socket?.id && (
+                <Button 
+                  size="small" 
+                  type="text" 
+                  onClick={() => copyToClipboard(socket.id, 'User ID')}
+                  className="text-blue-500 hover:text-blue-700"
+                  icon={<CopyOutlined />}
+                >
+                  Copy
+                </Button>
+              )}
+            </div>
+          )}
           <Badge status={isUserOnline ? 'success' : 'error'} text={isUserOnline ? 'Online' : 'Offline'} />
           <Button type="primary" danger onClick={endCall}>
             Leave Call
@@ -628,16 +613,14 @@ const Call = () => {
           </Card>
         )}
 
-        {/* Online Users Section */}
-        {currentUser && !isCallActive && !isIncomingCall && (
+        {/* Employee Join Room Section */}
+        {currentUser?.role === 'employee' && !isCallActive && !isIncomingCall && (
           <Card className="mb-4 border-green-500 border-2">
             <div className="flex justify-between items-center mb-4">
-              <Title level={4}>
-                {currentUser?.role === 'doctor' ? 'Online Employees' : 'Online Doctors'}
-              </Title>
+              <Title level={4}>Join Doctor Room</Title>
               <div className="flex space-x-2">
                 <Button onClick={fetchOnlineUsers} loading={loading}>
-                  Fetch Online Users
+                  Fetch Online Doctors
                 </Button>
                 <Button onClick={refreshOnlineUsers} loading={loading}>
                   Refresh
@@ -645,33 +628,7 @@ const Call = () => {
               </div>
             </div>
             
-            {currentUser?.role === 'doctor' && onlineUsers.length > 0 && (
-              <List
-                dataSource={onlineUsers}
-                renderItem={(user) => (
-                  <List.Item
-                    actions={[
-                      <Button 
-                        type="primary" 
-                        icon={<PhoneOutlined />}
-                        onClick={() => callUserBySocketId(user.socketId, user._id)}
-                        className="bg-green-600"
-                      >
-                        Call
-                      </Button>
-                    ]}
-                  >
-                    <List.Item.Meta
-                      avatar={<Avatar icon={<UserOutlined />} />}
-                      title={`Employee ${user._id}`}
-                      description={`Socket ID: ${user.socketId}`}
-                    />
-                  </List.Item>
-                )}
-              />
-            )}
-            
-            {currentUser?.role === 'employee' && onlineDoctors.length > 0 && (
+            {onlineDoctors.length > 0 && (
               <List
                 dataSource={onlineDoctors}
                 renderItem={(doctor) => (
@@ -683,54 +640,99 @@ const Call = () => {
                         onClick={() => navigateToRoom(doctor.socketId)}
                         className="bg-green-600"
                       >
-                        Call
+                        Join Room
                       </Button>
                     ]}
                   >
                     <List.Item.Meta
                       avatar={<Avatar icon={<UserOutlined />} />}
                       title={getDoctorNameById(doctor._id)}
-                      description={`Socket ID: ${doctor.socketId} | Department: ${allDoctors.find(doc => doc._id === doctor._id)?.department || 'N/A'}`}
+                      description={`Department: ${allDoctors.find(doc => doc._id === doctor._id)?.department || 'N/A'}`}
                     />
                   </List.Item>
                 )}
               />
             )}
             
-            {((currentUser?.role === 'doctor' && onlineUsers.length === 0) || 
-              (currentUser?.role === 'employee' && onlineDoctors.length === 0)) && (
+            {onlineDoctors.length === 0 && (
               <div>
                 <Paragraph className="text-gray-500">
-                  No {currentUser?.role === 'doctor' ? 'employees' : 'doctors'} online at the moment.
+                  No doctors online at the moment.
                 </Paragraph>
                 <Paragraph className="text-sm text-gray-400">
-                  Make sure doctors/employees are logged in and have connected to the call service.
+                  Make sure doctors are logged in and have connected to the call service.
                 </Paragraph>
               </div>
             )}
           </Card>
         )}
 
-        {!localStream && !mediaError && (
+        {/* Doctor Interface - Removed online employees section */}
+        {currentUser?.role === 'doctor' && !isCallActive && !isIncomingCall && (
           <Card className="mb-4 border-blue-500 border-2">
-            <Title level={4}>Join Room</Title>
-            <div className="flex space-x-2 mb-2">
-              <Input
-                placeholder="Enter Room ID (e.g., room123)"
-                value={roomId}
-                onChange={(e) => setRoomId(e.target.value.toLowerCase())}
-                className="w-64"
-              />
-              <Button type="primary" onClick={joinRoom} disabled={!roomId.trim() || !socket} style={{ backgroundColor: 'black' }}>
-                Join
+            <Title level={4}>Doctor Dashboard</Title>
+            <Paragraph className="text-gray-600">
+              You are logged in as a doctor. Use the room functionality below to start video calls.
+            </Paragraph>
+          </Card>
+        )}
+
+        {/* Appointments Section */}
+        {currentUser && !isCallActive && !isIncomingCall && (
+          <div className="mb-4">
+            {currentUser?.role === 'employee' ? (
+              <UserAppointments currentUser={currentUser} />
+            ) : currentUser?.role === 'doctor' ? (
+              <DoctorAppointments currentUser={currentUser} />
+            ) : null}
+          </div>
+        )}
+
+        {!localStream && !mediaError && currentUser?.role !== 'employee' && (
+          <Card className="mb-4 border-blue-500 border-2">
+            <Title level={4}>Start Video Call</Title>
+            <div className="flex items-center space-x-2 mb-2">
+              <Paragraph className="text-sm text-gray-500 mb-0">
+                Share your room link with others to start a video call!
+              </Paragraph>
+              <Button 
+                size="small" 
+                type="text" 
+                onClick={() => copyToClipboard(`${window.location.origin}/room/${socket?.id?.toLowerCase()}`, 'Room Link')}
+                className="text-blue-500 hover:text-blue-700"
+                icon={<CopyOutlined />}
+              >
+                Copy Room Link
               </Button>
             </div>
-            <Paragraph className="text-sm text-gray-500">
-              Share the Room ID with others to start a video call!
-            </Paragraph>
-            <Paragraph className="text-sm text-gray-500">
-              <span>Your User ID: {socket?.id || 'Not connected'}</span>
-            </Paragraph>
+            <div className="flex items-center space-x-2 mb-4">
+              <Paragraph className="text-sm text-gray-500 mb-0">
+                Your User ID: {socket?.id || 'Not connected'}
+              </Paragraph>
+              {socket?.id && (
+                <Button 
+                  size="small" 
+                  type="text" 
+                  onClick={() => copyToClipboard(socket.id, 'User ID')}
+                  className="text-blue-500 hover:text-blue-700"
+                  icon={<CopyOutlined />}
+                >
+                  Copy
+                </Button>
+              )}
+            </div>
+            <div className="text-center">
+              <Button 
+                type="primary" 
+                size="large"
+                onClick={() => navigate(`/room/${socket?.id?.toLowerCase()}`)} 
+                disabled={!socket?.id} 
+                style={{ backgroundColor: 'black' }}
+                icon={<PhoneOutlined />}
+              >
+                Start Call
+              </Button>
+            </div>
           </Card>
         )}
 
