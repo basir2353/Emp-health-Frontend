@@ -7,6 +7,7 @@ import { loginUser } from "../../api/auth";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { message } from "antd";
+import { initializeOnboarding, isFirstTimeUser, clearOnboardingData } from "../../utils/onboardingUtils";
 
 const LoginForm = () => {
   const [email, setEmail] = useState("");
@@ -32,19 +33,36 @@ const LoginForm = () => {
         localStorage.setItem("user", JSON.stringify(user));
         message.success("Login successfully!");
 
+        // Check if this is a first-time user
+        const isFirstTime = isFirstTimeUser();
+        
+        if (isFirstTime) {
+          // Clear any existing onboarding data and initialize fresh
+          clearOnboardingData();
+          initializeOnboarding(user.id || user.email);
+          message.info("Welcome! Let's get you set up with your profile.");
+        }
+
         const role = user.role;
-        switch (role) {
-          case "doctor":
-            navigate("/health/doctor-schedule-appointments");
-            break;
-          case "employee":
-            navigate("/");
-            break;
-          case "admin":
-            navigate("/health/admin-schedule-appointments");
-            break;
-          default:
-            navigate("/");
+        
+        // For first-time users, always start with onboarding regardless of role
+        if (isFirstTime) {
+          navigate("/");
+        } else {
+          // Existing users go to their role-specific dashboard
+          switch (role) {
+            case "doctor":
+              navigate("/health/doctor-schedule-appointments");
+              break;
+            case "employee":
+              navigate("/health");
+              break;
+            case "admin":
+              navigate("/health/admin-schedule-appointments");
+              break;
+            default:
+              navigate("/health");
+          }
         }
       } else {
         setError("Authentication failed. Please try again.");

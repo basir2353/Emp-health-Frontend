@@ -15,12 +15,12 @@ import { useNavigate } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { styled } from "styled-components";
-import { saveStepData } from "../../../utils/onboardingStorage";
+import { saveStepData, completeOnboarding, completeStep } from "../../../utils/onboardingUtils";
 
 function StepNine() {
   useEffect(() => {
-    localStorage.setItem("stepsCompleted", "true");
-    localStorage.setItem("botVisible", "true");
+    // Mark step 9 as completed in the new onboarding system
+    completeStep(9);
   }, []);
 
   const { Title, Text } = Typography;
@@ -30,8 +30,15 @@ function StepNine() {
   const [form] = Form.useForm();
 
   const handleFinish = (values: { name: string; email: string }) => {
+    // Save step data
     saveStepData(9, values);
-    message.success("Data saved!");
+    
+    // Complete the entire onboarding process
+    completeOnboarding();
+    
+    message.success("Profile completed successfully! Welcome to your health dashboard.");
+    
+    // Redirect to health dashboard
     navigate("/health");
   };
 

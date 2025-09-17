@@ -7,14 +7,12 @@ import { BaseButton } from "../../form/base-button";
 import { BaseNumberInput } from "../../form/base-number-input";
 import BaseSwitch from "../../form/base-switch";
 
-import { saveStepData } from "../../../utils/onboardingStorage";
+import { saveStepData, completeStep } from "../../../utils/onboardingUtils";
 
 function StepOne() {
   useEffect(() => {
-    // Reset steps completion status and hide the bot
-    localStorage.setItem("stepsCompleted", "false");
-    localStorage.setItem("botVisible", "false");
-    console.log("StepOne - stepsCompleted and botVisible set to false");
+    // Mark step 1 as completed in the new onboarding system
+    completeStep(1);
   }, []);
 
   const [value, setValue] = useState<string>("");
