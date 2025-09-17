@@ -1,7 +1,8 @@
 import { LeftCircleOutlined, LeftOutlined } from "@ant-design/icons";
-import { Breadcrumb, Col, Row } from "antd";
+import { Col, Row } from "antd";
 import Search from "antd/es/input/Search";
 import { useNavigate } from "react-router-dom";
+import { BreadCrumb } from "../../../components/BreadCrumbs";
 
 export default () => {
   const navigate = useNavigate();
@@ -16,26 +17,24 @@ export default () => {
       <div className="mt-4 h-5 justify-start items-center pl-3  ">
         <Row>
           <Col className="gutter-row flex justify-between items-center right-0">
-            <div className="">
-              <LeftCircleOutlined className="text-black text-3xl" />
-            </div>
             <div className="text-black text-3xl ml-1 font-medium">
               Create Course
             </div>
           </Col>
         </Row>
-        <Breadcrumb
+        <BreadCrumb
           className=""
           items={[
             {
               title: "Wellness",
-            },
-
-            {
-              title: <a href="">Courses</a>,
+              path: "/wellness",
             },
             {
-              title: <a href="">Create Course</a>,
+              title: "Courses",
+              path: "/wellness/courses",
+            },
+            {
+              title: "Create Course",
             },
           ]}
         />

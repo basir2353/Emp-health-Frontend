@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Input, Button, Avatar, Col, Row } from "antd";
-import { ArrowLeftOutlined, FilterOutlined, UserOutlined } from "@ant-design/icons";
+import { FilterOutlined, UserOutlined } from "@ant-design/icons";
 import { BreadCrumb } from "../BreadCrumbs";
 import Sidebar from "./Sidebar";
 import FilterSidebar from "./FilterSidebar";
@@ -172,13 +172,16 @@ const handleBookAppointment = (doctor: Doctor) => {
 
   const breadcrumbs = [
     {
-      title: <a href="/health">Home</a>,
+      title: "Home",
+      path: "/health",
     },
     {
-      title: <a href="">Health</a>,
+      title: "Health",
+      path: "/health",
     },
     {
-      title: <a href="/appointments">Appointment</a>,
+      title: "Appointment",
+      path: "/appointments",
     },
     {
       title: "Create Appointment",
@@ -197,24 +200,10 @@ const handleBookAppointment = (doctor: Doctor) => {
 
   return (
     <div className="justify-start pt-2 items-center bg-gray-100 min-h-screen px-4 md:px-10">
-      <BreadCrumb items={breadcrumbs} />
+      <BreadCrumb items={breadcrumbs} className="mb-4" />
 
       {/* Top Action Row */}
-      <div className="w-full flex justify-between items-start pt-5 max-sm:flex-col max-sm:gap-4">
-        <div
-          className="text-black flex justify-center items-center"
-          style={{
-            width: "30px",
-            height: "30px",
-            borderRadius: "50%",
-            backgroundColor: "transparent",
-            border: "1px solid black",
-            cursor: "pointer",
-          }}
-        >
-          <ArrowLeftOutlined />
-        </div>
-
+      <div className="w-full flex justify-end items-start pt-5 max-sm:flex-col max-sm:gap-4">
         <Button
           type="primary"
           block

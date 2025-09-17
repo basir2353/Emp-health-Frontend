@@ -6,7 +6,6 @@ import {
   UploadOutlined,
 } from "@ant-design/icons";
 import {
-  Breadcrumb,
   Button,
   Col,
   Flex,
@@ -18,6 +17,7 @@ import {
   message,
   Select,
 } from "antd";
+import { BreadCrumb } from "../../../components/BreadCrumbs";
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import AppointmentCalendar from "./Calnder";
@@ -203,11 +203,12 @@ const ScheduleCalnder: React.FC = () => {
 
   return (
     <div className="mt-4 justify-start items-center pl-3 bg-white ml-10">
-      <Breadcrumb
+      <BreadCrumb
+        className="mb-4"
         items={[
-          { title: "Home" },
-          { title: <a href="/health">Health</a> },
-          { title: <a href="/health/schedule">Schedule</a> },
+          { title: "Home", path: "/" },
+          { title: "Health", path: "/health" },
+          { title: "Schedule", path: "/health/schedule" },
         ]}
       />
 

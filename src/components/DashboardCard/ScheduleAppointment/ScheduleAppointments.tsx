@@ -5,13 +5,13 @@ import {
   Space,
   Row,
   Col,
-  Breadcrumb,
   Button,
   Flex,
   Typography,
   Menu,
   Dropdown,
 } from "antd";
+import { BreadCrumb } from "../../../components/BreadCrumbs";
 import {
   ClockCircleOutlined,
   CloseCircleOutlined,
@@ -44,10 +44,7 @@ const ScheduleAppointments: React.FC = () => {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeDropdown, setActiveDropdown] = useState<number | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [userRole, setUserRole] = useState<string | null>(null);
-  const [userName, setUserName] = useState<string | null>(null);
 
   useEffect(() => {
     const userData = localStorage.getItem("user") || localStorage.getItem("loggedInUser");
@@ -69,8 +66,7 @@ const ScheduleAppointments: React.FC = () => {
 
     console.log("Local Storage - Role:", role, "Name:", name, "Token:", token);
 
-    setUserRole(role);
-    setUserName(name);
+    // User role and name are now handled locally
 
     const fetchAppointments = async () => {
       if (!token) {
@@ -141,7 +137,6 @@ const ScheduleAppointments: React.FC = () => {
   }, []);
 
   const handleMenuClick = (key: string, index: number) => {
-    setActiveDropdown(null);
     switch (key) {
       case "call":
         navigate("/inbox/call");
@@ -183,11 +178,12 @@ const ScheduleAppointments: React.FC = () => {
 
   return (
     <div className="mt-4 px-4 bg-white w-full">
-      <Breadcrumb
+      <BreadCrumb
+        className="mb-4"
         items={[
-          { title: "Home" },
-          { title: <a href="/health">Health</a> },
-          { title: <a href="/health/scheduled-appointments">Scheduled Appointments</a> },
+          { title: "Home", path: "/" },
+          { title: "Health", path: "/health" },
+          { title: "Scheduled Appointments", path: "/health/scheduled-appointments" },
         ]}
       />
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { Table, Button, Avatar, Dropdown, Menu, Breadcrumb, Upload, message, Modal } from "antd";
+import { Table, Button, Avatar, Dropdown, Menu, Upload, message, Modal } from "antd";
+import { BreadCrumb } from "../../components/BreadCrumbs";
 import {
   EyeOutlined,
   DownloadOutlined,
@@ -276,18 +277,18 @@ const FilesTable: React.FC = () => {
     <div className="mx-10 mt-10 max-lg:mx-2">
       <div className="flex justify-between">
         <div>
-          <div className="flex text-xl gap-5 font-bold">
-            <ArrowLeftOutlined />
+          <div className="flex text-xl gap-5 font-bold mb-4">
             <h1>Document Repository</h1>
           </div>
-          <Breadcrumb
-            className="text-xl"
+          <BreadCrumb
+            className="text-xl mb-4"
             items={[
               {
                 title: "Wellness",
+                path: "/wellness",
               },
               {
-                title: <a href="">Document Repository</a>,
+                title: "Document Repository",
               },
             ]}
           />

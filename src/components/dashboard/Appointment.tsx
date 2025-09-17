@@ -6,9 +6,9 @@ import {
   Button,
   Col,
   Row,
-  Breadcrumb,
   Flex,
 } from "antd";
+import { BreadCrumb } from "../BreadCrumbs";
 import { EditOutlined, GoldOutlined } from "@ant-design/icons";
 import React from "react";
 
@@ -17,13 +17,16 @@ export const Appointment: React.FC = () => {
   return (
     // <div style={{ padding: "30px", background: "#ececec" }}>
     <div className="mt-4 h-5 justify-start items-center pl-9">
-      <Breadcrumb
+      <BreadCrumb
+        className="mb-4"
         items={[
           {
             title: "Home",
+            path: "/",
           },
           {
-            title: <a href="">Health</a>,
+            title: "Health",
+            path: "/health",
           },
         ]}
       />

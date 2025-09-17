@@ -3,6 +3,7 @@ import { Input, Button, Avatar, Empty } from "antd";
 import { PaperClipOutlined, SendOutlined, UserOutlined } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import { conversationalBotCall } from "../../utils/langchaincall";
+import { BreadCrumb } from "../../components/BreadCrumbs";
 
 const UserMessage: React.FC = () => {
   const [inputText, setInputText] = useState("");
@@ -71,7 +72,18 @@ const UserMessage: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen">
+    <div className="flex flex-col h-screen">
+      <div className="p-4 bg-white border-b">
+        <BreadCrumb
+          className="mb-2"
+          items={[
+            { title: "Home", path: "/" },
+            { title: "Inbox", path: "/inbox" },
+            { title: "Messages" },
+          ]}
+        />
+      </div>
+      <div className="flex flex-1">
       {/* Chat Section - 2/3 */}
       <div className="w-2/3 flex flex-col">
         <div className="flex-grow overflow-auto p-4 bg-gray-100">
@@ -195,6 +207,7 @@ const UserMessage: React.FC = () => {
             <p className="mt-2 text-sm">No file uploaded yet</p>
           </div>
         )}
+      </div>
       </div>
     </div>
   );

@@ -4,10 +4,10 @@ import {
   Card,
   Row,
   Col,
-  Breadcrumb,
   Button,
   Flex,
 } from "antd";
+import { BreadCrumb } from "../../../components/BreadCrumbs";
 import { GoldOutlined } from "@ant-design/icons";
 import UploadSchedulePopup from "../../../Component/CreateAppointemts/UploadSchedulePopup";
 import PricingPopup from "../../../Component/CreateAppointemts/PricingPopup";
@@ -59,11 +59,12 @@ const Health: React.FC = () => {
 
   return (
     <div className="mt-4 h-5 justify-start items-center pl-3 bg-white ml-10">
-      <Breadcrumb
+      <BreadCrumb
+        className="mb-4"
         items={[
-          { title: "Home" },
-          { title: <a href="#">Health</a> },
-          { title: <a href="#">Appointments</a> },
+          { title: "Home", path: "/" },
+          { title: "Health", path: "/health" },
+          { title: "Appointments", path: "/health/appointments" },
         ]}
       />
 

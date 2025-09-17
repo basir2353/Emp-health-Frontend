@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { Input, Button, Card, Avatar, Breadcrumb, message, Image } from "antd";
+import { Input, Button, Card, Avatar, message, Image } from "antd";
+import { BreadCrumb } from "../../components/BreadCrumbs";
 import { ArrowLeftOutlined, HeartOutlined } from "@ant-design/icons";
 import ProfileImage from "../../public/images/profile.svg";
 import PostSidebar from "./SideBar";
@@ -209,15 +210,14 @@ const HealthForum: React.FC = () => {
 
   return (
     <div className="mt-4 h-5 justify-start items-center pl-3 max-lg:pl-0 bg-white ml-10 max-lg:ml-2">
-      <div className="flex text-xl gap-5 font-bold">
-        <ArrowLeftOutlined />
+      <div className="flex text-xl gap-5 font-bold mb-4">
         <h1>Health Forum!</h1>
       </div>
-      <Breadcrumb
-        className="font-xl"
+      <BreadCrumb
+        className="font-xl mb-4"
         items={[
-          { title: "Wellness" },
-          { title: <a href="">Health Forum</a> },
+          { title: "Wellness", path: "/wellness" },
+          { title: "Health Forum" },
         ]}
       />
       <div className="mx-auto p-5 max-lg:p-1">

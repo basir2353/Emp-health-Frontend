@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from "react";
 import {
   Avatar,
-  Breadcrumb,
   Button,
   Card,
   List,
   Typography,
   Drawer,
 } from "antd";
+import { BreadCrumb } from "../../components/BreadCrumbs";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, TooltipProps } from "recharts";
 import { ArrowLeftOutlined, PlusOutlined } from "@ant-design/icons";
 import AddExpenseDrawer from "./Expensedrawer";
@@ -104,15 +104,14 @@ const BudgetPlanner = () => {
   return (
     <div className="container mx-auto px-4">
       <header className="my-8">
-        <div className="flex items-center gap-2">
-          <ArrowLeftOutlined className="text-center border-2 rounded-full border-gray-300 p-2 cursor-pointer" />
+        <div className="flex items-center gap-2 mb-4">
           <Title level={1} className="m-0 mt-3">Budget Planner</Title>
         </div>
-        <Breadcrumb
-          className="mt-2"
+        <BreadCrumb
+          className="mt-2 mb-4"
           items={[
-            { title: "Wellness" },
-            { title: <a href="">Budget Planner</a> },
+            { title: "Wellness", path: "/wellness" },
+            { title: "Budget Planner" },
           ]}
         />
       </header>

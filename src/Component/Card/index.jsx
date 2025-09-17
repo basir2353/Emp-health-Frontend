@@ -5,7 +5,8 @@ import {
   UserOutlined,
 } from "@ant-design/icons";
 import type { MenuProps } from "antd";
-import { Breadcrumb, Layout, Menu, theme } from "antd";
+import { Layout, Menu, theme } from "antd";
+import { BreadCrumb } from "../../components/BreadCrumbs";
 import ProfileCard from "./ProfileCard";
 import StatsBox from "./Stats";
 import HealthyLeadBoard from "./LeaderBoard";

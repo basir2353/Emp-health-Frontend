@@ -4,7 +4,8 @@ import {
   ArrowLeftOutlined,
   PlusCircleOutlined,
 } from "@ant-design/icons";
-import { Breadcrumb, Button } from "antd";
+import { Button } from "antd";
+import { BreadCrumb } from "../../components/BreadCrumbs";
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 // import Banner from "."; // Updated import name for consistency
@@ -82,15 +83,14 @@ const Challenges = () => {
       <div className="mx-10 mt-10">
         <div className="flex justify-between">
           <div>
-            <div className="flex text-xl gap-5 font-bold">
-              <ArrowLeftOutlined />
+            <div className="flex text-xl gap-5 font-bold mb-4">
               <h1>Challenges</h1>
             </div>
-            <Breadcrumb
-              className="font-xl"
+            <BreadCrumb
+              className="font-xl mb-4"
               items={[
-                { title: "Wellness" },
-                { title: <a href="/challenges">Challenges</a> },
+                { title: "Wellness", path: "/wellness" },
+                { title: "Challenges", path: "/challenges" },
               ]}
             />
           </div>

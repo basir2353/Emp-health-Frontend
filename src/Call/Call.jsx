@@ -7,6 +7,7 @@ import { storeSocketId, getOnlineUsers, getOnlineDoctors, leaveCall, getAllDocto
 import UserAppointments from './UserAppointments';
 import DoctorAppointments from './DoctorAppointments';
 import { useNavigate } from 'react-router-dom';
+import { BreadCrumb } from '../components/BreadCrumbs';
 const { Title, Paragraph } = Typography;
 
 const Call = () => {
@@ -561,6 +562,16 @@ const Call = () => {
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col font-sans">
+      <div className="p-4 bg-white border-b">
+        <BreadCrumb
+          className="mb-2"
+          items={[
+            { title: "Home", path: "/" },
+            { title: "Inbox", path: "/inbox" },
+            { title: "Call" },
+          ]}
+        />
+      </div>
       <header className="p-4 flex justify-between items-center">
         <Title level={3}>Video Call</Title>
         <div className="flex items-center space-x-4">

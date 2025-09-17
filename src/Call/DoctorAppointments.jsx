@@ -229,3 +229,5 @@ const DoctorAppointments = ({ currentUser }) => {
 };
 
 export default DoctorAppointments;
+
+

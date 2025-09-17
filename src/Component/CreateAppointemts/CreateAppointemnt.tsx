@@ -10,7 +10,6 @@ import {
 } from "@ant-design/icons";
 import {
   Avatar,
-  Breadcrumb,
   Button,
   Col,
   Dropdown,
@@ -20,6 +19,7 @@ import {
   Space,
   Typography,
 } from "antd";
+import { BreadCrumb } from "../../components/BreadCrumbs";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
@@ -198,15 +198,14 @@ const CreateAppointments: React.FC = () => {
 
   return (
     <div className="mt-4 px-4 sm:px-6 lg:px-10 bg-white min-h-screen">
-      <Breadcrumb
+      <BreadCrumb
         className="mb-4"
         items={[
-          { title: "Home" },
-          { title: <a href="/health">Health</a> },
+          { title: "Home", path: "/" },
+          { title: "Health", path: "/health" },
           {
-            title: (
-              <a href="/health/admin-schedule-appointments">Appointments</a>
-            ),
+            title: "Appointments",
+            path: "/health/admin-schedule-appointments"
           },
         ]}
       />

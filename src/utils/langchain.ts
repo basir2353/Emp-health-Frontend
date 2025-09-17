@@ -3,7 +3,7 @@ import axios from "axios";
 
 // ===================== Groq SDK =====================
 const groq = new Groq({ 
-  apiKey: "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",
+  apiKey: "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",
   dangerouslyAllowBrowser: true
 });
 

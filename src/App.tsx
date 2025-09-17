@@ -1,8 +1,7 @@
-import React, { useContext } from "react";
-import { Route, BrowserRouter as Router, Routes, Navigate, useParams } from "react-router-dom";
+import React from "react";
+import { Route, BrowserRouter as Router, Routes, Navigate } from "react-router-dom";
 import Callchat from "./Component/ChatBox/CallChat/Callchat";
 import MessagingSection from "./Component/ChatBox/Massage";
-import UserMassage from "./Component/ChatBox/userMasaageBox/UserMassage";
 import CreateAppointments from "./Component/CreateAppointemts/CreateAppointemnt";
 import Layout from "./Component/Steps/Layout";
 import StepEight from "./Component/Steps/StepEight";
@@ -43,6 +42,7 @@ import CallTest from "./Call/CallTest";
 import ForgetPassword from "./Component/Login/ForgetPassword";
 import ResetPassword from "./Component/Login/ResetPassword";
 import RoomWrapper from "./Call/RoomWrapper";
+import UserMessage from "./Component/ChatBox/Massage";
 
 const App: React.FC = () => (
   
@@ -122,7 +122,7 @@ const App: React.FC = () => (
               <ProtectedRoute>
                 <ChatBoxLayout>
                   <Routes>
-                    <Route path="/" element={<UserMassage />} />
+                    <Route path="/" element={<UserMessage />} />
                     <Route path="/messages" element={<MessagingSection />} />
                     <Route path="/call2" element={<Callchat />} />
                     <Route path="/call" element={<Call />}/>

@@ -4,7 +4,8 @@ import {
   FilterOutlined,
   PlusOutlined,
 } from "@ant-design/icons";
-import { Breadcrumb, Button } from "antd";
+import { Button } from "antd";
+import { BreadCrumb } from "../../BreadCrumbs";
 import DashboardBoxes from "./dasboardboxses";
 import Search from "antd/es/input/Search";
 import WalnessMainbox from "./WalnessMainbox";
@@ -24,9 +25,6 @@ const Wallnessdashboard = () => {
     <div className="mx-4 my-2 bg-white">
       <div className="flex  justify-between items-center mb-4 x-">
         <div className="flex items-center">
-          <div className="flex items-center justify-center rounded-full w-10 h-10 border-2 border-black">
-            <ArrowLeftOutlined />
-          </div>
           <h1 className="ml-2 text-lg font-semibold">Courses</h1>
         </div>
         <Button
@@ -40,12 +38,13 @@ const Wallnessdashboard = () => {
         </Button>
       </div>
 
-      <Breadcrumb separator="/" className="ml-4">
-        <Breadcrumb.Item>Wellness</Breadcrumb.Item>
-        <Breadcrumb.Item>
-          <a href="#">Courses</a>
-        </Breadcrumb.Item>
-      </Breadcrumb>
+      <BreadCrumb 
+        className="ml-4 mb-4"
+        items={[
+          { title: "Wellness", path: "/wellness" },
+          { title: "Courses" },
+        ]}
+      />
       <DashboardBoxes />
       <div className="flex justify-between">
         <div className="w-[552px] max-lg:w-auto mt-4">
