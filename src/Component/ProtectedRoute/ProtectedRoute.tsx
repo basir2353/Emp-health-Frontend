@@ -40,7 +40,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole 
       }
       try {
         const res = await fetch(
-          `http://localhost:5000/api/auth/check_onboard?userId=${loggedInUser.id}`
+          `https://empolyee-backedn.onrender.com/api/auth/check_onboard?userId=${loggedInUser.id}`
         );
         const data = await res.json();
         if (data.success) {
