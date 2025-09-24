@@ -36,6 +36,7 @@ import Challenges from "./Component/Challenges/Challenges";
 import MyBoard from "./Component/MyBoard/Myboard";
 import Login from "./Component/Login/Login"; // You'll need to create this component
 import ProtectedRoute from "./Component/ProtectedRoute/ProtectedRoute";
+import NotificationProvider from "./components/Notification/NotificationProvider";
 
 import RegisterForm from "./Component/RegisterForm/RegisterForm";
 import Call from "./Call/Call";
@@ -50,7 +51,8 @@ const App: React.FC = () => (
   <div className="App mx-auto">
     <div>
       <Router>
-        <Routes>
+        <NotificationProvider>
+          <Routes>
           {/* Auth Routes */}
           {/* Register */}
            <Route path="/room/:id" element={<RoomWrapper />} />
@@ -200,7 +202,8 @@ const App: React.FC = () => (
           
           {/* Redirect any unknown routes to login */}
           <Route path="*" element={<Navigate to="/login" replace />} />
-        </Routes>
+          </Routes>
+        </NotificationProvider>
       </Router>
     </div>
   </div>
