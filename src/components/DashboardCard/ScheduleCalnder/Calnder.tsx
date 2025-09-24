@@ -21,8 +21,8 @@ interface AppointmentCalendarProps {
   currentMonth: string;
 }
 
-const timeSlots = Array.from({ length: 12 }, (_, i) =>
-  dayjs().hour(8).minute(0).add(i, "hour").format("HH:00")
+const timeSlots = Array.from({ length: 48 }, (_, i) =>
+  dayjs().hour(8).minute(0).add(i * 15, "minute").format("HH:mm")
 );
 
 const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({

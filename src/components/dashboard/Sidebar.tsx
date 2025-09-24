@@ -62,7 +62,7 @@ const normalizeTimeSlot = (time: string, selectedDate: string): string => {
     startStr = parsed.format("HH:mm");
   }
   const start = dayjs(`${selectedDate} ${startStr}`, "YYYY-MM-DD HH:mm");
-  const end = start.add(1, "hour");
+  const end = start.add(15, "minute");
   return `${start.format("HH:mm")} - ${end.format("HH:mm")}`;
 };
 
@@ -107,7 +107,7 @@ const generateTimeSlots = (
   let current = start;
 
   while (current.isBefore(end)) {
-    const slotEnd = current.add(1, "hour");
+    const slotEnd = current.add(15, "minute");
     const finalSlotEnd = slotEnd.isAfter(end) ? end : slotEnd;
 
     const overlaps = breakIntervals.some(
