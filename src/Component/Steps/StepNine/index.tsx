@@ -23,6 +23,57 @@ function StepNine() {
     completeStep(9);
   }, []);
 
+
+  const getUser = localStorage.getItem("loggedInUser");
+  const extractNineStep = localStorage.getItem("onboardingSteps");
+
+  let extractNineStepData: any = null;
+  let extractUser: any = null;
+  let extractUserId: any = null;
+  
+  try {
+    extractNineStepData = extractNineStep ? JSON.parse(extractNineStep) : null;
+    extractUser = getUser ? JSON.parse(getUser) : null;
+    extractUserId = extractUser ? extractUser.id : null;
+  } catch (error) {
+    console.error("Failed to parse onboardingSteps:", error);
+    extractNineStepData = null;
+  }
+    const storeOnboardingStep = async (userId:any, stepData:any) => {
+      try {
+        const response = await fetch('http://localhost:5000/api/auth/store', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId: userId,
+            step: stepData.step,
+            data: stepData
+          })
+        });
+    
+        const result = await response.json();
+        
+        if (result.success) {
+          console.log('Step stored successfully:', result.data);
+          return result.data;
+        } else {
+          console.error('Error storing step:', result.message);
+          throw new Error(result.message);
+        }
+      } catch (error) {
+        console.error('Failed to store onboarding step:', error);
+        throw error;
+      }
+    };
+
+    
+      
+    
+   useEffect(()=>{
+      storeOnboardingStep(extractUserId, extractNineStepData)
+    },[extractUserId])
   const { Title, Text } = Typography;
   const data = useSelector((state: any) => state["onboard"]);
   const navigate = useNavigate();
@@ -80,7 +131,7 @@ function StepNine() {
                 style={{ marginTop: 20 }}
               >
                 
-                <Button type="primary" htmlType="submit" style={{ backgroundColor: "#003e61", borderColor: "#4F46E5" }}>
+                <Button onClick={(()=> storeOnboardingStep)} type="primary" htmlType="submit" style={{ backgroundColor: "#003e61", borderColor: "#4F46E5" }}>
                   Continue
                 </Button>
               </Form>

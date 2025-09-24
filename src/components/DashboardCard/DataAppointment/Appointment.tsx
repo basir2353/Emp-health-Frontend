@@ -108,7 +108,7 @@ function Appointment() {
             {appointments.length > 0 && (
               <div
                 className="w-full h-[46px] cursor-pointer pt-3 text-center mt-4 rounded-b-lg"
-                onClick={() => navigate("/health/admin-schedule-appointments")}
+                onClick={() => navigate("/health/schedule-appointments")}
               >
                 <div className="absolute w-full max-lg:w-full h-[46px] pt-3 text-center bottom-0 bg-[#E6F7FF] rounded-b-lg">
                   See All

@@ -36,6 +36,7 @@ import Challenges from "./Component/Challenges/Challenges";
 import MyBoard from "./Component/MyBoard/Myboard";
 import Login from "./Component/Login/Login"; // You'll need to create this component
 import ProtectedRoute from "./Component/ProtectedRoute/ProtectedRoute";
+
 import RegisterForm from "./Component/RegisterForm/RegisterForm";
 import Call from "./Call/Call";
 import CallTest from "./Call/CallTest";
@@ -60,7 +61,7 @@ const App: React.FC = () => (
           <Route
             path="/*"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute requiredRole={"employee"}>
                 <Layout>
                   <Routes>
                     <Route path="/" element={<StepOne />} />
@@ -78,32 +79,16 @@ const App: React.FC = () => (
             }
           />
           
-          {/* Health Dashboard - accessible by patients and doctors */}
+          {/* Health Dashboard - accessible by employees */}
           <Route
             path="/health/*"
             element={
-              <ProtectedRoute requiredRole="user">
+              <ProtectedRoute requiredRole="employee">
                 <DashboardLayout>
                   <Routes>
                     <Route path="/" element={<Dashboard />} />
                     <Route path="/doctors" element={<Doctors />} />
-                    <Route path="/appointments" element={<Health />} />
-                    <Route
-                      path="/admin-schedule-appointments"
-                      element={
-                        <ProtectedRoute requiredRole="admin">
-                          <CreateAppointments />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/doctor-schedule-appointments"
-                      element={
-                        <ProtectedRoute requiredRole="doctor">
-                          <ScheduleAppointments />
-                        </ProtectedRoute>
-                      }
-                    />
+                      <Route path="/schedule-appointments" element={<CreateAppointments />} />
                     <Route path="/schedule" element={<ScheduleCalnder />} />
                     <Route path="/insurance" element={<Insurance />} />
                     <Route path="/notification" element={<Notification />} />
@@ -180,7 +165,13 @@ const App: React.FC = () => (
                 <DashboardLayout>
                   <Routes>
                     <Route path="/" element={<Dashboard />} />
-                    {/* Add admin-specific routes here */}
+                    {/* <Route path="/schedule-appointments" element={<CreateAppointments />} /> */}
+                    <Route path="/schedule-appointments" element={<ScheduleAppointments />} />
+                    <Route path="/doctors" element={<Doctors />} />
+                    <Route path="/appointments" element={<Health />} />
+                    <Route path="/schedule" element={<ScheduleCalnder />} />
+                    <Route path="/insurance" element={<Insurance />} />
+                    <Route path="/notification" element={<Notification />} />
                   </Routes>
                 </DashboardLayout>
               </ProtectedRoute>
@@ -195,7 +186,12 @@ const App: React.FC = () => (
                 <DashboardLayout>
                   <Routes>
                     <Route path="/" element={<Dashboard />} />
-                    {/* Add doctor-specific routes here */}
+                    <Route path="/schedule-appointments" element={<ScheduleAppointments />} />
+                    <Route path="/doctors" element={<Doctors />} />
+                    <Route path="/appointments" element={<Health />} />
+                    <Route path="/schedule" element={<ScheduleCalnder />} />
+                    <Route path="/insurance" element={<Insurance />} />
+                    <Route path="/notification" element={<Notification />} />
                   </Routes>
                 </DashboardLayout>
               </ProtectedRoute>

@@ -1,16 +1,8 @@
-import React, { useContext } from "react";
+import React from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { AuthContext } from "../../components/context/AuthContext";
-import { isFirstTimeUser, isOnboardingCompleted, getCurrentStep } from "../../utils/onboardingUtils";
+import { isFirstTimeUser, isOnboardingCompleted, isFromRegistration } from "../../utils/onboardingUtils";
 
-
-interface ProtectedRouteProps {
-  children: React.ReactNode;
-  requiredRole?: string;
-}
-
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole }) => {
-  const { isAuthenticated, user } = useContext(AuthContext);
+const ProtectedRoute = ({ children, requiredRole }) => {
   const location = useLocation();
   const userExist = localStorage.getItem("user");
   
@@ -20,9 +12,10 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole 
   // Check if user is first time and onboarding is not completed
   const isFirstTime = isFirstTimeUser();
   const onboardingCompleted = isOnboardingCompleted();
+  const fromRegistration = isFromRegistration();
   
-  // If user is first time and onboarding is not completed
-  if (isFirstTime && !onboardingCompleted) {
+  // Only show onboarding for users who came from registration (not login)
+  if (isFirstTime && !onboardingCompleted && fromRegistration) {
     // If they're trying to access health routes, redirect to onboarding
     if (location.pathname.startsWith('/health') || 
         location.pathname.startsWith('/wellness') || 

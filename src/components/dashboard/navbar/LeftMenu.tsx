@@ -50,7 +50,7 @@ const LeftMenu = (props: any) => {
             label: (
               <div
                 className="h-auto mt-4"
-                onClick={() => navigate("/health/admin-schedule-appointments")}
+                onClick={() => navigate("/health/schedule-appointments")}
               >
                 <div className="font-medium text-sm leading-3">Appointments</div>
                 <div className="font-normal text-sm leading-5 mt-2 w-full h-full text-wrap text-[#64748B]">

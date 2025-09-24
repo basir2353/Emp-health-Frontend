@@ -1,7 +1,7 @@
 import { Card, Image, Progress, Modal, Form, Input, Button, message } from 'antd';
 import { EditOutlined } from '@ant-design/icons';
 import ProfileImage from '../../public/images/profile.svg';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios'; // Import Axios
 
 type OnboardingStep = {
@@ -16,13 +16,38 @@ const ProfileCard = () => {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const userName = user?.name;
   const userEmail = user?.email;
+  const userId = user?._id || user?.id || '';
 
-  // Fetch dynamic values from 'onboardingSteps' data in localStorage
-  const onboardingData: OnboardingStep[] = JSON.parse(localStorage.getItem('onboardingSteps') || '[]');
-  const height = onboardingData.find((item: OnboardingStep) => item.step === 1)?.height;
-  const blood_group = onboardingData.find((item: OnboardingStep) => item.step === 3)?.blood_group;
-  const unit = onboardingData.find((item: OnboardingStep) => item.step === 1)?.unit;
-  const avatar = onboardingData.find((item: OnboardingStep) => item.step === 8)?.avatar;
+  // State for onboarding steps
+  const [onboardingData, setOnboardingData] = useState<OnboardingStep[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(false);
+
+  // Fetch onboarding data from API
+  useEffect(() => {
+    const fetchOnboardingData = async () => {
+      if (!userId) return;
+      setIsLoadingData(true);
+      try {
+        const response = await axios.get(
+          `http://localhost:5000/api/auth/get_onboard_data?userId=${userId}`
+        );
+        if (response.data && response.data.steps) {
+          setOnboardingData(response.data.steps);
+        }
+      } catch (error) {
+        console.error('Failed to fetch onboarding data:', error);
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
+    fetchOnboardingData();
+  }, [userId]);
+
+  // Extract values from onboardingData
+  const height = onboardingData.find((item) => item.step === 1)?.height;
+  const blood_group = onboardingData.find((item) => item.step === 3)?.blood_group;
+  const unit = onboardingData.find((item) => item.step === 1)?.unit;
+  const avatar = onboardingData.find((item) => item.step === 8)?.avatar;
 
   // State for modal visibility and form
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -166,7 +191,7 @@ const ProfileCard = () => {
         <div className="w-96 h-16 px-2 flex-col justify-start items-start gap-5 inline-flex mt-3">
           <div className="flex-col justify-start items-start gap-1 flex">
             <div className="text-white text-sm font-medium leading-snug">
-              Profile Completion
+              Profile Completion21
             </div>
             <div className="w-[375px] max-lg:w-auto h-5 py-1.5 justify-center items-center inline-flex">
               <Progress percent={50} trailColor="white" showInfo={false} />

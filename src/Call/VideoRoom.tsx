@@ -23,8 +23,8 @@ const VideoRoom: React.FC<Props> = ({ roomID, user }) => {
           return;
         }
 
-        const appID = 1757000422; // Your App ID
-        const serverSecret = "0ce7e80431c85f491e586b683d3737b4"; // Your Server Secret
+        const appID = 649435891; // Your App ID
+        const serverSecret = "d724123f7b4555f6b53f7b83716de86f"; // Your Server Secret
 
         // Generate kit token for testing (NOT for production)
         const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
