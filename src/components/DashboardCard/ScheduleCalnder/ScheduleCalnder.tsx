@@ -18,6 +18,8 @@ import {
   Select,
 } from "antd";
 import { BreadCrumb } from "../../../components/BreadCrumbs";
+import MonthNavigation from "../../Common/MonthNavigation";
+import { useMonthNavigation } from "../../../hooks/useMonthNavigation";
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import AppointmentCalendar from "./Calnder";
@@ -54,7 +56,7 @@ const ScheduleCalnder: React.FC = () => {
   const [userId, setUserId] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
-  const [currentMonth, setCurrentMonth] = useState(dayjs().format("MMMM"));
+  const { currentMonth, handleMonthChange } = useMonthNavigation();
 
   useEffect(() => {
     const userStr = localStorage.getItem("user") || localStorage.getItem("loggedInUser");
@@ -183,10 +185,6 @@ const ScheduleCalnder: React.FC = () => {
     }
   };
 
-  const handleMonthChange = (direction: "prev" | "next") => {
-    const newMonth = direction === "prev" ? dayjs(currentMonth, "MMMM").subtract(1, "month") : dayjs(currentMonth, "MMMM").add(1, "month");
-    setCurrentMonth(newMonth.format("MMMM"));
-  };
 
   const getDoctorName = () => {
     if (userRole === "doctor") {
@@ -297,24 +295,12 @@ const ScheduleCalnder: React.FC = () => {
 
         <Col className="mr-10">
           <Row justify="space-between" align="middle">
-            <div className="flex items-center">
-              <Button
-                className="bg-white shadow-md px-2 py-1 justify-center mr-2 border-2 border-gray-200 rounded-lg"
-                onClick={() => handleMonthChange("prev")}
-              >
-                <LeftOutlined />
-              </Button>
-              <div className="text-lg font-medium">{currentMonth}</div>
-              <Button
-                className="bg-white shadow-md px-2 py-1 justify-center ml-2 border-2 border-gray-200 rounded-lg"
-                onClick={() => handleMonthChange("next")}
-              >
-                <RightOutlined />
-              </Button>
-              <Button className="ml-2" type="default" icon={<FilterOutlined />}>
-                Filter
-              </Button>
-            </div>
+            <MonthNavigation
+              currentMonth={currentMonth}
+              onMonthChange={handleMonthChange}
+              showFilter={true}
+              onFilterClick={() => console.log("Filter clicked")}
+            />
           </Row>
         </Col>
       </Row>

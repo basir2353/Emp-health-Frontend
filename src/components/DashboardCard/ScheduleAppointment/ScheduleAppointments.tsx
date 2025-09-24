@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import dayjs from "dayjs";
 import {
   Space,
   Row,
@@ -42,9 +43,11 @@ interface Appointment {
 const ScheduleAppointments: React.FC = () => {
   const navigate = useNavigate();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [filteredAppointments, setFilteredAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(dayjs());
 
   useEffect(() => {
     const userData = localStorage.getItem("user") || localStorage.getItem("loggedInUser");
@@ -136,6 +139,25 @@ const ScheduleAppointments: React.FC = () => {
     fetchAppointments();
   }, []);
 
+  // Filter appointments based on selected date
+  useEffect(() => {
+    const filtered = appointments.filter((appointment) => {
+      // Parse the appointment date and compare with selected date
+      const appointmentDate = dayjs(appointment.date, "MMM D");
+      return appointmentDate.isSame(selectedDate, "day");
+    });
+    setFilteredAppointments(filtered);
+  }, [appointments, selectedDate]);
+
+  // Date navigation functions
+  const handlePreviousDay = () => {
+    setSelectedDate(selectedDate.subtract(1, "day"));
+  };
+
+  const handleNextDay = () => {
+    setSelectedDate(selectedDate.add(1, "day"));
+  };
+
   const handleMenuClick = (key: string, index: number) => {
     switch (key) {
       case "call":
@@ -197,7 +219,7 @@ const ScheduleAppointments: React.FC = () => {
           <Flex gap="small" wrap="wrap">
             <Button
               type="default"
-              onClick={() => navigate("/health/schedule")}
+              onClick={() => navigate("/doctor/schedule")}
               className="w-full lg:w-44"
             >
               Upload Schedule!
@@ -217,25 +239,31 @@ const ScheduleAppointments: React.FC = () => {
           <Row justify="space-between" align="middle" className="mb-4">
             <div className="text-2xl">Scheduled Appointments</div>
             <div className="flex items-center">
-              <div className="bg-white shadow-md p-2 border-2 border-gray-200 rounded-lg mr-2">
-                <LeftOutlined />
+              <Button
+                className="bg-white shadow-md p-2 border-2 border-gray-200 rounded-lg mr-2"
+                onClick={handlePreviousDay}
+                icon={<LeftOutlined />}
+              />
+              <div className="text-lg font-medium">
+                {selectedDate.format("MMM D, YYYY")}
               </div>
-              <div className="text-lg font-medium">Feb 8, 2023</div>
-              <div className="bg-white shadow-md p-2 border-2 border-gray-200 rounded-lg ml-2">
-                <RightOutlined />
-              </div>
+              <Button
+                className="bg-white shadow-md p-2 border-2 border-gray-200 rounded-lg ml-2"
+                onClick={handleNextDay}
+                icon={<RightOutlined />}
+              />
             </div>
           </Row>
 
           {loading && <Text>Loading appointments...</Text>}
           {error && <Text type="danger">{error}</Text>}
 
-          {!loading && !error && appointments.length === 0 && (
-            <Text>No appointments available.</Text>
+          {!loading && !error && filteredAppointments.length === 0 && (
+            <Text>No appointments available for {selectedDate.format("MMM D, YYYY")}.</Text>
           )}
 
           <div className="space-y-4">
-            {appointments.map((appointment, index) => (
+            {filteredAppointments.map((appointment, index) => (
               <div
                 key={appointment._id}
                 className="w-full p-4 border border-gray-200 rounded-md flex flex-col lg:flex-row justify-between items-start lg:items-center"

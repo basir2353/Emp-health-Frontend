@@ -37,6 +37,7 @@ const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
   const [viewMode, setViewMode] = useState<"week" | "day">("week");
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [currentTimePosition, setCurrentTimePosition] = useState<number>(0);
+  const [currentMonth, setCurrentMonth] = useState(dayjs().format("MMMM YYYY"));
 
   useEffect(() => {
     const fetchAppointments = async () => {
@@ -101,6 +102,38 @@ const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
         appt.time.startsWith(slot)
     );
 
+  // Navigation functions
+  const handlePrevious = () => {
+    if (viewMode === "day") {
+      setSelectedDate(selectedDate.subtract(1, "day"));
+    } else {
+      setSelectedDate(selectedDate.subtract(1, "week"));
+    }
+    setCurrentMonth(selectedDate.format("MMMM YYYY"));
+  };
+
+  const handleNext = () => {
+    if (viewMode === "day") {
+      setSelectedDate(selectedDate.add(1, "day"));
+    } else {
+      setSelectedDate(selectedDate.add(1, "week"));
+    }
+    setCurrentMonth(selectedDate.format("MMMM YYYY"));
+  };
+
+  const handleViewModeChange = (mode: "day" | "week") => {
+    setViewMode(mode);
+    if (mode === "day") {
+      // When switching to day view, show today's date
+      setSelectedDate(dayjs());
+    }
+  };
+
+  const goToToday = () => {
+    setSelectedDate(dayjs());
+    setCurrentMonth(dayjs().format("MMMM YYYY"));
+  };
+
   const renderDayColumn = (date: Dayjs) => (
     <div className="flex flex-col flex-1 border-l relative">
       {timeSlots.map((slot) => {
@@ -160,7 +193,12 @@ const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
         {/* Days Columns */}
         {days.map((day) => (
           <div key={day.format("YYYY-MM-DD")} className="flex-1">
-            <div className="text-center font-bold border-b py-2 bg-gray-100">
+            <div 
+              className={`text-center font-bold border-b py-2 cursor-pointer hover:bg-gray-200 ${
+                day.isSame(selectedDate, "day") ? "bg-blue-100 text-blue-800" : "bg-gray-100"
+              }`}
+              onClick={() => setSelectedDate(day)}
+            >
               {day.format("ddd DD")}
             </div>
             {renderDayColumn(day)}
@@ -179,7 +217,12 @@ const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
           </div>
         ))}
       </div>
-      {renderDayColumn(selectedDate)}
+      <div className="flex-1">
+        <div className="text-center font-bold border-b py-2 bg-gray-100">
+          {selectedDate.format("dddd, MMMM D, YYYY")}
+        </div>
+        {renderDayColumn(selectedDate)}
+      </div>
     </div>
   );
 
@@ -205,17 +248,30 @@ const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
           {error && <Alert message={error} type="error" />}
           <div className="flex justify-between items-center mb-4">
             <Typography.Title level={3}>
-              {selectedDate.format("MMMM YYYY")}
+              {viewMode === "day" ? selectedDate.format("MMMM D, YYYY") : selectedDate.format("MMMM YYYY")}
             </Typography.Title>
             <div className="flex gap-2">
-              <Button onClick={() => setSelectedDate(selectedDate.subtract(1, "week"))}>
+              <Button onClick={handlePrevious}>
                 Previous
               </Button>
-              <Button onClick={() => setSelectedDate(selectedDate.add(1, "week"))}>
+              <Button onClick={handleNext}>
                 Next
               </Button>
-              <Button onClick={() => setViewMode("day")}>Day View</Button>
-              <Button onClick={() => setViewMode("week")}>Week View</Button>
+              <Button onClick={goToToday} type="default">
+                Today
+              </Button>
+              <Button 
+                onClick={() => handleViewModeChange("day")}
+                type={viewMode === "day" ? "primary" : "default"}
+              >
+                Day View
+              </Button>
+              <Button 
+                onClick={() => handleViewModeChange("week")}
+                type={viewMode === "week" ? "primary" : "default"}
+              >
+                Week View
+              </Button>
             </div>
           </div>
           {viewMode === "week" ? renderWeekView() : renderDayView()}
