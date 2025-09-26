@@ -110,7 +110,7 @@ export const useVideoCall = (currentUser: User) => {
       setLocalStream(stream);
       setConnectionStatus('Media acquired');
 
-      const newSocket = io('https://empolyee-backedn.onrender.com/', {
+      const newSocket = io('http://localhost:5000/', {
         transports: ['websocket', 'polling'],
         withCredentials: true,
       });

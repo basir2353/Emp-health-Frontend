@@ -2,7 +2,7 @@
 
 import axios from 'axios';
 
-const API_URL = 'https://empolyee-backedn.onrender.com/api';
+const API_URL = 'http://localhost:5000/api';
 
 // Axios instance with token injection
 const authAxios = axios.create({
@@ -22,13 +22,13 @@ authAxios.interceptors.request.use(
 
 // Register user
 export const registerUser = async (userData) => {
-  const response = await axios.post(`http://empolyee-backedn.onrender.com/api/auth/register`, userData);
+  const response = await axios.post(`http://localhost:5000/api/auth/register`, userData);
   return response.data;
 };
 
 // Verify OTP
 export const verifyOTP = async (data) => {
-  const response = await axios.post(`${API_URL}/auth/verify-otp`, data);
+  const response = await axios.post(`http://localhost:5000/api/auth/verify-otp`, data);
   return response.data;
 };
 
@@ -40,7 +40,7 @@ export const resendOTP = async (emailData) => {
 
 // Login user
 export const loginUser = async ({ email, password }) => {
-  const response = await axios.post(`${API_URL}/auth/login`, {
+  const response = await axios.post(`http://localhost:5000/api/auth/login`, {
     email,
     password,
   });

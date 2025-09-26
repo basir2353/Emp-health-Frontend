@@ -96,7 +96,7 @@ const ScheduleCalnder: React.FC = () => {
       if (userRole === "admin") {
         setLoading(true);
         try {
-          const res = await axios.get("https://empolyee-backedn.onrender.com/api/all-doctors", {
+          const res = await axios.get("http://localhost:5000/api/all-doctors", {
             headers: {
               Authorization: `Bearer ${token}`,
             },
@@ -115,7 +115,7 @@ const ScheduleCalnder: React.FC = () => {
       } else if (userRole === "doctor" && userId && !userName) {
         setLoading(true);
         try {
-          const res = await axios.get("https://empolyee-backedn.onrender.com/api/all-doctors", {
+          const res = await axios.get("http://localhost:5000/api/all-doctors", {
             headers: {
               Authorization: `Bearer ${token}`,
             },
@@ -167,7 +167,7 @@ const ScheduleCalnder: React.FC = () => {
 
       console.log("Submitting schedule data:", formattedData);
 
-      const response = await axios.post(`https://empolyee-backedn.onrender.com/${userId}/schedule`, formattedData, {
+      const response = await axios.post(`http://localhost:5000/${userId}/schedule`, formattedData, {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,

@@ -8,20 +8,38 @@ const WallnessBox3: React.FC = () => {
   const [responses, setResponses] = useState<Record<number, string>>({});
   const [pollData, setPollData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
 
-  useEffect(() => {
-    // Load responses from localStorage on component mount
-    const savedResponses = localStorage.getItem("pollResponses");
-    if (savedResponses) {
-      setResponses(JSON.parse(savedResponses));
+useEffect(() => {
+  const savedUser = localStorage.getItem("loggedInUser");
+  if (savedUser) {
+    try {
+      const parsedUser = JSON.parse(savedUser);
+      if (parsedUser.id) {
+        setUserId(parsedUser.id); // ✅ only store the userId
+      }
+    } catch (err) {
+      console.error("Error parsing loggedInUser from localStorage:", err);
     }
-    fetchPolls();
-  }, []);
+  }
+
+  // Load responses
+  const savedResponses = localStorage.getItem("pollResponses");
+  if (savedResponses) {
+    setResponses(JSON.parse(savedResponses));
+  }
+
+  fetchPolls();
+  if (userId) {
+    fetchUserPollResponses();
+  }
+}, [userId]);
+
 
   const fetchPolls = async () => {
     setLoading(true);
     try {
-      const response = await axios.get("https://empolyee-backedn.onrender.com/api/polls");
+      const response = await axios.get("http://localhost:5000/api/polls");
       setPollData(response.data.polls || []);
     } catch (error) {
       console.error("Error fetching polls:", error);
@@ -31,15 +49,53 @@ const WallnessBox3: React.FC = () => {
     }
   };
 
-  const handleChange = (pollId: number, e: RadioChangeEvent) => {
-    const newResponses = {
-      ...responses,
-      [pollId]: e.target.value,
-    };
-    setResponses(newResponses);
-    // Save the response to localStorage
-    localStorage.setItem("pollResponses", JSON.stringify(newResponses));
+  const fetchUserPollResponses = async () => {
+    if (!userId) return;
+    
+    try {
+      const response = await axios.get(`http://localhost:5000/api/auth/poll-responses/${userId}`);
+      const userResponses = response.data.data || {};
+      
+      // Convert to the format expected by the component
+      const formattedResponses = {};
+      Object.keys(userResponses).forEach(pollId => {
+        formattedResponses[pollId] = userResponses[pollId].selectedChoice;
+      });
+      
+      setResponses(formattedResponses);
+      // Also save to localStorage for offline access
+      localStorage.setItem("pollResponses", JSON.stringify(formattedResponses));
+    } catch (error) {
+      console.error("Error fetching user poll responses:", error);
+    }
   };
+
+const handleChange = async (pollId: string, e: RadioChangeEvent) => {
+  const selectedChoice = e.target.value;
+
+  // Update local state
+  const newResponses = {
+    ...responses,
+    [pollId]: selectedChoice,
+  };
+  setResponses(newResponses);
+
+  localStorage.setItem("pollResponses", JSON.stringify(newResponses));
+
+  if (userId) {
+    try {
+      await axios.post("http://localhost:5000/api/auth/poll-choose", {
+        userId,
+        pollId, // ✅ this will be string (_id)
+        selectedChoice,
+      });
+      console.log("Poll response saved successfully");
+    } catch (error) {
+      console.error("Error saving poll response:", error);
+    }
+  }
+};
+
 
   const menu = (
     <Menu>
@@ -83,17 +139,21 @@ const WallnessBox3: React.FC = () => {
                 </h5>
               </div>
               <div className="flex items-center">
-                <Radio.Group
-                  onChange={(e) => handleChange(poll.id || poll._id, e)}
-                  value={responses[poll.id || poll._id]}
-                  disabled={!!responses[poll.id || poll._id]} // Disable if a response is already selected
-                >
-                  {poll.choices?.map((choice: any, index: number) => (
-                    <Radio key={index} value={typeof choice === 'string' ? choice : choice.text}>
-                      {typeof choice === 'string' ? choice : choice.text}
-                    </Radio>
-                  ))}
-                </Radio.Group>
+        <Radio.Group
+  onChange={(e) => handleChange(poll._id, e)} // ✅ always use _id
+  value={responses[poll._id]}
+>
+  {poll.choices?.map((choice: any, index: number) => (
+    <Radio
+      key={index}
+      value={typeof choice === "string" ? choice : choice.text}
+    >
+      {typeof choice === "string" ? choice : choice.text}
+    </Radio>
+  ))}
+</Radio.Group>
+
+
               </div>
             </div>
           ))

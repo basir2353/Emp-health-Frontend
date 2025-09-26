@@ -176,8 +176,8 @@ const SafetyBox: React.FC = () => {
       }
 
       const endpoint = canModify
-        ? "https://empolyee-backedn.onrender.com/api/reports/all"
-        : "https://empolyee-backedn.onrender.com/api/reports";
+        ? "http://localhost:5000/api/reports/all"
+        : "http://localhost:5000/api/reports";
 
       const response = await axios.get(endpoint, {
         headers: { "x-auth-token": token },
@@ -202,7 +202,7 @@ const SafetyBox: React.FC = () => {
         }
 
         const response = await axios.get(
-          `https://empolyee-backedn.onrender.com/api/${userEmail}/notifications`,
+          `http://localhost:5000/api/${userEmail}/notifications`,
           {
             headers: { "x-auth-token": token },
             params: { rep_id },
@@ -252,7 +252,7 @@ const [adminMessage, setAdminMessage] = useState<string | null>(null);
     
 
         const response = await axios.get(
-          `https://empolyee-backedn.onrender.com/api/${email}/notifications_admin`,
+          `http://localhost:5000/api/${email}/notifications_admin`,
           {
             headers: { "x-auth-token": token },
             params: { rep_id },
@@ -314,7 +314,7 @@ const [adminMessage, setAdminMessage] = useState<string | null>(null);
           }
 
           await axios.patch(
-            `https://empolyee-backedn.onrender.com/api/reports/${reportId}/status`,
+            `http://localhost:5000/api/reports/${reportId}/status`,
             { status: newStatus },
             {
               headers: {
@@ -361,7 +361,7 @@ const [adminMessage, setAdminMessage] = useState<string | null>(null);
           }
 
           await axios.delete(
-            `https://empolyee-backedn.onrender.com/api/reports/${reportId}`,
+            `http://localhost:5000/api/reports/${reportId}`,
             {
               headers: { "x-auth-token": token },
             }
@@ -401,7 +401,7 @@ const [adminMessage, setAdminMessage] = useState<string | null>(null);
       }
 
       await axios.patch(
-        `https://empolyee-backedn.onrender.com/api/${userId}/identity`,
+        `http://localhost:5000/api/${userId}/identity`,
         { identityApproved: approve },
         {
           headers: {
@@ -428,7 +428,7 @@ const [adminMessage, setAdminMessage] = useState<string | null>(null);
       )?._id;
       if (notificationId) {
         await axios.patch(
-          `https://empolyee-backedn.onrender.com/api/notifications/${notificationId}`,
+          `http://localhost:5000/api/notifications/${notificationId}`,
           { read: true },
           { headers: { "x-auth-token": token } }
         );
@@ -465,7 +465,7 @@ const [adminMessage, setAdminMessage] = useState<string | null>(null);
       }
 
       await axios.post(
-        `https://empolyee-backedn.onrender.com/api/${userId}/notify`,
+        `http://localhost:5000/api/${userId}/notify`,
         {
           message: `${
             user.name || "Admin"
@@ -510,7 +510,7 @@ const handleSend = async (selectedIncident: Incident | null) => {
     const adminMessage = `${user.name} employee approve report`;
 
     await axios.post(
-      `https://empolyee-backedn.onrender.com/api/${encodeURIComponent(
+      `http://localhost:5000/api/${encodeURIComponent(
         userEmail
       )}/notify_admin`,
       {
@@ -557,7 +557,7 @@ const handleNotSend = async (data: any) => {
     }
 
     const response = await axios.put(
-      `https://empolyee-backedn.onrender.com/api/${email}/deny`,
+      `http://localhost:5000/api/${email}/deny`,
       {},
       {
         headers: { "x-auth-token": token },

@@ -131,7 +131,7 @@ const CreateAppointments: React.FC = () => {
       setLoading(true);
       try {
         const response = await fetch(
-          `https://empolyee-backedn.onrender.com/api/appointments?userId=${userParsed.id}`
+          `http://localhost:5000/api/appointments?userId=${userParsed.id}`
         );
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);

@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'https://empolyee-backedn.onrender.com/api';
+const API_BASE_URL = 'http://localhost:5000/api';
 
 // Create axios instance with default config
 const callApi = axios.create({
@@ -65,7 +65,7 @@ export const leaveCall = async (userId) => {
 export const getOnlineUsers = async () => {
   try {
     console.log('Calling getOnlineUsers API...');
-    const response = await callApi.get('https://empolyee-backedn.onrender.com/api/auth/online-users');
+    const response = await callApi.get('http://localhost:5000/api/auth/online-users');
     console.log('getOnlineUsers response:', response.data);
     return response.data;
   } catch (error) {
@@ -78,7 +78,7 @@ export const getOnlineUsers = async () => {
 export const getOnlineDoctors = async () => {
   try {
     console.log('Calling getOnlineDoctors API...');
-    const response = await callApi.get('https://empolyee-backedn.onrender.com/api/auth/online-doctors');
+    const response = await callApi.get('http://localhost:5000/api/auth/online-doctors');
     console.log('getOnlineDoctors response:', response.data);
     return response.data;
   } catch (error) {
@@ -91,7 +91,7 @@ export const getOnlineDoctors = async () => {
 export const getAllDoctors = async () => {
   try {
     console.log('Calling getAllDoctors API...');
-    const response = await callApi.get('https://empolyee-backedn.onrender.com/api/all-doctors');
+    const response = await callApi.get('http://localhost:5000/api/all-doctors');
     console.log('getAllDoctors response:', response.data);
     return response.data;
   } catch (error) {
@@ -137,7 +137,7 @@ export const updateCallStatus = async (callId, status) => {
 export const getAllAppointments = async () => {
   try {
     console.log('Calling getAllAppointments API...');
-    const response = await callApi.get('https://empolyee-backedn.onrender.com/api/appointments');
+    const response = await callApi.get('http://localhost:5000/api/appointments');
     console.log('getAllAppointments response:', response.data);
     return response.data;
   } catch (error) {
@@ -150,7 +150,7 @@ export const getAllAppointments = async () => {
 export const getUserAppointments = async (userId) => {
   try {
     console.log('Calling getUserAppointments API for user:', userId);
-    const response = await callApi.get(`https://empolyee-backedn.onrender.com/api/appointments/user/${userId}`);
+    const response = await callApi.get(`http://localhost:5000/api/appointments/user/${userId}`);
     console.log('getUserAppointments response:', response.data);
     return response.data;
   } catch (error) {
@@ -163,7 +163,7 @@ export const getUserAppointments = async (userId) => {
 export const getDoctorAppointments = async (doctorId) => {
   try {
     console.log('Calling getDoctorAppointments API for doctor:', doctorId);
-    const response = await callApi.get(`https://empolyee-backedn.onrender.com/api/appointments/doctor/${doctorId}`);
+    const response = await callApi.get(`http://localhost:5000/api/appointments/doctor/${doctorId}`);
     console.log('getDoctorAppointments response:', response.data);
     return response.data;
   } catch (error) {

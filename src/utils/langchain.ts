@@ -36,7 +36,7 @@ const data = {
 // ===================== Fetch Doctors Function =====================
 const fetchDoctors = async (): Promise<{ name: string; specialty: string }[]> => {
   try {
-    const res = await axios.get("https://empolyee-backedn.onrender.com/api/all-doctors", {
+    const res = await axios.get("http://localhost:5000/api/all-doctors", {
       timeout: 5000, // 5-second timeout to avoid hanging
       headers: { Accept: "application/json" } // Ensure JSON response
     });

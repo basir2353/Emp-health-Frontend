@@ -94,7 +94,7 @@ All required dependencies are already installed:
 ## Configuration
 
 ### Socket.io Server
-The system connects to: `https://empolyee-backedn.onrender.com/`
+The system connects to: `http://localhost:5000/`
 
 ### ZegoUIKit Configuration
 - App ID: `1757000422`

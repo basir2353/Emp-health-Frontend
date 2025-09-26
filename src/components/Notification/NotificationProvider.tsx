@@ -53,7 +53,7 @@ const NotificationProvider: React.FC<NotificationProviderProps> = ({ children })
 
       try {
         const response = await axios.get(
-          "https://empolyee-backedn.onrender.com/api/appointments",
+          "http://localhost:5000/api/appointments",
           {
             headers: {
               Authorization: `Bearer ${token}`,

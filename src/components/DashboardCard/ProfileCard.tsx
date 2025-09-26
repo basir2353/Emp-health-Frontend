@@ -29,7 +29,7 @@ const ProfileCard = () => {
       setIsLoadingData(true);
       try {
         const response = await axios.get(
-          `https://empolyee-backedn.onrender.com/api/auth/get_onboard_data?userId=${userId}`
+          `http://localhost:5000/api/auth/get_onboard_data?userId=${userId}`
         );
         if (response.data && response.data.steps) {
           setOnboardingData(response.data.steps);
@@ -105,7 +105,7 @@ const ProfileCard = () => {
 
     try {
       const response = await axios.post(
-        'https://empolyee-backedn.onrender.com/api/auth/forget-password',
+        'http://localhost:5000/api/auth/forgot-password',
         {
           email,
           currentPassword,

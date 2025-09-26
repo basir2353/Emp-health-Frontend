@@ -35,7 +35,7 @@ This guide explains how the onboarding system has been integrated with the compr
 ## API Integration Details
 
 ### Base Configuration
-- **API URL**: `https://empolyee-backedn.onrender.com/api`
+- **API URL**: `http://localhost:5000/api`
 - **Base Route**: `/api/onboarding`
 - **Authentication**: Bearer token from localStorage
 

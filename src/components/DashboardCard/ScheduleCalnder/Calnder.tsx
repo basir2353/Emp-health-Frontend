@@ -48,7 +48,7 @@ const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
         return;
       }
 
-      let endpoint = "https://empolyee-backedn.onrender.com/api/appointments";
+      let endpoint = "http://localhost:5000/api/appointments";
       const role = userRole;
 
       if (role === "admin" && selectedDoctor) {

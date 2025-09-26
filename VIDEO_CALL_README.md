@@ -45,7 +45,7 @@ npm install
 npm start
 ```
 
-The server will run on `http://https://empolyee-backedn.onrender.com/`
+The server will run on `http://http://localhost:5000/`
 
 #### Option B: Update your existing backend
 
@@ -69,7 +69,7 @@ Update the socket connection URL in `src/Call/Call.jsx`:
 
 ```javascript
 // Line 47 - Update this URL to match your server
-const newSocket = io('http://https://empolyee-backedn.onrender.com/', {
+const newSocket = io('http://http://localhost:5000/', {
   transports: ['websocket', 'polling'],
   withCredentials: true,
   timeout: 20000,
@@ -80,13 +80,13 @@ Also update the API endpoints:
 
 ```javascript
 // Lines 58 and 82 - Update these URLs
-await axios.post('https://empolyee-backedn.onrender.com/api/auth/store_socket_id', {
+await axios.post('http://localhost:5000/api/auth/store_socket_id', {
   userId,
   socketId: newSocket.id,
 });
 
-const usersRes = await axios.get('https://empolyee-backedn.onrender.com/api/auth/online-users');
-const doctorsRes = await axios.get('https://empolyee-backedn.onrender.com/api/auth/online-doctors');
+const usersRes = await axios.get('http://localhost:5000/api/auth/online-users');
+const doctorsRes = await axios.get('http://localhost:5000/api/auth/online-doctors');
 ```
 
 ## 🎯 How to Use

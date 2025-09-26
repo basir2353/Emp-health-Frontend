@@ -38,7 +38,7 @@ const NotificationCard: React.FC = () => {
         console.log("Fetching appointments with userId:", userId, "and token:", token);
 
         const response = await axios.get<{ appointments: Appointment[] }>(
-          "https://empolyee-backedn.onrender.com/api/appointments", // Fixed typo in URL
+          "http://localhost:5000/api/appointments", // Fixed typo in URL
           {
             headers: {
               "x-auth-token": token || "",

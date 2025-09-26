@@ -149,7 +149,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       const fetchAppointments = async () => {
         try {
           const token = localStorage.getItem("token_real");
-          const response = await axios.get("https://empolyee-backedn.onrender.com/api/appointments", {
+          const response = await axios.get("http://localhost:5000/api/appointments", {
             headers: {
               Authorization: `Bearer ${token}`,
               "Content-Type": "application/json",
@@ -316,7 +316,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     dispatch(addAppointment(appointmentData));
 
     axios
-      .post("https://empolyee-backedn.onrender.com/api/appointments", appointmentData, {
+      .post("http://localhost:5000/api/appointments", appointmentData, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",

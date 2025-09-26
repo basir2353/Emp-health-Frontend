@@ -39,7 +39,7 @@ const HealthForum: React.FC = () => {
   const token = localStorage.getItem("token");
   const isAdmin = user.role === "admin";
 
-  const baseURL = "https://empolyee-backedn.onrender.com/api";
+  const baseURL = "http://localhost:5000/api";
 
   // Fetch posts from API
   const fetchPosts = async () => {

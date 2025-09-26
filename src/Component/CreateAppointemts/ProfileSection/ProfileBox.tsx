@@ -113,7 +113,7 @@ const useLatestAppointment = (userId: string) => {
       setLoading(true);
       try {
         const response = await fetch(
-          `https://empolyee-backedn.onrender.com/api/appointments?userId=${userId}`
+          `http://localhost:5000/api/appointments?userId=${userId}`
         );
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
