@@ -80,13 +80,13 @@ Also update the API endpoints:
 
 ```javascript
 // Lines 58 and 82 - Update these URLs
-await axios.post('http://localhost:5000/api/auth/store_socket_id', {
+await axios.post('http://empolyee-backedn.onrender.com/api/auth/store_socket_id', {
   userId,
   socketId: newSocket.id,
 });
 
-const usersRes = await axios.get('http://localhost:5000/api/auth/online-users');
-const doctorsRes = await axios.get('http://localhost:5000/api/auth/online-doctors');
+const usersRes = await axios.get('http://empolyee-backedn.onrender.com/api/auth/online-users');
+const doctorsRes = await axios.get('http://empolyee-backedn.onrender.com/api/auth/online-doctors');
 ```
 
 ## 🎯 How to Use

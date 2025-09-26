@@ -39,7 +39,7 @@ const CallTest = () => {
       
       // Test online-doctors endpoint
       console.log('Testing /auth/online-doctors...');
-      const doctorsResponse = await axios.get(`http://localhost:5000/api/auth/online-doctors`, {
+      const doctorsResponse = await axios.get(`http://empolyee-backedn.onrender.com/api/auth/online-doctors`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setApiStatus(prev => ({ ...prev, onlineDoctors: 'Success', doctorsData: doctorsResponse.data }));

@@ -21,7 +21,7 @@ const MyBoard: React.FC = () => {
     try {
       // Fetch challenges to calculate points
       const challengesResponse = await axios.get(
-        "http://localhost:5000/api/challenges"
+        "http://empolyee-backedn.onrender.com/api/challenges"
       );
       const challenges = challengesResponse.data.challenges || [];
       const userPoints = challenges.reduce((sum: number, challenge: any) => {
@@ -35,7 +35,7 @@ const MyBoard: React.FC = () => {
       // Attempt to fetch user details (optional, based on API availability)
       try {
         const userResponse = await axios.get(
-          `http://localhost:5000/api/users/${userId}`
+          `http://empolyee-backedn.onrender.com/api/users/${userId}`
         );
         setUserName(userResponse.data.name || "Unknown User");
       } catch (userError) {

@@ -30,7 +30,7 @@ const ForgotPassword = () => {
     setError("");
 
     try {
-      const response: Response = await fetch("http://localhost:5000/api/auth/forgot-password", {
+      const response: Response = await fetch("http://empolyee-backedn.onrender.com/api/auth/forgot-password", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -72,7 +72,7 @@ dayjs.extend(isSameOrBefore);
   useEffect(() => {
     const fetchDoctors = async () => {
       try {
-        const response = await axios.get("http://localhost:5000/api/all-doctors");
+        const response = await axios.get("http://empolyee-backedn.onrender.com/api/all-doctors");
         if (response.data && Array.isArray(response.data.doctors)) {
           const apiDoctors: ApiDoctor[] = response.data.doctors;
           const mappedDoctors = apiDoctors.map(mapApiDoctorToDoctor);

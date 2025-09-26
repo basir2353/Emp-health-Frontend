@@ -59,7 +59,7 @@ const AdminDashboard = ({ socket, user }) => {
 
   const fetchInitialData = async () => {
     try {
-      const callsResponse = await fetch('http://localhost:5000/api/calls', {
+      const callsResponse = await fetch('http://empolyee-backedn.onrender.com/api/calls', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -84,7 +84,7 @@ const AdminDashboard = ({ socket, user }) => {
 
   const fetchCallHistory = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/calls', {
+      const response = await fetch('http://empolyee-backedn.onrender.com/api/calls', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }

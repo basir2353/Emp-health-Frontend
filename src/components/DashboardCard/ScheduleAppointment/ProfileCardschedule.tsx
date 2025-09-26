@@ -52,7 +52,7 @@ const ProfileCardschedule: React.FC = () => {
       setLoading(true);
       try {
         const response = await axios.get(
-          "http://localhost:5000/api/appointments",
+          "http://empolyee-backedn.onrender.com/api/appointments",
           {
             headers: {
               Authorization: `Bearer ${token}`,

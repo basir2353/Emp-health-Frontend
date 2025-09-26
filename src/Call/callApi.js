@@ -1,10 +1,10 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:5000/api/auth';
+const API_BASE_URL = 'http://empolyee-backedn.onrender.com/api/auth';
 
 // Create axios instance with default config
 const callApi = axios.create({
-  baseURL: 'http://localhost:5000/api/auth',
+  baseURL: 'http://empolyee-backedn.onrender.com/api/auth',
   timeout: 10000,
 });
 
@@ -59,7 +59,7 @@ export const getOnlineUsers = async () => {
 // Get online doctors
 export const getOnlineDoctors = async () => {
   try {
-    const response = await axios.get('http://localhost:5000/api/auth/online-doctors');
+    const response = await axios.get('http://empolyee-backedn.onrender.com/api/auth/online-doctors');
     return response.data;
   } catch (error) {
     console.error('Error fetching online doctors:', error);

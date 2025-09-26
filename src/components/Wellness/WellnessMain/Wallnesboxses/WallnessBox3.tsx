@@ -39,7 +39,7 @@ useEffect(() => {
   const fetchPolls = async () => {
     setLoading(true);
     try {
-      const response = await axios.get("http://localhost:5000/api/polls");
+      const response = await axios.get("http://empolyee-backedn.onrender.com/api/polls");
       setPollData(response.data.polls || []);
     } catch (error) {
       console.error("Error fetching polls:", error);
@@ -53,7 +53,7 @@ useEffect(() => {
     if (!userId) return;
     
     try {
-      const response = await axios.get(`http://localhost:5000/api/auth/poll-responses/${userId}`);
+      const response = await axios.get(`http://empolyee-backedn.onrender.com/api/auth/poll-responses/${userId}`);
       const userResponses = response.data.data || {};
       
       // Convert to the format expected by the component
@@ -84,7 +84,7 @@ const handleChange = async (pollId: string, e: RadioChangeEvent) => {
 
   if (userId) {
     try {
-      await axios.post("http://localhost:5000/api/auth/poll-choose", {
+      await axios.post("http://empolyee-backedn.onrender.com/api/auth/poll-choose", {
         userId,
         pollId, // ✅ this will be string (_id)
         selectedChoice,

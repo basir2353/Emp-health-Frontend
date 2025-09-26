@@ -96,7 +96,7 @@ const ScheduleCalnder: React.FC = () => {
       if (userRole === "admin") {
         setLoading(true);
         try {
-          const res = await axios.get("http://localhost:5000/api/all-doctors", {
+          const res = await axios.get("http://empolyee-backedn.onrender.com/api/all-doctors", {
             headers: {
               Authorization: `Bearer ${token}`,
             },
@@ -115,7 +115,7 @@ const ScheduleCalnder: React.FC = () => {
       } else if (userRole === "doctor" && userId && !userName) {
         setLoading(true);
         try {
-          const res = await axios.get("http://localhost:5000/api/all-doctors", {
+          const res = await axios.get("http://empolyee-backedn.onrender.com/api/all-doctors", {
             headers: {
               Authorization: `Bearer ${token}`,
             },

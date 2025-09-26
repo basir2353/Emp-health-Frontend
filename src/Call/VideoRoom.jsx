@@ -14,7 +14,7 @@ export default function VideoRoom({ roomID, user }) {
 
       // Fetch token with both userID and roomID
       const resp = await fetch(
-        `http://localhost:5000/api/zego/token?userID=${userID}&roomID=${roomID}`
+        `http://empolyee-backedn.onrender.com/api/zego/token?userID=${userID}&roomID=${roomID}`
       );
       const { token } = await resp.json();
 

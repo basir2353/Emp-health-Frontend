@@ -92,7 +92,7 @@ const ResetPassword = () => {
     }
 
     try {
-      const response: Response = await fetch(`http://localhost:5000/api/auth/reset-password/${token}`, {
+      const response: Response = await fetch(`http://empolyee-backedn.onrender.com/api/auth/reset-password/${token}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
